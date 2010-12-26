@@ -2,9 +2,9 @@ MxIIIIxM{
 	
 	var path, defs, win, <tracks, <server, slib, <xfade, xfadech1, xfadech2, send, selectTrack;
 	var <ampR = 0.0, <ampL = 1.0, <>synthR, <>synthL, scope, scopeBuf, changePath, record, <font;
-	var listen, sendBuffer, listitems, columnlen = 30;
+	var listen, sendBuffer, listitems, columnlen = 30, bpmsynth, bpmresp;
 	var <archivepath = "/Users/alo/mxIIIIxm/archive/bpmarchive.sctxar";
-	var <archive, <masterbpm = 120, mbpm, levels, outL, outR, cueL, cueR, txtCue, txtMain;
+	var <archive, <masterbpm = 120, masterbps, levels, outL, outR, cueL, cueR, txtCue, txtMain;
 	var outResponder, cueResponder, eq, <xfader, volumeControl;
 
 	*new{
@@ -72,13 +72,22 @@ MxIIIIxM{
 			defs.keysValuesDo({|key, val|
 				val.add
 			});
-			SynthDef(\bpmdetector, {|in, fftbuf, id, lock|
-				var input, qrt, egt, six, bps, fft;
+			SynthDef(\bpmdetector, {|in, id, lock|
+				var input, qrt, egt, six, bps, fft, fftbuf;
+				fftbuf = LocalBuf(1024);
 				input = In.ar(in);
 				fft = FFT(fftbuf, input);
 				#qrt, egt, six, bps = BeatTrack.kr(fft, lock);
 				SendTrig.kr(qrt, id, bps);
 			}).add;
+			SynthDef(\masterbpmdetector, {|in|
+				var input, qrt, egt, six, bps, fft, fftbuf;
+				fftbuf = LocalBuf(1024);
+				input = In.ar(in);
+				fft = FFT(fftbuf, input);
+				#qrt, egt, six, bps = BeatTrack.kr(fft);
+				SendReply.kr(qrt, '/masterbpm', bps);
+			}).add;			
 			
 		}, {"server not running!".warn});	
 	}
@@ -152,6 +161,8 @@ MxIIIIxM{
 	}
 	
 	makeGui{
+		
+		var bpmview, bpmtick;
 		
 		win = SCWindow("..MxIIIIxM..", Rect(10, 1000, 570, 320)).front.alpha_(0.9);
 		win.view.background_(HiliteGradient(Color.grey(0.15), Color.grey(0.4), \v, 256, 0.5));
@@ -254,7 +265,52 @@ MxIIIIxM{
 		RoundButton(win, Rect(265, 190, 40, 20))	
 			.font_(font)
 			.states_([["|:|", Color.green, Color.black]])
-			.action_({ eq = MasterEQ(4) });	
+			.action_({ eq = MasterEQ(4) });
+		
+		RoundButton(win, Rect(265, 220, 40, 20))	
+			.font_(font)
+			.states_([[":.:.", Color.grey, Color.black], [".:.:", Color.green, Color.black]])
+			.action_({|btn|
+				if (btn.value == 1)
+				{
+					bpmsynth = Synth.after(1, \masterbpmdetector, [\in, 0]);
+					bpmview.stringColor_(Color.green);
+					bpmresp = OSCresponderNode(server.addr, '/masterbpm', {|rs, ti, ms| 
+						masterbps = ms[3];
+						masterbpm = masterbps * 60;
+						{
+							bpmview.string_(masterbpm.round(0.001).asString);
+							bpmtick.value = 1;
+							AppClock.sched(0.1, { bpmtick.value = 0; nil });
+						}.defer;
+					}).add;
+					
+				}
+				{
+					bpmview.stringColor_(Color.white);
+					bpmsynth.free;
+					bpmsynth = nil;
+					bpmresp.remove;
+					bpmresp = nil;
+				}
+			});
+			
+		StaticText(win, Rect(265, 250, 45, 20))
+			.align_(\center)
+			.font_(font)
+			.string_("bpm:")
+			.background_(Color.grey(0.2))
+			.stringColor_(Color.white);
+						
+		bpmview = StaticText(win, Rect(265, 270, 45, 20))
+			.align_(\center)
+			.font_(Font(font.name, font.size - 1))
+			.background_(Color.grey(0.2))
+			.stringColor_(Color.white)
+			.string_("0.000");
+
+		bpmtick = RoundButton(win, Rect(315, 270, 10, 10))
+			.states_([["", Color.grey, Color.grey], ["", Color.yellow, Color.yellow]]);
 			
 		outL = SCLevelIndicator(win, Rect(320, 10, 40, 300))
 			.drawsPeak_(true)
@@ -360,7 +416,7 @@ MxTrack{
 	classvar <decodepath = "/Users/alo/sounds/decode/";
 	classvar <>tracks = 0;
 	
-	var master, <id, <name, useWarp = false, bpm, <warpslider, <ampslider, <cueslider; 
+	var master, <id, <name, useWarp = false, <bpm, <warpslider, <ampslider, <cueslider; 
 	var <waveview, view, pitch = 1.0, play, cue = 0.0, <amp = 0.0, sf; 
 	var <>synth, wspec, bufferB, bufferD, rout, <xfadeTrack, <>position = 0;
 	var fadeL = false, fadeR = false, viewscroll, bpmview;
@@ -389,12 +445,12 @@ MxTrack{
 		};
 		font = Font("Skia", 10);
 
-		warpslider = SmoothSlider(view, Rect(5, 5, 200, 20))
+		warpslider = SmoothSlider(view, Rect(5, 5, 195, 20))
 			.hilightColor_(Color.clear)
 			.value_(0.5)
 			.action_({|sl|
 				pitch = wspec.map(sl.value);
-				txtWarp.string_(pitch.round(0.01).asString);
+				txtWarp.string_(pitch.round(0.001).asString);
 				if (synthRunning, {
 					synth.set("warp", pitch)
 				});
@@ -406,7 +462,7 @@ MxTrack{
 			.stringColor_(Color.white)
 			.string_(1);	
 		
-		SCStaticText(view, Rect(5, 5, 15, 20))
+		SCStaticText(view, Rect(10, 5, 15, 20))
 			.stringColor_(Color.white)
 			.string_("-");
 			
@@ -499,10 +555,8 @@ MxTrack{
 				{
 					if (synthRunning) {
 						fork({
-							bpmbuf = Buffer.alloc(master.server, 1024);
-							master.server.sync;
 							bpmsynth = Synth.after(synth, \bpmdetector, [\in, bbus, 
-								\fftbuf, bpmbuf, \id, id + 1000, \lock, 0]);
+								\id, id + 1000, \lock, 0]);
 							bpmresp = OSCresponderNode(master.server.addr, '/tr', {|rs, ti, ms| 
 								if (ms[2] == (id + 1000))
 								{
@@ -510,7 +564,7 @@ MxTrack{
 									bpm = bps * 60;
 									{
 										bpmview.string_("BPM: " 
-											++ bpm.round(0.01).asString);
+											++ bpm.round(0.001).asString);
 										bpmtick.value = 1;
 										AppClock.sched(0.1, { bpmtick.value = 0; nil });
 									}.defer;
@@ -524,7 +578,6 @@ MxTrack{
 				}
 				{
 					if (synthRunning) {
-						bpmbuf.free;
 						bpmsynth.free;
 						bpmsynth = nil;
 						bpmresp.remove
@@ -546,7 +599,22 @@ MxTrack{
 			.font_(font)
 			.background_(Color.grey)
 			.stringColor_(Color.white)
-			.string_("BPM: 0.00");
+			.string_("BPM: 0.000");
+			
+		RoundButton(view, Rect(5, 130, 40, 20))
+			.states_([["| = |", Color.yellow, Color.black]])
+			.action_({
+				if ((bpm.notNil).and(bpm > 0).and(master.masterbpm.notNil))
+				{
+					pitch = master.masterbpm / bpm;
+					warpslider.value = wspec.unmap(pitch);
+					txtWarp.string_(pitch.round(0.001).asString);
+					if (synth.notNil)
+					{
+						synth.set(\warp, pitch)
+					};
+				};
+			});
 												
 		waveview = SCSoundFileView(view, Rect(205, 5, 790, height - 25))
 			.background_(Color.grey(0.2))
@@ -562,22 +630,7 @@ MxTrack{
 				position = me.selectionStart(0);
 				this.updateTimeDisplay;
 			});
-			
-			
-//		RoundButton(view, Rect(105, 70, 40, 20))
-//			.states_([[">><<", Color.white, Color.black]])
-//			.action_({
-//				if (bpm.notNil && bpm > 0)
-//				{
-//					pitch = master.masterbpm / bpm;
-//					warpslider.value = wspec.unmap(pitch);
-//					if (synth.notNil)
-//					{
-//						synth.set(\warp, pitch)
-//					};
-//				};
-//			});
-			
+								
 		ampslider = SmoothSlider(view, Rect(155, 30, 20, height - 35))
 			.value_(0)
 			.action_({|sl|
@@ -608,11 +661,11 @@ MxTrack{
 			.stringColor_(Color.white)
 			.align_(\center)
 			.string_(1.ampdb.round(1).asString);
-		timeDisplay = SCStaticText(view, Rect(510, height - 20, 40, 20))
+		timeDisplay = SCStaticText(view, Rect(710, height - 20, 40, 20))
 			.font_(font)
 			.stringColor_(Color.grey(0.9)).string_("00:00");
 		
-		viewscroll = SCSlider(view, Rect(205, height - 15, 300, 10))
+		viewscroll = SCSlider(view, Rect(205, height - 15, 500, 10))
 				.enabled_(false)
 				.action_({|slider|
 					waveview.scrollTo(slider.value)
@@ -629,7 +682,7 @@ MxTrack{
 		filename.string_(path.basename.split($.)[0]);
 		filename.stringColor_(Color.new255(155, 205, 155));
 		if (bpm.notNil) { archbpm = bpm.round(0.01).asString };
-		bpmview.string_("BPM: " ++ (archbpm ?? "0.00"));
+		bpmview.string_("BPM: " ++ (archbpm ?? "0.000"));
 		bufferInfo = SoundFile.openRead(path);
 		hasBuffer = loadBuffer;
 		waveview.readWithTask(0, sf.numFrames, 64, {

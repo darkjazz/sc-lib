@@ -1,24 +1,27 @@
-Fx3D{
+// email: alo@tehis.net
+
+FxPublicOptions{
+	var <>fxip = "127.0.0.1";
+	var <>fxport = 7770;
+	var <>fxcmd = '/fx';
+	var <>fxapp = "/Users/alo/Development/FxPublic/objc/build/Release/Fx.app";
+	var <>sendcmd = "/fx";
+}
+
+FxPublic{
 	classvar <visuals, <actions;
 
 	var <opts;
-	var <vaddr, glResponder, glFuncs, stResponder, stFuncs, trResponder, trFuncs, rnResponder, rnFuncs;
+	var <vaddr, glResponder, glFuncs, stResponder, stFuncs, trResponder, trFuncs; 
 	var <invalues, <visualdict;
 	var <glOrder, <patchOrder, <oglGui, <weightPresets, <perfGui;
 	
 	*initClass{
-	
 		visuals = (
-			elastic: 8,
-			kanji: 0,
-			ringz: 1,
-			wobble: 2,
-			grid: 3,
-			horizons: 4,
-			blinds: 5,
-			axial: 6, 
-			radial: 7,
-			mesh: 9
+			horizons: 0,
+			axial: 1,
+			grid: 2,
+			mesh: 3
 		);
 		
 		actions = (
@@ -32,18 +35,16 @@ Fx3D{
 			alphahi: 7,
 			sizelo: 8,
 			sizehi: 9,
-			scale: 10
-		);
-		
+			scale: 10		
+		)	
 	}
 	
 	*new{
 		^super.new.init;
 	}
-	
+
 	init{
-		opts = FxOptions();
-		opts.fxapp = "/Users/alo/Development/Fx3D/Visual/build/Release/fx.app";
+		opts = FxPublicOptions();
 		vaddr = NetAddr(opts.fxip, opts.fxport);
 		invalues = Event();
 		visualdict = Event();
@@ -63,7 +64,7 @@ Fx3D{
 		
 		visualdict.glSpecs = (
 			add: ControlSpec(0.001, 0.999, \cos),
-			transx: ControlSpec(-16.0, 16.0, \lin),
+			transx: ControlSpec(-6.0, 6.0, \lin),
 			transy: ControlSpec(-6.0, 6.0, \lin), 
 			transz: ControlSpec(-64, 4, \lin, 1),
 			angle: ControlSpec(-1.0, 1.0, \lin),
@@ -72,8 +73,7 @@ Fx3D{
 		
 		glOrder = [\alpha, \clear, \add, \transx, \transy, \transz, \angle, \rotX, \rotY, \rotZ, 
 			\frame];
-		patchOrder = [\elastic, \kanji, \ringz, \wobble, \grid, \horizons, \blinds, \axial, \radial, 
-			 \mesh];
+		patchOrder = [\grid, \horizons, \axial, \mesh];
 		
 		visuals.keysDo({|key|
 			var temp;
@@ -87,12 +87,12 @@ Fx3D{
 			seed: 0,
 			habitat: 0,
 			radius: 1,
-			left: 6,
-			bottom: 6,
-			front: 6,
-			width: 4,
-			height: 4,
-			depth: 4,
+			left: 4,
+			bottom: 4,
+			front: 7,
+			width: 8,
+			height: 8,
+			depth: 1,
 			weights: (1.0 ! 26)
 		);
 		
@@ -104,7 +104,7 @@ Fx3D{
 			rand: { Array.rand(26, 1, 5) }
 		);
 		
-		glFuncs = (); stFuncs = (); trFuncs = (); rnFuncs = ();
+		glFuncs = (); stFuncs = (); trFuncs = ();
 	}
 	
 	addGlobalsResponder{
@@ -186,26 +186,6 @@ Fx3D{
 	removeTriggerFunction{|key| trFuncs[key] = nil }
 	
 	removeAllTriggerFunctions{ trFuncs.clear }	
-
-	addRenewResponder{
-
-		if (rnResponder.notNil) { rnResponder.remove; rnResponder = nil };
-		
-		rnResponder = OSCresponderNode(nil, '/fx/renew', {|ti, re, ms|
-			rnFuncs.do({|func| func.value });
-		}).add;
-	}
-	
-	removeRenewResponder{
-		rnResponder.remove;
-		rnResponder = nil;		
-	}
-
-	addRenewFunction{|key, func| rnFuncs[key] = func }
-	
-	removeRenewFunction{|key| rnFuncs[key] = nil }
-	
-	removeAllRenewFunctions{ rnFuncs.clear }	
 	
 	sendMsg{|cmd ... msg|
 		vaddr.sendMsg(opts.sendcmd ++ "/" ++ cmd, *msg)
@@ -319,7 +299,7 @@ Fx3D{
 			visualdict.globals[\frame]			
 		)
 	}
-	
+
 	sendReset{|seed, habitat, radius, left, bottom, front, width, height, depth ... weights|
 		this.sendMsg("world", 1, seed, habitat, radius, left, bottom, front, width, height, depth, 
 			*weights
@@ -340,7 +320,7 @@ Fx3D{
 	
 	sendPollIndices{|... indices|
 		indices = indices.flat;
-		this.sendMsg("poll", indices.size, *indices)
+		this.sendMsg("poll", *indices)
 	}
 	
 	getPollIndices{|switch|
@@ -407,34 +387,19 @@ Fx3D{
 					})
 				})
 				
-			},
-			3, {
-				forBy(6, 9, 1, {|i| 
-					forBy(6, 9, 1, {|j|
-						forBy(6, 9, 1, {|k| 
-							arr=arr.add([i,j,k])
-						})
-					})
-				})				
-			},
-			
-			4, { arr = Array.fill(16, {|x| Array.fill(16, {|y| [x, y, 9] }) }) }
+			}
 		);
 		
 		^arr.flat
 		
 	}
-	
+
 	quitOpenGL{
 		this.sendMsg("quit", 0)
 	}
 	
 	makeOglGui{
-		oglGui = FxOpenGL(this)
-	}
-	
-	initLive{|numZones|
-		perfGui = FxPerformanceGUI(this, numZones)
+		oglGui = FxOGLGui(this)
 	}
 	
 	startFx{
@@ -444,148 +409,14 @@ Fx3D{
 	wait{|numCycles=1|
 		(numCycles/24).wait	
 	}
-		
+	
+	
+
 }
 
-FxPerformanceGUI{
+FxOGLGui{
 	
-	var fx, window, <panels, postwin, text = "", postview, synthview, mapFuncs, poststring;
-	
-	*new{|fx, numZones|
-		^super.newCopyArgs(fx).init(numZones)
-	}
-	
-	init{|numZones|
-		var font, npanels = 3;
-		
-		npanels = numZones ? npanels;
-	
-		window = Window("_.f(x)L._", Rect(50, 50, 800, 510)).alpha_(0.95).front;
-		window.background = Color.black;
-		window.view.background = HiliteGradient(Color.black, Color.grey(0.4), \v, 256, 0.5);
-
-		font = Font("Lucida Grande", 10);
-		
-		panels = Array.newClear(npanels);
-		
-		mapFuncs = Array.newClear(npanels);
-		
-		npanels.do({|i|
-			panels[i] = CompositeView(window, Rect(5, 5, 590, 490));
-			StaticText(panels[i], Rect(0, 0, 490, 20))
-				.font_(font)
-				.stringColor_(Color.new255(28, 134, 238))
-				.align_(\center)
-				.string_("zone " ++ i.asString);
-			panels[i].visible = false;
-			
-		});
-		
-		postwin = CompositeView(window, Rect(600, 5, 195, 490));
-		StaticText(postwin, Rect(0, 0, 195, 20))
-			.font_(font)
-			.stringColor_(Color.new255(28, 134, 238))
-			.align_(\center)
-			.string_("post");
-		postview = TextView(postwin, Rect(5, 20, 185, 220))
-			.background_(Color.grey(0.2))
-			.stringColor_(Color.grey(0.8))
-			.font_(font);
-		StaticText(postwin, Rect(0, 240, 195, 20))
-			.font_(font)
-			.stringColor_(Color.new255(28, 134, 238))
-			.align_(\center)
-			.string_("synth");		
-		synthview = TextView(postwin, Rect(5, 260, 185, 220))
-			.background_(Color.grey(0.2))
-			.stringColor_(Color.grey(0.8))
-			.font_(font);	
-							
-		window.drawHook = {
-			Pen.color = Color.grey(0.5); 
-			Pen.strokeRect(Rect(5, 5, 590, 490));
-			Pen.strokeRect(Rect(600, 5, 195, 490));
-		};
-	}
-	
-	assignPanel{|index, assignFunc|
-		mapFuncs[index] = assignFunc.value(panels[index], this);
-	}
-	
-	selectPanel{|index, resetFunc|
-		panels.do({|pnl, i| if (i != index) { pnl.visible = false } });
-		panels[index].visible = true;
-		resetFunc.value;
-		mapFuncs[index].value;		
-	}
-	
-	post{|text|
-		poststring = text ++ "\n" ++ poststring;
-		{ postview.string_(poststring) }.defer
-	}
-	
-	clearPost{
-		poststring = "";
-		postview.string_("");	
-	}
-	
-	queryServer{|server|
-		var done = false, synths, resp;
-		synths = "";
-		resp = OSCresponderNode(server.addr, '/g_queryTree.reply', { arg time, responder, msg;
-			var i = 2, tabs = 0, printControls = false, dumpFunc;
-			if(msg[1] != 0, {printControls = true});
-			//("NODE TREE Group" + msg[2]);
-			if(msg[3] > 0, {
-				dumpFunc = {|numChildren|
-					var j;
-					tabs = tabs + 1;
-					numChildren.do({
-						if(msg[i + 1] >=0, {i = i + 2}, {
-							i = i + 3 + if(printControls, {msg[i + 3] * 2 + 1}, {0});
-						});
-						tabs.do({ synths = synths ++ "   " });
-						synths = synths ++ msg[i]; // nodeID
-						if(msg[i + 1] >=0, {
-							synths = synths ++ " group\n";
-							if(msg[i + 1] > 0, { dumpFunc.value(msg[i + 1]) });
-						}, {
-							synths = synths ++ (" " ++ msg[i + 2]) ++ "\n"; // defname
-							if(printControls, {
-								if(msg[i + 3] > 0, {
-									synths = synths ++ " ";
-									tabs.do({ synths = synths ++ "   " });
-								});
-								j = 0;
-								msg[i + 3].do({
-									synths = synths ++ " ";
-									if(msg[i + 4 + j].isMemberOf(Symbol), {
-										synths = synths ++ (msg[i + 4 + j] ++ ": ");
-									});
-									synths = synths ++ msg[i + 5 + j];
-									j = j + 2;
-								});
-								synths = synths ++ "\n";
-							});
-						});
-					});
-					tabs = tabs - 1;
-				};
-				dumpFunc.value(msg[3]);
-			});
-			{ synthview.string_(synths) }.defer;
-			done = true;
-		}).add.removeWhenDone;
-		
-		server.sendMsg("/g_queryTree", 0, 0);
-		
-	}
-		
-}
-
-FxOpenGL{
-	
-	var fx, window, <glPanel, <ptPanel, <wrPanel;
+	var fx, window, <glPanel, <ptPanel, <wrPanel, <wrSPanel;
 	
 	*new{|fx|
 		^super.newCopyArgs(fx).makeWindow
@@ -594,11 +425,11 @@ FxOpenGL{
 	makeWindow{
 
 		var slider, label, button, gap = 5, font, weightSliders, settingValues, wspec, seedValues;
-		var seedspec, poll, seed = 0;
+		var seedspec, poll;
 		
 		font = Font("Lucida Grande", 9);
 	
-		window = Window(":--: OGL :--:", Rect(100, 400, 840, 400)).alpha_(0.95).front;
+		window = Window(":--: OGL :--:", Rect(100, 400, 820, 400)).alpha_(0.95).front;
 		window.background = Color.black;
 		window.view.background = HiliteGradient(Color.black, Color.grey(0.4), \v, 256, 0.5);
 		
@@ -612,7 +443,7 @@ FxOpenGL{
 		
 		fx.patchOrder.do({|patch, i|
 			var fd, sd;
-			RoundButton(ptPanel, button)
+			Button(ptPanel, button)
 				.font_(font.copy.size_(10))
 				.states_([
 					[patch.asString, Color.grey(0.8), Color.grey(0.2)], 
@@ -627,19 +458,17 @@ FxOpenGL{
 						fx.deactivatePatch(patch, 0.0)
 					}
 				});
-			RoundButton(ptPanel, button.copy.top_(button.top + button.height + gap))
+			Button(ptPanel, button.copy.top_(button.top + button.height + gap))
 				.font_(font)
 				.states_([
 					["gray", Color.grey(0.2), Color.grey], 
 					["blue", Color.grey(0.2), Color.blue], 
-					["green", Color.grey(0.2), Color.green],
-					["yellow", Color.grey(0.2), Color(1.0, 0.63, 0.0)],
-					["purple", Color.grey(0.2), Color(0.53, 0.0, 0.77)]
+					["green", Color.grey(0.2), Color.green]
 				])
 				.action_({|btn|
 					fx.sendPatchCmd(patch, \color, 0, btn.value.asFloat, 0)
 				});
-			RoundButton(ptPanel, button.copy.top_(button.top + (button.height * 2) + (gap * 2) ))
+			Button(ptPanel, button.copy.top_(button.top + (button.height * 2) + (gap * 2) ))
 				.font_(font)
 				.states_([
 					["color map", Color.grey(0.8), Color.grey(0.2)], 
@@ -648,7 +477,7 @@ FxOpenGL{
 				.action_({|btn|
 					fx.sendPatchCmd(patch, \colormap, 0, btn.value.asFloat, 0)
 				});
-			RoundButton(ptPanel, button.copy.top_(button.top + (button.height * 3) + (gap * 3) ))
+			Button(ptPanel, button.copy.top_(button.top + (button.height * 3) + (gap * 3) ))
 				.font_(font)
 				.states_([
 					["alpha map", Color.grey(0.8), Color.grey(0.2)], 
@@ -663,7 +492,7 @@ FxOpenGL{
 				.string_("0")
 				.stringColor_(Color.new255(28, 134, 238));
 				
-			SmoothSlider(ptPanel, slider)
+			Slider(ptPanel, slider)
 				.action_({|sld|
 					fd.string_(sld.value.round(0.01).asString);
 					fx.sendPatchCmd(patch, \alphahi, 0, sld.value, 0)
@@ -675,7 +504,7 @@ FxOpenGL{
 				.align_(\center)
 				.string_("0")
 				.stringColor_(Color.new255(28, 134, 238));
-			SmoothSlider(ptPanel, slider.copy.left_(slider.left + slider.width + gap))
+			Slider(ptPanel, slider.copy.left_(slider.left + slider.width + gap))
 				.action_({|sld|
 					sd.string_(sld.value.round(0.01).asString);
 					fx.sendPatchCmd(patch, \scale, 0, sld.value, 0)
@@ -714,7 +543,7 @@ FxOpenGL{
 				.stringColor_(Color.new255(28, 134, 238))
 				.string_(val.round(0.001).asString);
 			settingValues.put(i, fx.visualdict.globals[param]);
-			SmoothSlider(glPanel, slider)
+			Slider(glPanel, slider)
 				.value_(inval)
 				.action_({|sld|
 					if (fx.visualdict.glSpecs[param].notNil)
@@ -734,18 +563,17 @@ FxOpenGL{
 		});
 		
 		wrPanel = CompositeView(window, 
-			Rect( glPanel.bounds.left + glPanel.bounds.width + 10, 205, 
-				window.bounds.width - (glPanel.bounds.left + glPanel.bounds.width + 10), 190)
+			Rect( glPanel.bounds.left + glPanel.bounds.width + 20, 5, 100, 190)
 		);
 		
-		RoundButton(wrPanel, Rect(5, 5, 90, 20))
+		Button(wrPanel, Rect(5, 5, 90, 20))
 			.font_(font)
 			.states_([
 				["world", Color.new255(28, 134, 238), Color.grey(0.2)]
 			])
 			.action_({				
 				fx.sendReset(
-					seed: seed,
+					seed: 0,
 					habitat: 0,
 					radius: 1,
 					left: seedValues@0,
@@ -759,7 +587,7 @@ FxOpenGL{
 					})
 				);
 			});
-		RoundButton(wrPanel, Rect(5, 30, 90, 20))
+		Button(wrPanel, Rect(5, 30, 90, 20))
 			.font_(font)
 			.states_([
 				["weights", Color.new255(28, 134, 238), Color.grey(0.2)]
@@ -794,7 +622,7 @@ FxOpenGL{
 				.font_(font)
 				.stringColor_(Color.new255(28, 134, 238))
 				.string_(seedValues[i].asString);
-			SmoothSlider(wrPanel, Rect(90 / 6 * i + 5, 65, 90 / 6 - 3, 70 ))
+			Slider(wrPanel, Rect(90 / 6 * i + 5, 65, 90 / 6 - 3, 70 ))
 				.value_(seedspec.unmap(seedValues@i))
 				.action_({|sld|
 					seedValues.put(i, seedspec.map(sld.value));
@@ -802,17 +630,12 @@ FxOpenGL{
 				});
 		});	
 		
-		RoundButton(wrPanel, Rect(95, 95, 20, 20))
-			.font_(font)
-			.states_([["w", Color.green, Color.grey(0.3)], ["r", Color.blue, Color.grey(0.7)]])
-			.action_({|btn| seed = btn.value });
-		
 		poll = PopUpMenu(wrPanel, Rect(5, 138, 60, 20))
 			.font_(font)
 			.stringColor_(Color.new255(28, 134, 238))
-			.items_(["sides", "uni", "mesh", "core", "sheet"]);
+			.items_(["sides", "uni", "mesh"]);
 			
-		RoundButton(wrPanel, Rect(70, 138, 25, 20))				.font_(font)
+		Button(wrPanel, Rect(70, 138, 25, 20))					.font_(font)
 			.states_([["--", Color.new255(28, 134, 238), Color.grey(0.2)]])
 			.action_({ fx.sendPollIndices(fx.getPollIndices(poll.value)) });
 		
@@ -825,24 +648,30 @@ FxOpenGL{
 				fx.weightPresets[mnu.items[mnu.value]].value.do({|val, i|
 					weightSliders[i].value = wspec.unmap(val);
 					weightSliders[i].doAction;
+					window.refresh;
 				})
 			});
 				
-		slider = Rect(120, 5, 10, 180);
+		slider = Rect(5, 5, 10, 180);
 		
 		weightSliders = Array.newClear(26);
 		
 		wspec = ControlSpec(0, 10, \lin, 1);
 		
+		wrSPanel =  CompositeView(window, 
+			Rect(glPanel.bounds.left + glPanel.bounds.width + 20, 205, 
+				slider.width + 5 * fx.visualdict.globals.size, slider.height + 30)
+		);
+		
 		26.do({|i|
 			var lbl;
-			lbl = StaticText(wrPanel, Rect(slider.left, slider.top, slider.width, 15))
+			lbl = StaticText(wrSPanel, Rect(slider.left, slider.top, slider.width, 15))
 				.align_(\center)
 				.font_(font)
 				.stringColor_(Color.new255(28, 134, 238))
 				.string_("1");
 			weightSliders.put(i, 
-				SmoothSlider(wrPanel, slider)
+				Slider(wrSPanel, slider)
 					.step_(0.1)
 					.value_(0.1)
 					.action_({|sld| 
@@ -856,4 +685,3 @@ FxOpenGL{
 	}
 	
 }
-
