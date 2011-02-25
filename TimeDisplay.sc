@@ -1,6 +1,6 @@
 TimeDisplay {
 	var <>view, wn, rout, <>hrstr="00", <>minstr="00", <>secstr="00", <>timestr, <>tsec=0, stop=1;
-	var font, begin;
+	var font, begin, <isRunning = false;
 	*new{|win, rect, start=0, font|
 		var new, r, w;
 		r = rect ? Rect(10, 10, 100, 40);
@@ -39,12 +39,14 @@ TimeDisplay {
 				});
 
 			}).play;
+		isRunning = true;
 	}
 	
 	stop{
 		stop = nil;
 		rout.stop;
 		rout = nil;
+		isRunning = false;
 	}
 		
 	background_{|color|

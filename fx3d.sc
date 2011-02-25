@@ -3,6 +3,7 @@ Fx3D{
 
 	var <opts;
 	var <vaddr, glResponder, glFuncs, stResponder, stFuncs, trResponder, trFuncs, rnResponder, rnFuncs;
+	var phResponder, phFuncs, <>zoneResetFunc;
 	var <invalues, <visualdict;
 	var <glOrder, <patchOrder, <oglGui, <weightPresets, <perfGui;
 	
@@ -58,7 +59,8 @@ Fx3D{
 			rotX: 0.0,
 			rotY: 0.0,
 			rotZ: 0.0,
-			frame: 4
+			frame: 4,
+			phase: 72
 		);	
 		
 		visualdict.glSpecs = (
@@ -67,11 +69,12 @@ Fx3D{
 			transy: ControlSpec(-6.0, 6.0, \lin), 
 			transz: ControlSpec(-64, 4, \lin, 1),
 			angle: ControlSpec(-1.0, 1.0, \lin),
-			frame: ControlSpec(1, 12, \lin, 1)
+			frame: ControlSpec(1, 12, \lin, 1),
+			phase: ControlSpec(24, 120, \lin, 24)
 		);
 		
 		glOrder = [\alpha, \clear, \add, \transx, \transy, \transz, \angle, \rotX, \rotY, \rotZ, 
-			\frame];
+			\frame, \phase];
 		patchOrder = [\elastic, \kanji, \ringz, \wobble, \grid, \horizons, \blinds, \axial, \radial, 
 			 \mesh];
 		
@@ -104,7 +107,7 @@ Fx3D{
 			rand: { Array.rand(26, 1, 5) }
 		);
 		
-		glFuncs = (); stFuncs = (); trFuncs = (); rnFuncs = ();
+		glFuncs = (); stFuncs = (); trFuncs = (); rnFuncs = (); phFuncs = ();
 	}
 	
 	addGlobalsResponder{
@@ -147,8 +150,11 @@ Fx3D{
 		if (stResponder.notNil) { stResponder.remove; stResponder = nil };
 		
 		stResponder = OSCresponderNode(nil, '/fx/states', {|ti, re, ms|
-			invalues.states = ms[1].asFloatArray;
-			stFuncs.do({|func| func.value(invalues) });
+			if (ms[1].notNil)
+			{
+				invalues.states = ms[1].asFloatArray;
+				stFuncs.do({|func| func.value(invalues) });
+			}
 		}).add;
 	}
 	
@@ -205,7 +211,27 @@ Fx3D{
 	
 	removeRenewFunction{|key| rnFuncs[key] = nil }
 	
-	removeAllRenewFunctions{ rnFuncs.clear }	
+	removeAllRenewFunctions{ rnFuncs.clear }
+
+	addPhaseResponder{
+
+		if (phResponder.notNil) { phResponder.remove; phResponder = nil };
+		
+		rnResponder = OSCresponderNode(nil, '/fx/phase', {|ti, re, ms|
+			phFuncs.do({|func| func.value(ms[1]) });
+		}).add;
+	}
+	
+	removePhaseResponder{
+		phResponder.remove;
+		phResponder = nil;		
+	}
+
+	addPhaseFunction{|key, func| phFuncs[key] = func }
+	
+	removePhaseFunction{|key| phFuncs[key] = nil }
+	
+	removeAllPhaseFunctions{ phFuncs.clear }	
 	
 	sendMsg{|cmd ... msg|
 		vaddr.sendMsg(opts.sendcmd ++ "/" ++ cmd, *msg)
@@ -236,15 +262,19 @@ Fx3D{
 		}
 	}
 	
-	activatePatch{|patch, time|
-		this.sendPatchCmd(patch, \active, 0.0, 1.0, time);
+	activatePatch{|patch|
+		this.sendPatchCmd(patch, \active, 0.0, 1.0, 0);
 	}
 
-	deactivatePatch{|patch, time|
-		this.sendPatchCmd(patch, \active, 1.0, 0.0, time);
+	deactivatePatch{|patch|
+		this.sendPatchCmd(patch, \active, 1.0, 0.0, 0);
 	}
 	
-	setGlobals{|alpha, clear, add, transx, transy, transz, angle, rotX, rotY, rotZ, frame|
+	setGlobal{|key, value|
+		visualdict.globals[key] = value;
+	}
+	
+	setGlobals{|alpha, clear, add, transx, transy, transz, angle, rotX, rotY, rotZ, frame, phase|
 		visualdict.globals[\alpha] = alpha;
 		visualdict.globals[\clear] = clear;
 		visualdict.globals[\add] = add;
@@ -256,6 +286,7 @@ Fx3D{
 		visualdict.globals[\rotY] = rotY;
 		visualdict.globals[\rotZ] = rotZ;
 		visualdict.globals[\frame] = frame;
+		visualdict.globals[\phase] = phase;
 	}
 	
 	setWorld{|seed, habitat, radius, left, bottom, front, width, height, depth|
@@ -273,9 +304,9 @@ Fx3D{
 	setWeights{|weights|
 		visualdict.world.weights = weights;			
 	}
-	
+		
 	sendSettings{|time, alpha, clear, add, transx, transy, transz, 
-									angle, rotX, rotY, rotZ, frame, doneAction|
+									angle, rotX, rotY, rotZ, frame, phase, doneAction|
 		
 		if (time > 0)
 		{
@@ -283,7 +314,7 @@ Fx3D{
 				var times, steps, values;
 				times = time * opts.msgRate;
 				values = Array.fill(visualdict.globals.size, {|i| visualdict.globals[glOrder@i] });
-				steps = [alpha, clear, add, transx, transy, transz, angle, rotX, rotY, rotZ, frame] -
+				steps = [alpha, clear, add, transx, transy, transz, angle, rotX, rotY, rotZ, frame, phase] -
 					values / times;
 				times.do({
 					this.sendMsg("settings", *values.flat);
@@ -292,14 +323,14 @@ Fx3D{
 				});
 				opts.msgRate.reciprocal.wait;
 				this.setGlobals(alpha, clear, add, transx, transy, transz, angle, rotX, rotY, rotZ, 
-					frame);
+					frame, phase);
 				doneAction.value(this);
 			}).play
 		}
 		{
 			this.sendMsg("settings", *[alpha, clear, add, transx, transy, transz, 
-				angle, rotX, rotY, rotZ, frame]);
-			this.setGlobals(alpha, clear, add, transx, transy, transz, angle, rotX, rotY, rotZ, frame);
+				angle, rotX, rotY, rotZ, frame, phase]);
+			this.setGlobals(alpha, clear, add, transx, transy, transz, angle, rotX, rotY, rotZ, frame, phase);
 			doneAction.value(this);
 		};
 	}
@@ -316,7 +347,8 @@ Fx3D{
 			visualdict.globals[\rotX],
 			visualdict.globals[\rotY],
 			visualdict.globals[\rotZ],			
-			visualdict.globals[\frame]			
+			visualdict.globals[\frame],
+			visualdict.globals[\phase]			
 		)
 	}
 	
@@ -419,6 +451,8 @@ Fx3D{
 			},
 			
 			4, { arr = Array.fill(16, {|x| Array.fill(16, {|y| [x, y, 9] }) }) }
+
+
 		);
 		
 		^arr.flat
@@ -433,7 +467,8 @@ Fx3D{
 		oglGui = FxOpenGL(this)
 	}
 	
-	initLive{|numZones|
+	initLive{|numZones, resetFunc|
+		zoneResetFunc = resetFunc;
 		perfGui = FxPerformanceGUI(this, numZones)
 	}
 	
@@ -449,7 +484,7 @@ Fx3D{
 
 FxPerformanceGUI{
 	
-	var fx, window, <panels, postwin, text = "", postview, synthview, mapFuncs, poststring;
+	var fx, window, <panels, <zPanel, postwin, text = "", postview, synthview, mapFuncs, poststring, timer, tctr;
 	
 	*new{|fx, numZones|
 		^super.newCopyArgs(fx).init(numZones)
@@ -470,8 +505,40 @@ FxPerformanceGUI{
 		
 		mapFuncs = Array.newClear(npanels);
 		
+		zPanel = CompositeView(window, Rect(5, 5, 260, 55));
+		
+		zPanel.decorator = FlowLayout(zPanel.bounds, 5@5, 5@5);
+		
+		tctr = RoundButton(window, Rect(365, 10, 30, 20))
+			.font_(font)
+			.states_([["+", Color.grey(0.3), Color.black], ["-", Color.white, Color.black]])
+			.action_({|btn|
+				if (btn.value == 1) { timer.start } { timer.stop }
+			});
+		
+		timer = TimeDisplay(window, Rect(400, 5, 200, 50), font: Font("Helvetica", 30));
+		timer.view.background = Color.clear;
+		timer.view.stringColor = Color.grey(0.6);
+		
 		npanels.do({|i|
-			panels[i] = CompositeView(window, Rect(5, 5, 590, 490));
+			Button(zPanel, Rect(width: 590 / 8 - 5, height: 20))
+				.font_(font)
+				.states_([["zone " ++ i.asString, Color.grey(0.3), Color.new255(4, 50, 99)], 
+					["zone " ++ i.asString, Color.new255(4, 50, 99), Color.new255(184, 134, 11)]])
+				.action_({|btn|
+					if (btn.value == 1) { 
+						this.selectPanel(i, fx.zoneResetFunc);
+						zPanel.children.do({|other|
+							if (other != btn) {other.value = 0}
+						});
+						if (timer.isRunning.not)
+						{
+							tctr.value = 1;
+							tctr.doAction;	
+						}
+					}
+				});
+			panels[i] = CompositeView(window, Rect(5, 65, 590, 430));
 			StaticText(panels[i], Rect(0, 0, 490, 20))
 				.font_(font)
 				.stringColor_(Color.new255(28, 134, 238))
@@ -503,7 +570,8 @@ FxPerformanceGUI{
 							
 		window.drawHook = {
 			Pen.color = Color.grey(0.5); 
-			Pen.strokeRect(Rect(5, 5, 590, 490));
+			Pen.strokeRect(Rect(5, 5, 590, 55));
+			Pen.strokeRect(Rect(5, 65, 590, 430));
 			Pen.strokeRect(Rect(600, 5, 195, 490));
 		};
 	}
@@ -853,6 +921,38 @@ FxOpenGL{
 		});
 		
 			
+	}
+	
+}
+
+TouchOSC{
+	
+	var addr, controls;
+	
+	*new{|addr|
+		^super.newCopyArgs(addr)
+	}
+	
+	addControl{|cmd, action|
+		if (controls.isNil) { controls = () };
+		controls[cmd] = OSCresponderNode(nil, cmd, action).add
+	}
+	
+	removeControl{|cmd|
+		controls[cmd].remove;
+		controls[cmd] = nil;
+	}
+	
+	replaceControl{|cmd, action|
+		controls[cmd].action = action;
+	}
+	
+	setControl{|cmd, value|
+		addr.sendMsg(cmd, value)
+	}
+	
+	clear{
+		controls.keysValuesDo({|key| controls[key].remove; controls[key] = nil });
 	}
 	
 }

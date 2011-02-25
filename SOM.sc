@@ -71,7 +71,7 @@ SOMap{
 
 SONode{
 	
-	var <coords, <weights;
+	var <coords, <>weights;
 	
 	*new{|coords, size, lo, hi|
 		^super.newCopyArgs(coords).init(size, lo, hi)

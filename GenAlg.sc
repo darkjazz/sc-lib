@@ -67,6 +67,10 @@ Chromosome{
 		^code.copyRange(index, code.lastIndex)
 	}
 	
+	copyRange{|start, end|
+		^code.copyRange(start, end)
+	}
+	
 	mutate{
 		code.put(size.rand, base.rand)
 	}

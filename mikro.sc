@@ -4,7 +4,7 @@ Mikro{
 	var <somDict, <testBuffers, input, <bpm = 140, quant, <>qround = 0.001, <mfccSynth, <>inputGate = 0.01;
 	var <recorder, recResponder, bmuResponder, mfccResponder, <server, recorderArgs, bmu, distSlope, vecSlope;
 	var <bmuFunctions, addingBuffer = false, lastTime = 0, <liveProcs, <bufProcs, <liveProcDict, <bufProcDict; 
-	var <>procPath = "/Users/alo/Development/som/audio/", <activeLiveSynths, <activeBufSynths, <synthLimit = 6; 
+	var <>procPath = "/Users/alo/Development/mikroStruktObjC/audio/", <activeLiveSynths, <activeBufSynths, <synthLimit = 6; 
 	var <vecSlopeTh = 0.2, <distSlopeTh = 7, actions, <defEvents, <lastDefEvent, lastLiveSynth, synthSeq = 0;
 	var <regions, <>regionMap, lastRegion, recorderRout, >ixamp = 1.0, >imamp = 1.0, <>seqActive = false;
 	var <>liveProcFile = "mikroPROClive.rtf", <>bufProcFile = "mikroPROCbuf.rtf";

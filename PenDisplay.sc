@@ -1,10 +1,10 @@
 PenDisplay{
 
-	var <>world, <>rule, <colors, cellSize, <>speed, <window;
+	var <>world, <>rule, <colors, <cellSize, <>speed, <window;
 	var genCount, ruleFamily, cells, go, <reset, task, world, count=0;
 	var ruleBox, rclass, keys, <>group, <>numValues=1, <>showValues=false, <currentValues;
 	var fast, slow, rules;
-	var <>maxGens = inf, numAlive, display, statesx, statesy;
+	var <>maxGens = inf, numAlive, display, statesx, statesy, <>drawFunc;
 	
 	*new{|world, rule, colors, cellSize=5, speed=0.2, window|
 		^super.newCopyArgs(world, rule, colors, cellSize, speed, window).init
@@ -84,27 +84,35 @@ PenDisplay{
 		
 		display = SCCompositeView(window, Rect(80, 50, cellSize*world.size, cellSize*world.size));
 		
+		drawFunc = {|display, cell, i, j|
+			
+			display.colors[cell.state].set;
+			
+			Pen.strokeRect(
+				Rect(i * display.cellSize + 80, j * display.cellSize + 50, display.cellSize, display.cellSize)
+			);
+			Color.grey(cell.state.reciprocal).set;
+			Pen.fillRect(
+				Rect(i * display.cellSize + 80 + (display.cellSize * 0.25), 
+					j * display.cellSize + 50 + (display.cellSize * 0.25), 
+					display.cellSize * 0.5, display.cellSize * 0.5)
+			);
+			
+		};
+		
 		window.drawHook = {
 			var sp;
-/*			var x1, x2, y1, y2;
-			Pen.translate(world.size * cellSize / 2 + 80, world.size * cellSize / 2 + 50);
-			Pen.scale(0.01.rand, 0.01.rand);
-			x1 = 175.0.bilinrand;
-			x2 = 175.0.bilinrand;
-			y1 = 175.0.bilinrand;
-			y2 = 175.0.bilinrand;		*/	
-//			var max, min;
-//			statesx = Array.fill(world.size, 0);
-//			statesy = Array.fill(world.size, 0);		
-//			display.background = colors[0];
-//			Pen.moveTo(80@50);
 			world.world.do({|row, i|
 				row.do({|cell, j|
 					if (cell.state > 0, {
+						
+						drawFunc.value(this, cell, i, j)
+
+					/*		
+						
 						if (rule.isKindOf(Continuous).or(rule.isKindOf(Continuous2))) 
 						{
 							
-					/*		
 							if (cell.state > 0.001)
 							{
 								7.do({
@@ -199,17 +207,14 @@ PenDisplay{
 									j * cellSize + 50 + (cellSize / 4),
 									cellSize / 2, cellSize / 2
 								)
-							);											*/
-						
+							);											
 						
 							Pen.color = Color.grey(cell.state);
 							Pen.fillRect(
 								Rect(i * cellSize + 80, j * cellSize + 50, cellSize, cellSize)
 							);
 							
-						
-						/*	
-							Pen.color = Color.grey(1 - cell.state, 1 - cell.state);
+																	Pen.color = Color.grey(1 - cell.state, 1 - cell.state);
 							Pen.strokeRect(
 								Rect(
 									i * cellSize + 80 + cellSize - (cellSize * cell.state),
@@ -269,12 +274,11 @@ PenDisplay{
 								(cell.state * cellSize / 2).rand, cell.state * cellSize, 2pi.rand, 2pi.rand
 							);
 							Pen.perform([\stroke, \fill].choose)
-						*/
 						
 						}
 						{
 							colors[cell.state].set;
-/*							Pen.width = (cell.state/2).ceil;
+						Pen.width = (cell.state/2).ceil;
 							Pen.beginPath;
 							Pen.moveTo((cell.x * cellSize + (cellSize) + 80)@
 								(cell.y * cellSize + (cellSize) + 50));
@@ -302,7 +306,6 @@ PenDisplay{
 	//						)
 							
 							].wrapAt(cell.state);
-							*/
 //							Pen.perform([\stroke, \fill].wchoose([0.7, 0.3]));
 							Pen.strokeRect(
 								Rect(i * cellSize + 80, j * cellSize + 50, cellSize, cellSize)
@@ -314,6 +317,8 @@ PenDisplay{
 									cellSize * 0.5, cellSize * 0.5)
 							);
 						}
+						
+						*/
 					})
 					
 				})
@@ -373,6 +378,10 @@ PenDisplay{
 					speed.wait
 				});
 			}).play(AppClock)	
+	}
+	
+	refresh{
+		window.refresh
 	}
 
 
