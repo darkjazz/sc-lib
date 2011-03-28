@@ -1,6 +1,6 @@
 Decoder{
 	
-	var isLocal, isUHJ, azimuth, elevation, <bus, <synth;
+	var isLocal, isUHJ, azimuth, elevation, <bus, <synth, isRunning = false;
 	
 	*new{|isLocal = true, isUHJ = false, speakersAzimuth, speakersElevation|
 		^super.newCopyArgs(isLocal, isUHJ, speakersAzimuth, speakersElevation).init
@@ -35,13 +35,19 @@ Decoder{
 	start{|target = 1, addAction=\addToHead|
 		var defname;
 		
-		if (isUHJ)
-		{ defname = \btoUHJ }
+		if (isRunning.not)
 		{
-			if (isLocal) { defname = \bf2decode } { defname = \bfcollect }
-		};
-		synth = Synth(defname, [\bus, bus], target, addAction);
-		
+			if (isUHJ)
+			{ defname = \btoUHJ }
+			{
+				if (isLocal) { defname = \bf2decode } { defname = \bfcollect }
+			};
+			synth = Synth(defname, [\bus, bus], target, addAction);
+			isRunning = true;
+		}
+		{
+			"Decoder is already running!".inform
+		}
 	}
 	
 	set{|param, value|
@@ -49,7 +55,8 @@ Decoder{
 	}
 	
 	free{
-		synth.free
+		synth.free;
+		isRunning = false
 	}
 	
 }

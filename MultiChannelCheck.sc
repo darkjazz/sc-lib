@@ -3,7 +3,7 @@ MultiChannelCheck{
 	classvar <standardSetups;
 	
 	var <layers, server, win, scope, gui, <scopebufs, synth, <numSpeakers, <outputs, <channels;
-	var <>channelOut = 0, autorout;
+	var <>channelOut = 0, autorout, buffer;
 	
 	*new{|layers|
 		^super.newCopyArgs(layers).init	
@@ -39,18 +39,26 @@ MultiChannelCheck{
 				}).play(1, addAction: \addToTail)
 			})
 		});
-		SynthDef("check", {
-			var lsrc, hsrc, lo, hi, gverb, sig, outs;
-			lsrc = Dust.ar(10);
-			hsrc = Dust.ar(10);
+		
+		SynthDef("check", {|buffer|
+			var outs, sig;
 			outs = Control.names([\outs]).kr(Array.fill(outputs.size, 99));
-			lo = RLPF.ar(lsrc, LFNoise2.kr(20, 60, 80).floor, 0.01);
-			hi = RHPF.ar(hsrc, LFNoise2.kr(20, 1100, 12000).floor, 0.001) * 0.5;
-			gverb = hi + GVerb.ar(lo + hi, 500, 30, 0.1, 0.1, 1, 0.0, 0.5, 0.5, 500);
-			sig = Mix(VarSaw.ar(Array.geom(4, 40, 512**(1/4))))
-				* EnvGen.kr(Env.perc, Impulse.kr(4), timeScale: 0.2, levelScale: 0.1);
-			Out.ar(outs, gverb[0] + sig)
-		}).send(server);
+			sig = PlayBuf.ar(1, buffer, loop: 1.0);
+			Out.ar(outs, sig)
+		}).add;
+		
+//		SynthDef("check", {
+//			var lsrc, hsrc, lo, hi, gverb, sig, outs;
+//			lsrc = Dust.ar(10);
+//			hsrc = Dust.ar(10);
+//			outs = Control.names([\outs]).kr(Array.fill(outputs.size, 99));
+//			lo = RLPF.ar(lsrc, LFNoise2.kr(20, 60, 80).floor, 0.01);
+//			hi = RHPF.ar(hsrc, LFNoise2.kr(20, 1100, 12000).floor, 0.001) * 0.5;
+//			gverb = hi + GVerb.ar(lo + hi, 500, 30, 0.1, 0.1, 1, 0.0, 0.5, 0.5, 500);
+//			sig = Mix(VarSaw.ar(Array.geom(4, 40, 512**(1/4))))
+//				* EnvGen.kr(Env.perc, Impulse.kr(4), timeScale: 0.2, levelScale: 0.1);
+//			Out.ar(outs, gverb[0] + sig)
+//		}).add;
 		
 		channels = Array.fill(numSpeakers, 99).put(channelOut, outputs[channelOut]);
 		
@@ -58,7 +66,13 @@ MultiChannelCheck{
 	}
 	
 	run{
-		synth = Synth("check").setn("outs", channels);
+		{
+			if (buffer.isNil)
+			{
+				buffer = Buffer.read(server, "/Users/alo/sounds/fxchck.aif");
+				server.sync;
+			};
+			synth = Synth("check", [\buffer, buffer]).setn("outs", channels);		}.forkIfNeeded
 	}
 	
 	autorun{|offset = 0|
@@ -136,14 +150,14 @@ MultiChannelCheckGui{
 		currentlayer = if(channelcheck.layers.isKindOf(MultiChannelLayer), {channelcheck.layers}, 
 			{channelcheck.layers[index]});
 
-		win = SCWindow(":: " + currentlayer.name + " ::", Rect(20, 200, 800, 700)).front;
+		win = Window(":: " + currentlayer.name + " ::", Rect(20, 200, 600, 600)).alpha_(0.9).front;
 		win.onClose_({
 				Server.internal.freeAll
 			});
-		win.view.background_(HiliteGradient(Color.black, Color.blue, steps: 256));
-		SCButton(win, Rect(300, 325, 100, 50))
-			.states_([["....", Color.new255(51, 80, 88), Color.new255(72, 209, 204)], 
-				[".::.", Color.new255(72, 209, 204), Color.new255(51, 80, 88)]])
+		win.view.background_(HiliteGradient(Color.black, Color.grey(0.3), steps: 256));
+		RoundButton(win, Rect(250, 275, 100, 50))
+			.states_([["....", Color.black, Color.new255(184, 134, 11)], 
+				[".::.", Color.new255(184, 134, 11), Color.black]])
 			.action_({|btn|
 				if (btn.value == 1, {
 					channelcheck.autorun(
@@ -153,15 +167,15 @@ MultiChannelCheckGui{
 					channelcheck.autostop
 				})
 			});
-		fwd = SCButton(win, Rect(65, 10, 50, 25))
-			.states_([[">>", Color.new255(51, 80, 88), Color.new255(72, 209, 204)]])
+		fwd = RoundButton(win, Rect(65, 10, 50, 25))
+			.states_([[">>", Color.black, Color.new255(184, 134, 11)]])
 			.visible_(channelcheck.layers.size > 1)
 			.action_({|btn|
 				this.screenForward;
 				if (index == channelcheck.layers.lastIndex, {btn.visible = false});
 			});
-		bck = SCButton(win, Rect(10, 10, 50, 25))
-			.states_([["<<", Color.new255(51, 80, 88), Color.new255(72, 209, 204)]])
+		bck = RoundButton(win, Rect(10, 10, 50, 25))
+			.states_([["<<", Color.black, Color.new255(184, 134, 11)]])
 			.visible_(false)
 			.action_({|btn|
 				this.screenBack;
@@ -263,15 +277,15 @@ MultiChannelCheckGui{
 //						scopesize, 20
 //						)
 //				).string_("channel :" + layer.outputs[j]).visible_(i == 0).align_(\center);
-				pbtn = SCButton(win, Rect(
+				pbtn = RoundButton(win, Rect(
 						win.bounds.height / 2 + (point.x - 40), 
 						win.bounds.height / 2 + (point.y - 40) + scopesize + 2,
 						scopesize, 20				
 				)).states_([
 					["channel :" + layer.outputs[j], 
-						Color.new255(51, 80, 88), Color.new255(72, 209, 204)], 
+						Color.black, Color.new255(184, 134, 11)], 
 					["channel :" + layer.outputs[j],
-						Color.new255(72, 209, 204), Color.new255(51, 80, 88)]
+						Color.new255(184, 134, 11), Color.black]
 				]).action_({|btn|
 					if (btn.value == 1, {
 						playbuttons[i].do({|pbt, indj|

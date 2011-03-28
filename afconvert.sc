@@ -10,7 +10,7 @@ AFConvert{
 	
 	convert{|action|
 		options = options ? "-f AIFF -d BEI24@44100";
-		(this.class.path + options + inputPath.quote + outputPath.quote).unixCmdThen({
+		(this.class.path + options + inputPath.quote + outputPath.quote).unixCmd({
 			Post << (inputPath.quote + "has been converted to" + outputPath.quote) << Char.nl;
 			action.value
 		}, 0.1)

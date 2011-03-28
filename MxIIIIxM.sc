@@ -7,8 +7,8 @@ MxIIIIxM{
 	var <archive, <masterbpm = 120, masterbps, levels, outL, outR, cueL, cueR, txtCue, txtMain;
 	var outResponder, cueResponder, eq, <xfader, volumeControl;
 
-	*new{
-		^super.new.init
+	*new{|path|
+		^super.newCopyArgs(path).init
 	}
 	
 	init{
@@ -17,10 +17,12 @@ MxIIIIxM{
 		font = Font("Skia", 12);
 		archive = Archive.read(archivepath);
 		if (server.serverRunning, {
-			this.sendSynthDefs.makeGui.startLevelIndicators.getPath
+			this.sendSynthDefs.makeGui.startLevelIndicators;
+			if (path.isNil) { this.getPath } { this.fillListView(path ++ "*") }
 		}, {
-			server.waitForBoot({
-				this.sendSynthDefs.makeGui.startLevelIndicators.getPath
+			server.waitForBoot({				
+				this.sendSynthDefs.makeGui.startLevelIndicators;
+				if (path.isNil) { this.getPath } { this.fillListView(path ++ "*") }
 			});
 		});
 	}
@@ -94,20 +96,24 @@ MxIIIIxM{
 	
 	getPath{
 		File.saveDialog("*", successFunc: {|fpath|
-			listitems = Array();	
 			path = fpath.dirname ++ "/";
-			slib.items_(fpath.pathMatch.collect({|it| 
-				var bpm, split, name;
-				split = it.basename.split($.);
-				name = split[0].copyRange(0, columnlen - 1);
-				bpm = archive[\mxIIIIxm, \trackinfo, name.asSymbol] ?? 0.0;
-				listitems = listitems.add( (\path: it.basename, \bpm: bpm, 
-					\format: split[split.lastIndex]) );
-//				(columnlen - name.size).do({ name = name ++ " " });
-				name ++ " | " ++ bpm.round(0.01).asString; 
-			})
-			)
+			this.fillListView(fpath)
 		})	
+	}
+	
+	fillListView{|fpath|
+		listitems = Array();	
+		slib.items_(fpath.pathMatch.collect({|it| 
+			var bpm, split, name;
+			split = it.basename.split($.);
+			name = split[0].copyRange(0, columnlen - 1);
+			bpm = archive[\mxIIIIxm, \trackinfo, name.asSymbol] ?? 0.0;
+			listitems = listitems.add( (\path: it.basename, \bpm: bpm, 
+				\format: split[split.lastIndex]) );
+//				(columnlen - name.size).do({ name = name ++ " " });
+			name ++ " | " ++ bpm.round(0.01).asString; 
+		})
+		)		
 	}
 	
 	startLevelIndicators{
@@ -720,6 +726,15 @@ MxTrack{
 			inform.close;
 			this.loadTrack(tmpPath, loadBuffer, true)
 		})
+	}
+	
+	loadBuffer{|buffer|
+		tmpPath = decodepath ++ "tmp" ++ Date.stamp ++ ".aif";
+		fork{ 
+			buffer.write(tmpPath);
+			master.server.sync;
+			this.loadTrack(tmpPath);
+		}
 	}
 	
 	free{	

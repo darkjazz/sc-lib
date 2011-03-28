@@ -33,7 +33,7 @@ Fx3D{
 			alphahi: 7,
 			sizelo: 8,
 			sizehi: 9,
-			scale: 10
+			param: 10
 		);
 		
 	}
@@ -45,6 +45,7 @@ Fx3D{
 	init{
 		opts = FxOptions();
 		opts.fxapp = "/Users/alo/Development/Fx3D/Visual/build/Release/fx.app";
+		opts.debugapp = "/Users/alo/Development/Fx3D/Visual/build/Debug/fx.app";
 		vaddr = NetAddr(opts.fxip, opts.fxport);
 		invalues = Event();
 		visualdict = Event();
@@ -472,8 +473,14 @@ Fx3D{
 		perfGui = FxPerformanceGUI(this, numZones)
 	}
 	
-	startFx{
-		("open" + opts.fxapp).unixCmd;
+	startFx{|debug=false|
+		if (debug) 
+		{
+			("open" + opts.debugapp).unixCmd;
+		}
+		{
+			("open" + opts.fxapp).unixCmd;
+		}
 	}
 	
 	wait{|numCycles=1|
@@ -666,12 +673,32 @@ FxOpenGL{
 		
 		font = Font("Lucida Grande", 9);
 	
-		window = Window(":--: OGL :--:", Rect(100, 400, 840, 400)).alpha_(0.95).front;
+		window = Window(":--: OGL :--:", Rect(100, 400, 870, 400), false).alpha_(0.95).front;
 		window.background = Color.black;
 		window.view.background = HiliteGradient(Color.black, Color.grey(0.4), \v, 256, 0.5);
 		
+		RoundButton(window, Rect(10, 10, 50, 20))
+			.font_(font.copy.size_(10))
+			.states_([
+				["start f(x)", Color.grey(0.8), Color.grey(0.2)], 
+				["quit f(x)", Color.green, Color.black]
+			])
+			.action_({|btn|
+				if (btn.value == 1) { fx.startFx } { fx.quitOpenGL }
+			});
+
+		RoundButton(window, Rect(10, 35, 50, 20))
+			.font_(font.copy.size_(10))
+			.states_([
+				["freeze", Color.grey(0.8), Color.grey(0.2)], 
+				["unfreeze", Color.green, Color.black]
+			])
+			.action_({|btn|
+				if (btn.value == 1) { fx.sendMsg("freeze", 1) } { fx.sendMsg("freeze", 0) }
+			});
+		
 		ptPanel = CompositeView(window,
-			Rect(5, 5, window.bounds.width - 10, window.bounds.height / 2 - 10)
+			Rect(65, 5, window.bounds.width - 70, window.bounds.height / 2 - 10)
 		);
 
 		button = Rect(5, 5, ptPanel.bounds.width / 10 - gap, 20);
@@ -701,7 +728,7 @@ FxOpenGL{
 					["gray", Color.grey(0.2), Color.grey], 
 					["blue", Color.grey(0.2), Color.blue], 
 					["green", Color.grey(0.2), Color.green],
-					["yellow", Color.grey(0.2), Color(1.0, 0.63, 0.0)],
+					["yellow", Color.grey(0.2), Color.yellow],
 					["purple", Color.grey(0.2), Color(0.53, 0.0, 0.77)]
 				])
 				.action_({|btn|
@@ -741,12 +768,13 @@ FxOpenGL{
 				slider.top + 10, slider.width, 20))
 				.font_(font)
 				.align_(\center)
-				.string_("0")
+				.string_("1")
 				.stringColor_(Color.new255(28, 134, 238));
 			SmoothSlider(ptPanel, slider.copy.left_(slider.left + slider.width + gap))
+				.value_(1)
 				.action_({|sld|
 					sd.string_(sld.value.round(0.01).asString);
-					fx.sendPatchCmd(patch, \scale, 0, sld.value, 0)
+					fx.sendPatchCmd(patch, \param, 0, sld.value, 0)
 				});
 
 			button.left = button.left + button.width + gap;

@@ -3,6 +3,7 @@ FxOptions{
 	var <>fxport = 7770;
 	var <>fxcmd = '/fx';
 	var <>fxapp = "/Users/alo/ScienceGallery/Fx/build/Release/Fx.app";
+	var <>debugapp = "/Users/alo/ScienceGallery/Fx/build/Debug/Fx.app";
 	var <>sendcmd = "/fx";
 	var <>filePath = "/Users/alo/sounds/simon_LIVE_SG_FINAL.aif";
 	var <>maxPartials = 60;

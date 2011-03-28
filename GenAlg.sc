@@ -1,6 +1,6 @@
 GA{
 	
-	var <size, <base, <numDigits, <geneCount, <population;
+	var <size, <base, <numDigits, <geneCount, <population, <>mutationRate = 0.01;
 	
 	*new{|size, base = 2, numDigits = 8, geneCount|
 		^super.newCopyArgs(size, base, numDigits, geneCount).init
@@ -12,18 +12,30 @@ GA{
 		})
 	}
 	
-	crossover{|chromo, chooseFunc|
-		var crossx, crosspoint;
-		crossx = chooseFunc.value(population);
-		if ((crossx != chromo).and(crossx.notNil))
-		{
-			crosspoint = chromo.size.rand;
-			population = population.add(
-				Chromosome(geneCount * numDigits, base, numDigits, geneCount,
-					chromo.copyTo(crosspoint - 1) ++ crossx.copyFrom(crosspoint)
-				).score_(1)
-			)
-		}
+	mutate{|code|
+		code.do({|dig, i|
+			var select;
+			if (mutationRate.coin) 
+			{ 
+				select = (0..base-1);
+				select.remove(code[i]);
+				code[i] = select.choose; 
+			}
+		})
+	}
+	
+	crossover{|chrA, chrB|
+		var points, point, off, code;
+		code = Array.newClear(chrA.code.size);
+		off = [true, false].choose;
+		points = Pseq(Array.rand(rrand(1, chrA.code.size / 4), 0, chrA.code.lastIndex), 1);
+		point = points.next;
+		chrA.code.do({|dg, i|
+			if (off) { code[i] = chrA.code[i] } { code[i] = chrB.code[i] };
+			if (i == point) { off = off.not; point = points.next }
+		});
+		this.mutate(code);
+		^code
 	}
 		
 	do{|func|
@@ -32,6 +44,10 @@ GA{
 	
 	select{|func|
 		^population.select(func)
+	}
+	
+	resetScores{
+		this.do(_.score_(0))
 	}
 	
 }
