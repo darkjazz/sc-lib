@@ -27,19 +27,20 @@ MikroAnalyzer{
 			Server.default.sync;
 			
 			SynthDef(\eventDetector, {|in, onsetth, lag, msgrate|
-				var input, onsets, chain, isOn, amp, off, local, mfcc, som, event;
+				var input, onsets, chain, isOn, amp, off, local, mfcc, som, event, slope;
 				input = In.ar(in);
 				RecordBuf.ar(input, recBuffer, loop: 0);
 				amp = Amplitude.kr(input, lag);
 				chain = FFT(LocalBuf(1024), input);
 				onsets = Onsets.kr(chain, onsetth);
-				off = amp < onsetth;
+				off = LagUD.kr(Trig.kr(amp < onsetth, lag), 0.01, 0.03);
 				local = LocalIn.kr;
 				SendReply.kr(local, '/event', onsets, 1);
 				SendReply.kr(1.0 - local, '/event', off, 0);
 				isOn = SetResetFF.kr(onsets, off);
 				LocalOut.kr(isOn);
 				mfcc = MFCC.kr(chain, numcoef);
+				slope = Slope.kr(mfcc).mean;
 				event = Impulse.kr(msgrate) * isOn;
 				som = SOMTrain.kr(somBuffer, mfcc, somsize, numdim, traindur, 
 					nhood, event, initweight);
@@ -54,14 +55,17 @@ MikroAnalyzer{
 					0, {
 						if (currentEvent.notNil)
 						{
-							currentEvent.setDuration(elapsedTime);
-							currentEvent.loadBuffer(recBuffer, offAction);
-							events = events.add(currentEvent);
+							if (currentEvent.amps.size > 0) 
+							{
+								currentEvent.setDuration(elapsedTime);
+								currentEvent.loadBuffer(recBuffer, offAction);
+								events = events.add(currentEvent)
+							};
 							currentEvent = nil;
 						}
 					},
 					1, {
-						currentEvent = MikroEvent(elapsedTime, somBuffer);
+						currentEvent = MikroEvent(elapsedTime);
 						onsetAction.value(elapsedTime, re, currentEvent);
 					},
 					2, {
@@ -135,11 +139,61 @@ MikroAnalyzer{
 	}
 	
 	saveEvents{
-		var file;
-		file = File(savePath ++ Date.getDate.stamp ++ ".events");
+		var file, path;
+		path = savePath ++ Date.getDate.stamp ++ ".events";
+		file = File(path, "wb");
+		file.putFloat(events.size.asFloat);
+		file.putFloat(maxdur);
+		file.putFloat(numcoef);
+		file.putChar($\n);
 		events.do({|event|
-			
-		})
+			file.putFloat(event.start);
+			file.putFloat(event.duration);
+			file.putFloat(event.amps.size.asFloat);
+			file.putChar($\n);
+			event.amps.do({|amp|
+				file.putFloat(amp[0]);
+				file.putFloat(amp[1]);
+				file.putChar($\n);
+			});
+			event.mfcs.do({|mfc|
+				file.putFloat(mfc[0]);
+				mfc[1].do({|coef| file.putFloat(coef) });
+				file.putChar($\n);
+			})
+		});
+		file.close;
+		("events saved to file " ++ path).inform;
+	}
+	
+	loadEvents{|path|
+		var file;
+		file = File(path, "rb");
+		events = Array.newClear(file.getFloat.asInt);
+		maxdur = file.getFloat;
+		numcoef = file.getFloat;
+		file.getChar;
+		events.size.do({|i|
+			var event, size, amps, mfcs;
+			event = MikroEvent(file.getFloat).duration_(file.getFloat);
+			size = file.getFloat.asInt;
+			file.getChar;
+			amps = Array.newClear(size);
+			size.do({|j|
+				amps[j] = [file.getFloat, file.getFloat];
+				file.getChar;
+			});
+			event.amps = amps;
+			mfcs = Array.newClear(size);
+			size.do({|j|
+				mfcs[j] = [file.getFloat, Array.fill(numcoef, { file.getFloat })];
+				file.getChar;
+			});
+			event.mfcs = mfcs;
+			events[i] = event
+		});
+		file.close;
+		("events loaded from file " ++ path).inform;
 	}
 	
 	visualize{
@@ -154,8 +208,12 @@ MikroAnalyzer{
 		ampview = UserView(window, Rect(10, 200, 1000, 90))
 			.drawFunc_({
 				events.do({|event|
+					var xc = event.start.linlin(0, totaldur, 0, 1000).asInt;
+					Pen.color = Color.yellow;
+					Pen.line(Point(xc,90), Point(xc,0));
+					Pen.stroke;
 					event.amps.do({|amp|
-						var xc = amp[0].linlin(0, totaldur, 0, 1000).asInt;
+						xc = amp[0].linlin(0, totaldur, 0, 1000).asInt;
 						Pen.color = Color.red;
 						Pen.line(Point(xc,90), Point(xc,90-(amp[1]**0.5*90)));
 						Pen.stroke;
@@ -191,7 +249,7 @@ MikroAnalyzer{
 
 MikroEvent{
 	
-	var <start, <duration, <amps, <mfcs, <buffer;
+	var <start, <>duration, <>amps, <>mfcs, <buffer;
 	
 	*new{|start|
 		^super.newCopyArgs(start).init
