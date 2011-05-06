@@ -16,8 +16,9 @@ PenDisplay{
 		font = Font("Verdana", 10);
 		if (window.isNil, {
 		window = SCWindow(rule.family.asString, 
-			Rect(200, 200, world.world.size*cellSize + 250, world.world.size*cellSize+200)).front;
-		window.view.background = Color.new(0.7, 0.73, 0.75 );
+			Rect(200, 200, world.size*cellSize + 250, world.sizey*cellSize+200)).front;
+//		window.view.background = Color.new(0.7, 0.73, 0.75 );
+		window.view.background = Color.black;
 		});
 		rules = SCPopUpMenu(window, Rect(10, 25, 90, 20))
 			.font_(font)

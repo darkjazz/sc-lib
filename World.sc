@@ -48,7 +48,7 @@ XCell{
 
 XWorld{
 
-	var <>world, <habitat, <>rule, <initial, <groupSize, <nGroups, <size;
+	var <>world, <habitat, <>rule, <initial, <groupSize, <nGroups, <size, <sizey;
 	var <data, <history, <>historySize, <>historyOn=false, <>alive = 0, <>active = 0;
 	var <generation = 1, <>statesx, <>statesy;
 	
@@ -56,10 +56,15 @@ XWorld{
 		^super.newCopyArgs(world, habitat, rule).init.setNeighborhood
 	}
 	
+	*newXY{|world, habitat, rule|
+		^super.newCopyArgs(world, habitat, rule).init.setRectNeighborhood
+	}
+	
 	init{
 		nGroups = 1;
 		groupSize = world.size;
 		size = world.size;
+		sizey = world[0].size;
 		rule.world_(this);
 		initial = Array.new;
 	}
@@ -96,6 +101,22 @@ XWorld{
 				});
 				this.addToStateX(row, i)
 			})			
+		})
+	}
+	
+	setRectNeighborhood{
+		habitat = Habitat(habitat.indices - 1);
+		world.do({|row, j|
+			row.do({|cell, i|
+				if (cell.state > rule.states[0], {
+					alive = alive + 1;
+					initial = initial.add([i, j, cell.state])
+				});
+				cell.n = Array.newClear(habitat.indices.size);
+				habitat.indices.do({|coords, ind|
+					cell.n.put(ind, world.wrapAt(i + coords[0]).wrapAt(j + coords[1]))
+				})
+			})
 		})
 	}
 	
@@ -140,6 +161,26 @@ XWorld{
 			)
 		}, {"Area has to be a Rect".inform; ^nil})	
 	}
+	
+	*newRandInAreaXY{|sizeX, sizeY, weights, habitat, area, rule|
+		if (area.isKindOf(Rect), {
+			if (area.left + area.width > (sizeX-1), {area.left = 0; area.width = sizeX-1});
+			if (area.top + area.height > (sizeY-1), {area.top = 0; area.height = sizeY-1});
+			^XWorld.newXY(
+				Array.fill(sizeX, {|i|
+					Array.fill(sizeY, {|j|
+						if (((i >= area.left).and(j >= area.top))
+								.and((i <= (area.left + area.width)).and(j <= (area.top + area.height))),
+								{XCell(rule.states.wchoose(weights), i, j)},
+								{XCell(rule.states[0], i, j)})
+					})
+				}),
+				habitat,
+				rule
+			)
+		}, {"Area has to be a Rect".inform; ^nil})	
+		
+	}
 		
 	*newSetCells{|size, cellStates, habitat, rule|
 	// cellStates is expected to be an array of arrays of [i, j, state]
@@ -156,6 +197,20 @@ XWorld{
 		^XWorld(wrld, habitat, rule);
 		
 	}
+	
+	*newSetCellsXY{|sizeX, sizeY, cellStates, habitat, rule|
+		var count = 0, wrld, obj;
+		wrld = Array.fill(sizeX, {|i|
+				Array.fill(sizeY, {|j|
+					XCell(rule.states[0], i, j).value_([-1, 1].choose)
+				})
+			});
+		cellStates.do({|arr, i|
+			wrld[arr[0]][arr[1]].state_(arr[2])
+		});
+		^XWorld.newXY(wrld, habitat, rule);
+		
+	}
 
 	*newRand2DContinuous{|size, habitat, rule|
 		^XWorld(
@@ -168,6 +223,18 @@ XWorld{
 			rule
 		)
 	}
+	
+	*newRand2DContinuousXY{|sizeX, sizeY, habitat, rule|
+		^XWorld.newXY(
+			Array.fill(sizeX, {|i|
+				Array.fill(sizeY, {|j|
+					XCell(rrand(0.0, 1.0), i, j).value_([-1, 1].choose).setHistory
+				})
+			}),
+			habitat, 
+			rule
+		)
+	}	
 	
 	reset{
 		world.do({|row, i|

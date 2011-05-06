@@ -1,9 +1,9 @@
 MikroComposer{
-	
-	var analyzer;
-	
-	*new{|analyzer|
-		^super.newCopyArgs(analyzer).init
+		
+	var events;
+		
+	*new{|events|
+		^super.newCopyArgs(events).init
 	}
 	
 	
