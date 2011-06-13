@@ -1,15 +1,15 @@
 MikroAnalyzer{
 
-	var maxdur, numcoef;
+	var <maxdur, <numcoef, recordInput;
 	var eventResponder, <recBuffer, <events, <synth, <krbus;
-	var eventOn = false, currentEvent;
+	var eventOn = false, <currentEvent, onsetResponder, <currentPitch;
 	var eventResponderFunctions, <elapsedTime, startTime;
-	var <>onsetAction, <>offAction, timeStamp;
+	var <>onsetAction, <>offAction, timeStamp, <>runningOnsetAction;
 	
 	var savePath = "/Users/alo/Data/mikro/";
 	
-	*new{|maxdur=60, numcoef=8|
-		^super.newCopyArgs(maxdur, numcoef).init
+	*new{|maxdur=60, numcoef=8, recordInput=true|
+		^super.newCopyArgs(maxdur, numcoef, recordInput).init
 	}
 	
 	init{
@@ -18,22 +18,31 @@ MikroAnalyzer{
 		
 		fork{
 			
-			recBuffer = Buffer.alloc(Server.default, maxdur * Server.default.sampleRate);
+			if (recordInput)
+			{
+				recBuffer = Buffer.alloc(Server.default, maxdur * Server.default.sampleRate)
+			};
+			
 			events = Array();
 			
 			Server.default.sync;
 									
 			SynthDef(\eventDetector, {|krout, in, onsetth, lag, msgrate|
-				var input, onsets, chain, isOn, amp, off, local, mfcc, event, flat;
+				var input, onsets, chain, isOn, amp, off, local, mfcc, event, flat, pch;
 				input = In.ar(in);
-				RecordBuf.ar(input, recBuffer, loop: 0);
+				if (recordInput) {
+					RecordBuf.ar(input, recBuffer, loop: 0);
+				};
 				amp = Amplitude.kr(input, lag);
+				pch = Pitch.kr(input).at(0);
 				chain = FFT(LocalBuf(1024), input);
 				onsets = Onsets.kr(chain, onsetth);
 				mfcc = MFCC.kr(chain, numcoef);
 				flat = SpecFlatness.kr(chain);
 				off = LagUD.kr(Trig.kr(amp < onsetth, lag), 0.01, 0.02);
+//				off = off + CheckBadValues.kr(flat); //InRange.kr(mfcc.mean, 0.25, 0.25);
 				local = LocalIn.kr;
+				SendReply.kr(Onsets.kr(chain, -40.dbamp), '/onsets', amp);
 				SendReply.kr(local, '/event', onsets, 1);
 				SendReply.kr(1.0 - local, '/event', off, 0);
 				isOn = SetResetFF.kr(onsets, off);
@@ -42,6 +51,7 @@ MikroAnalyzer{
 				SendReply.kr(event, '/event', amp, 2);
 				SendReply.kr(event, '/event', mfcc, 3);
 				SendReply.kr(event, '/event', flat, 4);
+				SendReply.kr(event, '/event', pch, 5);
 				Out.kr(krout, [event, onsets, off, flat]);
 			}).add;
 						
@@ -54,11 +64,15 @@ MikroAnalyzer{
 							if (currentEvent.amps.size > 0) 
 							{
 								currentEvent.setDuration(elapsedTime);
-								currentEvent.loadBuffer(recBuffer, offAction);
+								if (recordInput)
+								{
+									currentEvent.loadBuffer(recBuffer, offAction)
+								};
 								events = events.add(currentEvent)
 							};
 							currentEvent = nil;
-						}
+						};
+						offAction.value(elapsedTime, re, this)
 					},
 					1, {
 						currentEvent = MikroEvent(elapsedTime);
@@ -81,15 +95,45 @@ MikroAnalyzer{
 						{
 							currentEvent.addFlat([elapsedTime, ms[3]])
 						}
+					},
+					5, {
+						currentPitch = ms[3];
+						if (currentEvent.notNil)
+						{
+							currentEvent.addFreq([elapsedTime, ms[3]])
+						}
 					}
 				);
 				
+				if (elapsedTime > maxdur) {
+					currentEvent = nil;
+					eventResponder.action = {|ti, re, ms|
+						elapsedTime = ti - startTime;
+						ms[2].switch(
+							0, {
+								offAction.value(elapsedTime, re, this)
+							},
+							1, {
+								onsetAction.value(elapsedTime, re, events[events.lastIndex])
+							}
+						);
+						eventResponderFunctions.do({|func|
+							func.value(elapsedTime, re, ms, this)
+						});
+						
+					};
+				};
+				
 				eventResponderFunctions.do({|func|
-					func.value(elapsedTime, re, ms)
+					func.value(elapsedTime, re, ms, this)
 				});
 			});
 			
 			eventResponderFunctions = ();
+			
+			onsetResponder = OSCresponderNode(Server.default.addr, '/onsets', {|ti, re, ms|
+				runningOnsetAction.value(ti, re, ms)
+			});
 						
 		}
 
@@ -109,6 +153,11 @@ MikroAnalyzer{
 			\lag, lag, \msgrate, msgrate], target, addAction);
 		startTime = AppClock.seconds;
 		eventResponder.add;
+		onsetResponder.add;
+	}
+	
+	set{|name, value|
+		
 	}
 	
 	free{
@@ -116,6 +165,8 @@ MikroAnalyzer{
 		synth = nil;
 		eventResponder.remove;
 		eventResponderFunctions.clear;
+		onsetResponder.remove;
+		runningOnsetAction = nil;
 	}
 	
 	writeRecBuffer{|path|
@@ -125,6 +176,17 @@ MikroAnalyzer{
 				path ? (thisProcess.platform.recordingsDir +/+ "mikroInput_" ++ timeStamp ++ ".aif")
 			)
 		}
+	}
+	
+	eventIntervals{
+		var intervals;
+		intervals = Array();
+		if (events.size > 1) {	
+			events.doAdjacentPairs({|evA, evB|
+				intervals = intervals.add(evB.start - evA.start)
+			})
+		}
+		^intervals
 	}
 	
 	saveEvents{
@@ -154,6 +216,11 @@ MikroAnalyzer{
 				file.putFloat(flt[0]);
 				file.putFloat(flt[1]);
 				file.putChar($\n);
+			});
+			event.frqs.do({|frq|
+				file.putFloat(frq[0]);
+				file.putFloat(frq[1]);
+				file.putChar($\n);
 			})
 		});
 		file.close;
@@ -168,7 +235,7 @@ MikroAnalyzer{
 		numcoef = file.getFloat;
 		file.getChar;
 		events.size.do({|i|
-			var event, size, amps, mfcs, flts;
+			var event, size, amps, mfcs, flts, frqs;
 			event = MikroEvent(file.getFloat).duration_(file.getFloat);
 			size = file.getFloat.asInt;
 			file.getChar;
@@ -188,7 +255,13 @@ MikroAnalyzer{
 				flts[j] = [file.getFloat, file.getFloat];
 				file.getChar;
 			});
-			event.flts = flts;			
+			event.flts = flts;
+			frqs = Array.newClear(size);
+			size.do({|j|
+				frqs[j] = [file.getFloat, file.getFloat];
+				file.getChar;
+			});
+			event.frqs = frqs;
 			events[i] = event
 		});
 		file.close;
@@ -248,7 +321,8 @@ MikroAnalyzer{
 
 MikroEvent{
 	
-	var <start, <>duration, <>amps, <>mfcs, <>flts, <buffer, <ampBuffer;
+	var <start, <>duration, <>amps, <>mfcs, <>flts, <>frqs, <buffer; 
+	var <ampBuffer, <specFlatBuffer, <mfccBuffer, <atsFile;
 	
 	*new{|start|
 		^super.newCopyArgs(start).init
@@ -258,6 +332,7 @@ MikroEvent{
 		amps = Array();
 		mfcs = Array();
 		flts = Array();
+		frqs = Array();
 	}
 	
 	addAmp{|amp|
@@ -270,6 +345,10 @@ MikroEvent{
 	
 	addFlat{|flat|
 		flts = flts.add(flat)
+	}
+	
+	addFreq{|freq|
+		frqs = frqs.add(freq)
 	}
 		
 	setDuration{|time|
@@ -295,8 +374,42 @@ MikroEvent{
 		ampBuffer = Buffer.loadCollection(Server.default, amps.collect(_.at(1)), action: doneAction)
 	}
 	
-	ampsToEnv{|maxseg=8|
+	loadSpecFlatnessBuffer{|doneAction|
+		specFlatBuffer = Buffer.loadCollection(Server.default, flts.collect(_.at(1)), action: doneAction)
+	}
+	
+	loadMFCCBuffer{|doneAction|
+		var numChan = mfcs.first.last.size;
+		mfccBuffer = Buffer.loadCollection(Server.default, mfcs.collect(_.at(1)).flat, numChan, doneAction )
+	}
+	
+	ampsToEnv{|maxseg=8, curve = 'lin', fix = false, normalize = false|
+		var levels, times;
+		levels = amps.collect(_.at(1));
+		if (amps.size > maxseg) { 
+			levels = levels.clump((amps.size / maxseg).floor).collect(_.mean) 
+		};
+
+		if (normalize) { levels.normalize(0.0, 1.0) };
 		
+		if (fix) { levels = [0.0] ++ levels ++ [0.0] };
+		
+		^Env(levels, levels.lastIndex.reciprocal ! levels.lastIndex, curve)
+		
+	}
+	
+	specFlatnessToEnv{|maxseg=8, curve = 'lin'|
+		var levels, times;
+		levels = flts.collect(_.at(1));
+		if (flts.size > maxseg) { 
+			levels = levels.clump((flts.size / maxseg).floor).collect(_.mean) 
+		};
+				
+		^Env(levels, levels.lastIndex.reciprocal ! levels.lastIndex, curve)
+	}
+		
+	bufferToAts{
+		BufferToAts(buffer).convert({|ats| atsFile = ats })
 	}
 	
 }

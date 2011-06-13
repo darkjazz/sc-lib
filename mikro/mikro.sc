@@ -1,36 +1,33 @@
 Mikro{
 	
-	var <remote, liveInput, <decoder, recorderBuffers, <inputBuffers, <intervals, inputBus, group, gui, <input;
-	var <somDict, <testBuffers, input, <bpm = 140, quant, <>qround = 0.001, <mfccSynth, <>inputGate = 0.01;
-	var <recorder, recResponder, bmuResponder, mfccResponder, <server, recorderArgs, bmu, distSlope, vecSlope;
-	var <bmuFunctions, addingBuffer = false, lastTime = 0, <liveProcs, <bufProcs, <liveProcDict, <bufProcDict; 
-	var <>procPath = "/Users/alo/Development/mikroStruktObjC/audio/", <activeLiveSynths, <activeBufSynths, <synthLimit = 6; 
-	var <vecSlopeTh = 0.2, <distSlopeTh = 7, actions, <defEvents, <lastDefEvent, lastLiveSynth, synthSeq = 0;
-	var <regions, <>regionMap, lastRegion, recorderRout, >ixamp = 1.0, >imamp = 1.0, <>seqActive = false;
-	var <>liveProcFile = "mikroPROClive.rtf", <>bufProcFile = "mikroPROCbuf.rtf";
+	var <liveInput, <decoder, <graphics, <analyzer;
+	var <inputBus, <group, <gui, <input, <server;
+	var <testBuffers, >ixamp = 1.0, >imamp = 1.0, irout;
+	var <currentPatch, <>patchChangeAction;
 	
-	*new{|remoteAddr, liveInput, decoder|
-		^super.newCopyArgs(remoteAddr, liveInput, decoder).init
+	var testBufferPath = "/Users/alo/sounds/eclambone_samples/*";
+	
+	*new{|liveInput, decoder, graphics, duration, nCoef|
+		^super.newCopyArgs(liveInput, decoder, graphics).init(duration, nCoef)
 	}
 	
-	init{
+	init{|duration, nCoef|
 		server = Server.default;
-		remote = remote ? NetAddr("127.0.0.1", 7770);
-		vecSlope = 0;
-		distSlope = 0;
-		intervals = MarkovSet();
-		defEvents = MarkovSet();
-		quant = (60/bpm/4).round(qround);
-		liveProcs = (procPath ++ liveProcFile).load;
-		bufProcs = (procPath ++ bufProcFile).load;
-		activeLiveSynths = Event();
-		activeBufSynths = Event();
-		actions = (
-			startSynth: (order: 0, weight: 0.1),
-			setParams: (order: 1, weight: 0.8),
-			freeSynth: (order: 2, weight: 0.1)
-		);
 		this.sendSynthDefs;
+		
+		graphics = graphics ? MikroGraphics(
+			width: 800,
+			height: 600,
+			sizeX: 40,
+			sizeY: 40,
+			frameRate: 30,
+			remoteAddr: NetAddr("127.0.0.1", 7770),
+			vectorSize: nCoef,
+			trainDur: 5000,
+			lRate: 0.1
+		);
+		
+		analyzer = MikroAnalyzer(duration, nCoef);
 	}
 	
 	sendSynthDefs{		
@@ -45,42 +42,8 @@ Mikro{
 			});
 			#w, x, y, z = A2B.ar(a, b, c, d);
 			Out.ar(main, AtkRotateXYZ.ar(w, x, y, z, xang, yang, zang) * mamp);
-		}).add;
+		}).add;		
 
-		SynthDef(\recorder, {|in, th, recEnabled, lag, time|
-			var input, amprate, amptrig, timer, bufindex, bufnums, detected, sampleCounter;
-			bufnums = ArrayControl.kr(\bufnums, 5, {|i| i });
-			input = In.ar(in);
-			amprate = Slope.ar(Lag2.ar(Amplitude.ar(input), lag));
-			amptrig = amprate > th;
-			timer = Timer.kr(A2K.kr(amptrig));
-			detected = timer >= time;
-			bufindex = Stepper.kr(detected, min: 0, max: 4);
-			sampleCounter = Phasor.kr(
-				DelayN.kr(detected, 1/ControlRate.ir, 1/ControlRate.ir), 64, 0, 
-					SampleRate.ir * 5 - 1, 0 );
-			RecordBuf.ar(input, Select.kr(bufindex, bufnums), run: amptrig * recEnabled, 
-				loop: 0.0, trigger: detected);
-			SendReply.kr(detected, '/timer', [timer, bufindex, sampleCounter]);
-		}).add;
-		
-		liveProcDict = Array();
-		
-		liveProcs.keysValuesDo({|name, proc|
-			liveProcDict = liveProcDict.add(name);
-			proc.def.add
-		});
-		
-		bufProcDict = Array();
-		
-		bufProcs.keysValuesDo({|name, proc|
-			bufProcDict = bufProcDict.add(name);
-			proc.def.add
-		});
-
-	}
-	
-	loadTestBuffers{|testPath|
 		SynthDef(\inputbuf, {|main, aux, xamp, mamp, xang, yang, zang, maxdel, buf|
 			var sig, a, b, c, d, w, x, y, z, del, shift;
 			sig = PlayBuf.ar(1, buf, doneAction: 2);
@@ -93,415 +56,131 @@ Mikro{
 			#w, x, y, z = A2B.ar(a, b, c, d);
 			Out.ar(main, AtkRotateXYZ.ar(w, x, y, z, xang, yang, zang) * mamp);
 		}).add;		
+
+	}
+	
+	loadTestBuffers{|action|
+		
+		gui.post("loading test buffers...");
 		
 		testBuffers = Array();
 		
 		Routine({
 		
-			testPath.pathMatch.do({|path|
+			testBufferPath.pathMatch.do({|path|
 				testBuffers = testBuffers.add(Buffer.read(server, path));
 				server.sync;
 			});
+						
+			gui.post("test buffers loaded");
 			
-			gui.post("test buffers loaded")
+			action.value
 		
 		}).play
 		
 	}
 	
-	initPerformance{|xamp = 1.0, mamp = 1.0|
+	initPerformance{|xamp = 1.0, mamp = 1.0, debug = 1|
 		inputBus = Bus.audio(server);
 		group = Group();
 		decoder.start(group, \addAfter);
 		ixamp = xamp;
 		imamp = mamp;
 		
-		regionMap = #[
-			bufplay,bufplay,tyhi,rwarp,
-			bufplay,bufplay,rwarp,tyhi,
-			swarp,swarp,bufmod,bufmod,
-			swarp,swarp,bufmod,bufmod
-		];
-		
 		if (liveInput)
 		{
-			input = Synth.before(group, \inputlive, [\main, decoder.bus, \aux, inputBus, \xamp, 1.0, 
-				\mamp, 1.0, \xang, 0.0, \yang, 0.0, \zang, 0.0, \maxdel, 0.1])
+			input = Synth.before(group, \inputlive, [\main, decoder.bus, \aux, inputBus, \xamp, ixamp, 
+				\mamp, imamp, \xang, 0.0, \yang, 0.0, \zang, 0.0, \maxdel, 0.1])
 				.setn(\delays, Array.geom(4, 0.01, 1.618))
-				.setn(\shifts, Array.geom(4, 36/35, 35/36))
+				.setn(\shifts, Array.geom(4, 36/35, 35/36));
+			
 		}
 		{
-			input = Routine({
-				inf.do({
-					testBuffers.scramble.do({|buf|
-						var dur;
-						dur = buf.numFrames / buf.sampleRate;
-						Synth.before(group, \inputbuf, [\main, decoder.bus, \aux, inputBus, \xamp, ixamp,
-						 	\mamp, imamp, \xang, 0.0, \yang, 0.0, \zang, 0.0, \maxdel, 0.1, \buf, buf])
-							.setn(\delays, Array.geom(4, 0.01, 1.618))
-							.setn(\shifts, Array.geom(4, 36/35, 35/36));
-						dur.wait;
-					})
-				})				
-			}).play	
+			this.loadTestBuffers({
+				irout = Routine({
+					inf.do({
+						testBuffers.scramble.do({|buf|
+							var dur;
+							dur = buf.numFrames / buf.sampleRate;
+							input = Synth.before(group, \inputbuf, [\main, decoder.bus, \aux, inputBus, \xamp, ixamp,
+							 	\mamp, imamp, \xang, 0.0, \yang, 0.0, \zang, 0.0, \maxdel, 0.1, \buf, buf])
+								.setn(\delays, Array.geom(4, 0.01, 1.618))
+								.setn(\shifts, Array.geom(4, 36/35, 35/36));
+							currentPatch = buf.path.basename.split($.).first.keep(6).asSymbol;
+							patchChangeAction.value(currentPatch);
+							dur.wait;
+						})
+					})				
+				})
+			})
 		};
+
+		graphics.start(debug);
+									
+		gui.post("performance initialised");	
+
 		
-		gui.post("performance initialised");
+	}
+	
+	start{|onsetGate, lag, msgRate|
+		analyzer.start(inputBus, group, \addToHead, onsetGate, lag, msgRate);
 		
+		analyzer.putEventResponderFunction(\sendWeights, {|time, re, ms|
+			if (ms[2] == 3) {
+				 graphics.sendWeights(*ms[3..analyzer.numcoef+2])
+			}
+		});
+		
+		if (liveInput.not) { irout.play }
+	}
+	
+	stop{
+		analyzer.free;
+		this.freeInput;
+	}
+	
+	quit{
+		group.free;
+		graphics.quit;
+		decoder.free		
 	}
 	
 	freeInput{
-		group.free;
 		if (liveInput)
 		{
 			input.free;
-			input = nil
 		}
 		{
-			input.stop;
-			input = nil
+			irout.stop;
 		}
 	}
 	
-	addBmuFunction{|key, func|
-		if (bmuFunctions.isNil) { bmuFunctions = () };
-		bmuFunctions[key] = func;
-	}
-	
-	removeBmuFunction{|key|
-		bmuFunctions[key] = nil
-	}
-	
-	clearBmuFunctions{
-		bmuFunctions.clear
-	}
-	
-	startMFCC{
-		
-		remote.sendMsg("/som/zoom", -49);
-				
-		mfccResponder = OSCresponderNode(server.addr, '/mfcc', {|ti, re, ms|
-			remote.sendMsg(*(["/som/vector"] ++ ms[3..8]))
-		}).add;
-		
-		bmuResponder = OSCresponderNode(nil, '/som/bmu', {|ti, re, ms| 
-			distSlope = ((bmu.x - ms[1]).squared + (bmu.y - ms[2]).squared).sqrt;
-			vecSlope = (bmu.vector - ms[3..8]).squared.sum.sqrt;
-			bmuFunctions.do(_.value(bmu, distSlope, vecSlope, intervals));
-			bmu.x = ms[1];
-			bmu.y = ms[2];
-			bmu.vector = ms[3..8];
-		}).add;
-		
-		mfccSynth = Synth.head(group, \mfcc, [\in, inputBus, \th, inputGate]);
-		
-		this.addBmuFunction(\generic, {|abmu, dslope, vslope, intr|
-			if (distSlope > distSlopeTh)
-			{
-				this.readRegion;
-			};
-			if (vecSlope > vecSlopeTh)
-			{				
-				this.readRegion
-			}
-		});
-		
-		lastDefEvent = regionMap[this.bmuRegionIndex]
-		
-	}
-	
-	stopMFCC{
-		
-		mfccResponder.remove;
-		mfccResponder = nil;
-		bmuResponder.remove;
-		bmuResponder = nil;
-		mfccSynth.free;
-		mfccSynth = nil;
-		this.removeBmuFunction(\generic);
-	}
-	
-	readRegion{
-		var newDefEvent;
-		newDefEvent = regionMap[this.bmuRegionIndex];
-		Post << "updating events chain: " << [lastDefEvent, regionMap[this.bmuRegionIndex]] << Char.nl;
-		defEvents.read(lastDefEvent, newDefEvent);
-		lastDefEvent = newDefEvent;
-	}
-
-	initSOM{|somSizeX, somSizeY, somVectorSize, somTrainDur, somLearningRate|
-		
-		somDict = (
-			sizeX: somSizeX,
-			sizeY: somSizeY,
-			vectorSize: somVectorSize,
-			trainDur: somTrainDur,
-			learningRate: somLearningRate
-		);		
-		bmu = (
-			x: 0,
-			y: 0,
-			vector: (0!somVectorSize)
-		);	
-		
-		regions = Array();
-		
-		forBy(somSizeX / 4 - 1, somSizeX, somSizeX / 4, {|valx, i|
-			forBy(somSizeY / 4 - 1, somSizeY, somSizeY / 4, {|valy, j|
-				regions = regions.add(
-					(
-						xa: valy - (somSizeY / 4) - 1,
-						xb: valy,
-						ya: valx - (somSizeX / 4) - 1, 
-						yb: valx
-					)
-				)
-			})
-		});
-
-		SynthDef(\mfcc, {|in, th|
-			var input, fft, mfcc, onsets;
-			input = In.ar(in);
-			fft = FFT(LocalBuf(1024), input);
-			onsets = Onsets.kr(fft, th);
-			mfcc = MFCC.kr(fft, somDict.vectorSize - 1);
-			SendReply.kr(onsets, '/mfcc', mfcc ++ [SpecFlatness.kr(fft)] );
-		}).add;
-
-		remote.sendMsg("/som/init", somDict.trainDur, somDict.sizeX, somDict.sizeY, 
-			somDict.learningRate);
-			
-		gui.post("SOM ready");
-	}
-	
-	startSOM{|appPath| ("open" + appPath).unixCmd }
-	
-	quitSOM{ 	remote.sendMsg("/som/quit", 0) }	
-	
-	bmuRegionIndex{
-		^regions.selectIndices({|reg| 
-			(bmu.x >= reg.xa).and(bmu.x <= reg.xb).and(bmu.y >= reg.ya).and(bmu.y <= reg.yb )
-		}).at(0)
-	}
-	
-	startRecorder{|threshold = 0.1, lag = 0.1, recEnabled = 1.0, time = 0.2 |
-		Routine({
-			if (recorderBuffers.isNil)
-			{
-				recorderBuffers = ({|i| Buffer.alloc(server, server.sampleRate * 6) } ! 5);
-				server.sync
-			};
-			if (recorderArgs.isNil)
-			{
-				recorderArgs = (
-					th: threshold,
-					lag: lag,
-					recEnabled: recEnabled,
-					time: time
-				)	
-			};
-			recorder = Synth.head(group, \recorder, [\in, inputBus] ++ recorderArgs.asKeyValuePairs)
-				.setn(\bufnums, recorderBuffers.collect(_.bufnum));
-			server.sync;
-			recResponder = OSCresponderNode(server.addr, '/timer', {|ti, re, ms|
-				var buf;
-				if ((ms[5] < (server.sampleRate * 5)).and(ms[5] - (server.sampleRate * recorderArgs.time) > 0))
-				{
-					addingBuffer = true;
-					if ((lastTime > 0).and(lastTime < 1).and(ms[3].round(quant) < 1))
-					{
-						intervals.read(lastTime, ms[3].round(quant))
-					};
-					lastTime = ms[3].round(quant);
-					Routine({
-						buf = Buffer.alloc(server, 
-							ms[5] - (server.sampleRate * recorderArgs.time));
-						server.sync;
-						recorderBuffers[(ms[4] - 1).wrap(0, 4)].copyData(buf, 0, 0, buf.numFrames);
-						server.sync;
-						if (inputBuffers.isNil) { inputBuffers = Array() };
-						inputBuffers = inputBuffers.add(buf);
-						addingBuffer = false;
-						Post << "added buffer dur:" << (buf.numFrames / buf.sampleRate) << Char.nl;
-					}).play;
-					
-					if ((synthSeq < 4).and(seqActive))
-					{
-						this.startBufSynthSequence([2, 3, 5, 8].choose)
-					}
-				}
-				
-			}).add
-		}).play
-	}
-	
-	stopRecorder{
-		recResponder.remove;
-		recResponder = nil;
-		recorder.free;
-		recorder = nil;
-		recorderBuffers.do(_.zero);
-	}
-	
-	startSynth{
-		var defEvent;
-		if (activeLiveSynths.size + activeBufSynths.size < synthLimit )
-		{
-			defEvent = defEvents.next(lastDefEvent) ? lastDefEvent;
-			if (this.isLiveSynth(defEvent))
-			{
-				this.startLiveSynth(defEvent, Env([0, 1, 1, 0], [0.1, 0.4, 0.5], \sine, 2, 1) )
-			}
-			{
-				this.startBufSynth(defEvent, Env([0, 1, 1, 0], [0.1, 0.4, 0.5], \sine, 2, 1), 
-					inputBuffers.wchoose(Array.geom(inputBuffers.size, 1.0, 1.107).normalizeSum ))
-			}
-		}
-	}
-	
-	isLiveSynth{|key|
-		^liveProcs.includesKey(key)
-	}
-	
-	startLiveSynth{|key, env|
-		var abmu, params, proc, synth;
-		env = env ? Env([0, 1, 1, 0], [0.3, 0.4, 0.3]);
-		abmu = bmu.vector ? Array.rand(somDict.vectorSize, 0.0, 1.0);
-		abmu = Pseq(abmu.clip(0.0, 1.0), inf).asStream;
-		proc = liveProcs[key];
-		params = [\out, decoder.bus, \in, inputBus];
-		params = params ++	proc.specs.collect({|spec| spec.map(abmu.next) }).asKeyValuePairs;
-		synth = Synth.tail(group, key, params).setn(\env, env.asArray);
-		if (proc.includesKey('setn')) {
-			proc.setn.keysValuesDo({|key, val|
-				synth.setn(key, 
-					if (val.curve == \exp) 
-						{ Array.geom(val['size'], val['start'], val['step']) }
-						{ Array.series(val['size'], val['start'], val['step']) } 
-				)
-			});
-		};
-		activeLiveSynths[synth.nodeID.asSymbol] = synth;
-		^synth.nodeID
-	}
-	
-	startBufSynthSequence{|length = 1|
-		var defEvent, interval, bufs;
-		defEvent = lastDefEvent;
-		interval = lastTime;
-		bufs = Pstutter(
-			Pwhite(5, 8), 
-			Pseq(
-				Array.fill(length, { 
-					inputBuffers.wchoose((0..inputBuffers.size).normalizeSum) 
-				}), 
-				inf
-			)
-		).asStream;
-		Routine({
-			synthSeq = synthSeq + 1;
-			length.do({|i|
-				this.startBufSynth(defEvent, Env([0.001, 1.0, 1.0, 0.001], [0.1, 0.5, 0.4], \sine), 
-					bufs.next, bufs.next, interval * [2, 4, 8].choose, (1..4).choose);
-				interval.wait;
-				interval = intervals.next(interval) ? interval;
-				defEvent = defEvents.next(defEvent);
-			});
-			synthSeq = synthSeq - 1;
-		}).play
-	}
-	
-	startBufSynth{|key, env, buffer, buffer2, dur, releaseTime = 1|
-		var abmu, params, proc, synth, bufm;
-		
-		Post << "starting synth: " << key << Char.nl;
-		
-		env = env ? Env([0, 1, 1, 0], [0.3, 0.4, 0.3]);
-		abmu = bmu.vector ? Array.rand(somDict.vectorSize, 0.0, 1.0);
-		abmu = Pseq(abmu.clip(0.0, 1.0), inf).asStream;
-		proc = bufProcs[key];
-		params = [\out, decoder.bus, \in, inputBus, \buf, buffer];
-		if (proc.def.name == \bufmod) { params = params ++ [\bufm, buffer2] };
-		params = params ++	proc.specs.collect({|spec| spec.map(abmu.next) }).asKeyValuePairs;
-		synth = Synth.tail(group, key, params).setn(\env, env.asArray);
-		if (proc.includesKey('setn')) {
-			proc.setn.keysValuesDo({|key, val|
-				synth.setn(key, 
-					if (val.curve == \exp) 
-						{ Array.geom(val['size'], val['start'], val['step']) }
-						{ Array.series(val['size'], val['start'], val['step']) } 
-				)
-			});	
-		};
-		if (proc.includesKey('array')) {
-			proc['array'].keysValuesDo({|key, val|
-				synth.setn(key, val)
-			})
-		};
-		
-		if (proc.includesKey('envs')) {
-			proc['envs'].keysValuesDo({|key, val|
-				synth.setn(key, val.value(abmu.next))
-			})
-		};
-		
-		SystemClock.sched(dur, {
-			synth.set(\gate, releaseTime.neg);
-			nil
-		})
-		
-	}
-		
-	freeSynth{|id, releaseTime = 1|
-		var weights;
-		if (id.isNil)
-		{
-			if (activeLiveSynths.size > activeBufSynths.size) {
-				weights = activeLiveSynths.keys(Array).asInt - 1000;
-				id = activeLiveSynths.keys(Array).wchoose(weights.reverse.normalizeSum);
-			}
-			{
-				weights = activeBufSynths.keys(Array).asInt - 1000;
-				id = activeBufSynths.keys(Array).wchoose(weights.reverse.normalizeSum);
-			}	
-		};
-		if (activeLiveSynths.includesKey(id.asSymbol))
-		{
-			activeLiveSynths[id.asSymbol].set(\gate, releaseTime.neg);
-			activeLiveSynths[id.asSymbol] = nil;
-		};
-		if (activeBufSynths.includesKey(id.asSymbol))
-		{
-			activeBufSynths[id.asSymbol].set(\gate, releaseTime.neg);
-			activeBufSynths[id.asSymbol] = nil;		
-		}
-	}
-		
-	setBPM{|value|
-		bpm = value;
-		quant = (60/bpm/4).round(qround)
-	}
-	
-	gui{
-		gui = MikroGui(this);
+	makeGui{|composer, actions|
+		gui = MikroGui(this, composer, actions);
 	}
 	
 }
 
 MikroGui{
 	
-	var mikro, window, postwin, postview, synthview, poststring, queryclock, ctrwin, ampspec, recth = 0.1; 
-	var gaptime = 0.2, freesynth, release;
+	var mikro, composer, actions, window, postwin, postview, synthview, poststring, queryclock, ctrwin, ampspec, recth; 
+	var lag = 0.05, lagspec, msgrate = 20, ratespec, freesynth, release, debug = 1, time, graphSliders, graphwin;
+	var addspec;
 	
-	*new{|mikro|
-		^super.newCopyArgs(mikro).init	
+	*new{|mikro, composer, actions|
+		^super.newCopyArgs(mikro, composer, actions).init
 	}
 	
 	init{
 		var font;
 		
 		font = Font("Lucida Grande", 9);
-		ampspec = ControlSpec(0.001, 1.0, \exp);
+		ampspec = ControlSpec(-80.dbamp, 0.dbamp, \exp);
+		lagspec = ControlSpec(0.01, 0.5, step: 0.01);
+		ratespec = ControlSpec(10, 30, step: 1);
+		addspec = CosineWarp(ControlSpec(0.001, 0.999));
+		
+		recth = -80.dbamp;
 		
 		window = Window("----<><><><><>----", Rect(200, 200, 600, 510)).alpha_(0.98).front;
 		window.background_(Color.grey(0.3));
@@ -510,40 +189,43 @@ MikroGui{
 		
 		RoundButton(ctrwin, Rect(5, 5, 60, 25))
 			.font_(font)
-			.states_([["som off", Color.yellow, Color.black], ["som on", Color.black, Color.yellow]])
+			.states_([[".debug.", Color.yellow, Color.black], ["!LIVE!", Color.black, Color.yellow]])
 			.action_({|btn|
-				if (btn.value == 1)
-				{
-					mikro.startSOM("/Users/alo/Development/som/visual/build/Debug/som.app")
-				}
-				{
-					mikro.quitSOM
-				}
+				if (btn.value == 1) { debug = 2 } { debug = 1 }
 			});
 			
 		RoundButton(ctrwin, Rect(5, 35, 60, 25))
 			.font_(font)
-			.states_([["init som", Color.yellow, Color.black], ["som on", Color.black, Color.yellow]])
+			.states_([["init", Color.yellow, Color.black], ["quit", Color.black, Color.yellow]])
 			.action_({|btn|
-				mikro.initSOM(40, 40, 6, 1000, 0.2)
+				if (btn.value == 1)
+				{
+					mikro.initPerformance(1.0, 1.0, debug)
+				}
+				{
+					mikro.quit
+				}
 			});
 			
 		RoundButton(ctrwin, Rect(5, 65, 60, 25))
 			.font_(font)
-			.states_([["init input", Color.yellow, Color.black], ["free input", Color.black, Color.yellow]])
+			.states_([["start", Color.yellow, Color.black], ["stop", Color.black, Color.yellow]])
 			.action_({|btn|
-				if (btn.value == 1)
-				{
-					mikro.initPerformance(1.0, 0.0)
+				if (btn.value == 1) {
+					mikro.start(recth, lag, msgrate);
+					time.start
 				}
 				{
-					mikro.freeInput
+					mikro.stop;
+					time.stop
+					
 				}
 			});
 
 		RoundButton(ctrwin, Rect(5, 95, 60, 25))
 			.font_(font)
 			.states_([["rec off", Color.yellow, Color.black], ["rec on", Color.black, Color.yellow]])
+			.enabled_(false)
 			.action_({|btn|
 				if (btn.value == 1)
 				{
@@ -557,6 +239,7 @@ MikroGui{
 		RoundButton(ctrwin, Rect(5, 125, 60, 25))
 			.font_(font)
 			.states_([["mfcc off", Color.yellow, Color.black], ["mfcc on", Color.black, Color.yellow]])
+			.enabled_(false)
 			.action_({|btn|
 				if (btn.value == 1)
 				{
@@ -570,6 +253,7 @@ MikroGui{
 		RoundButton(ctrwin, Rect(5, 155, 60, 25))
 			.font_(font)
 			.states_([["seq off", Color.yellow, Color.black], ["seq on", Color.black, Color.yellow]])
+			.enabled_(false)
 			.action_({|btn|
 				if (btn.value == 1)
 				{
@@ -583,6 +267,7 @@ MikroGui{
 		RoundButton(ctrwin, Rect(5, 185, 60, 25))
 			.font_(font)
 			.states_([["last buf", Color.yellow, Color.black]])
+			.enabled_(false)
 			.action_({|btn|
 				mikro.startBufSynth(\bufplay, Env([0.001, 1.0, 1.0, 0.001], [0.1, 0.5, 0.4], \sine), 
 					mikro.inputBuffers.last, mikro.inputBuffers.last, rrand(1, 4), 1);
@@ -638,11 +323,11 @@ MikroGui{
 
 		SmoothSlider(ctrwin, Rect(180, 5, 30, 200))
 			.stringColor_(Color.green)
-			.string_("-20(db)")
-			.value_(ampspec.unmap(0.1))
+			.string_("-80(db)")
+			.value_(ampspec.unmap(-80.dbamp))
 			.action_({|sl|
 				recth = ampspec.map(sl.value);
-				mikro.recorder.set(\th, recth);
+				mikro.analyzer.synth.set(\onsetth, recth);
 				sl.string_(recth.ampdb.round(1).asString ++ "(db)")
 			});
 
@@ -654,43 +339,54 @@ MikroGui{
 			
 		SmoothSlider(ctrwin, Rect(215, 5, 30, 200))
 			.stringColor_(Color.green)
-			.string_("0.2(s)")
-			.value_(0.2)
+			.string_("0.05(s)")
+			.value_(lagspec.unmap(lag))
 			.action_({|sl|
-				gaptime = sl.value;
-				mikro.recorder.set(\time, sl.value);
-				sl.string_(sl.value.round(0.01).asString ++ "(s)")
+				lag = lagspec.map(sl.value);
+				mikro.analyzer.synth.set(\lag, lag);
+				sl.string_(lag.round(0.01).asString ++ "(s)")
 			});
 
 		StaticText(ctrwin, Rect(215, 205, 30, 20))
 			.align_(\center)
 			.stringColor_(Color.grey(0.8))
 			.font_(font)
-			.string_("gap");
+			.string_("lag");
 
 		SmoothSlider(ctrwin, Rect(250, 5, 30, 200))
 			.stringColor_(Color.green)
-			.string_("0.01")
-			.value_(0.01)
+			.string_("20")
+			.value_(ratespec.unmap(msgrate))
 			.action_({|sl|
-				mikro.inputGate = sl.value.round(0.01);
-				mikro.mfccSynth.set(\th, sl.value.round(0.01));
-				sl.string_(sl.value.round(0.01).asString)
+				msgrate = ratespec.map(sl.value);
+				mikro.analyzer.synth.set(\msgrate, msgrate);
+				sl.string_(msgrate.asString)
 			});
 
 		StaticText(ctrwin, Rect(250, 205, 30, 20))
 			.align_(\center)
 			.stringColor_(Color.grey(0.8))
 			.font_(font)
-			.string_("mfcc");
+			.string_("rate");
 			
-		mikro.liveProcs.keys(Array).do({|def, i|
+		time = TimeDisplay(ctrwin, Rect(280, 5, 110, 20), 0, Font("Courier", 10)).background_(Color.clear);
+		
+		SmoothSlider(ctrwin, Rect(290, 30, 30, 170))
+			.stringColor_(Color.green)
+			.string_("0.995")
+			.value_(addspec.unmap(0.995))
+			.action_({|sl|
+				mikro.graphics.sendSetting(\add, addspec.map(sl.value));
+				sl.string_(addspec.map(sl.value).round(0.001).asString)
+			});		
+			
+		composer.liveProcs.keys(Array).do({|def, i|
 			RoundButton(ctrwin, Rect(i*60+5, 225, 60, 25))
 				.font_(font)
 				.states_([[def.asString, Color.yellow, Color.grey(0.2)]])
 				.action_({
 					var id;
-					id = mikro.startLiveSynth(def, Env([0, 1, 1, 0], [0.1, 0.4, 0.5], \sine, 2, 1));
+					id = composer.startLiveSynth(def, Env([0, 1, 1, 0], [0.1, 0.4, 0.5], \sine, 2, 1));
 					if (freesynth.items.size > 0)
 					{
 						freesynth.items = (Array.with(*freesynth.items) ++ [(def.asString ++ "(" ++ id ++ ")")]);
@@ -718,12 +414,64 @@ MikroGui{
 				var str, id, arr;
 				str = freesynth.items[freesynth.value];
 				id = str[(str.find("(")+1)..(str.find(")")-1)];
-				mikro.freeSynth(id, release.value);
+				composer.freeSynth(id, release.value);
 				arr = freesynth.items;
 				arr.remove(str);
 				freesynth.items = arr;
 			});
+			
+		PopUpMenu(ctrwin, Rect(110, 290, 100, 20))
+			.font_(font)
+			.items_(actions.collect(_.actionName))
+			.action_({|mnu|
+				actions[mnu.value].action.value
+			});
+			
+		graphwin = CompositeView(window, Rect(5, 365, 390, 120));
+		
+		graphwin.decorator = FlowLayout(graphwin.bounds, 3@3, 3@3);
+				
+		graphSliders = Array.newClear(mikro.graphics.numPatterns);
+		
+		mikro.graphics.numPatterns.do({|i|
+			RoundButton(graphwin, Rect(width: graphwin.bounds.width / mikro.graphics.numPatterns - 6, height: 20))
+				.font_(font)
+				.states_([["0%".format(i), Color.yellow, Color.black], ["0%".format(i), Color.black, Color.yellow]])
+				.action_({|btn|
+					if (btn.value == 1)
+					{
+						mikro.graphics.fadeInPattern(i, 1.0, 10);
+						Routine({
+							100.do({
+								graphSliders[i].value = graphSliders[i].value + 0.01;
+								0.1.wait;
+							})
+						}).play;
+					}
+					{
+						mikro.graphics.fadeOutPattern(i, 10);
+						Routine({
+							100.do({
+								graphSliders[i].value = graphSliders[i].value - 0.01;
+								0.1.wait;
+							})
+						}).play;
+					}
+				});
+				
+		});
 
+		mikro.graphics.numPatterns.do({|i|
+		
+			graphSliders.put(i, SmoothSlider(graphwin, 
+				Rect(width: graphwin.bounds.width / mikro.graphics.numPatterns - 6, height: 100))
+					.action_({|slider|
+						mikro.graphics.sendPattern(i, 1.0, slider.value)
+					})
+			)
+			
+		});
+		
 		postwin = CompositeView(window, Rect(400, 5, 195, 490));
 		StaticText(postwin, Rect(0, 0, 195, 20))
 			.font_(font)
@@ -742,8 +490,8 @@ MikroGui{
 		synthview = TextView(postwin, Rect(5, 260, 185, 220))
 			.background_(Color.grey(0.2))
 			.stringColor_(Color.grey(0.8))
-			.font_(font);	
-							
+			.font_(font);			
+									
 		window.drawHook = {
 			Pen.color = Color.grey(0.5); 
 			Pen.strokeRect(Rect(5, 5, 390, 490));

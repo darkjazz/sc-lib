@@ -17,7 +17,7 @@ FileToAts{
 		{
 			atscmd = BufferToAts.atsapath + path + 
 				(path.dirname ++ "/" ++ path.basename.split($.)[0] ++ ".ats");
-			atscmd.unixCmdThen({
+			atscmd.unixCmd({
 				("'" + atscmd + "' executed...proceeding to next file").postln;
 				this.process;
 			});

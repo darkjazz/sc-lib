@@ -75,6 +75,16 @@ MultiChannelCheck{
 			synth = Synth("check", [\buffer, buffer]).setn("outs", channels);		}.forkIfNeeded
 	}
 	
+	runAll{
+		{
+			if (buffer.isNil)
+			{
+				buffer = Buffer.read(server, "/Users/alo/sounds/fxchck.aif");
+				server.sync;
+			};
+			synth = Synth("check", [\buffer, buffer]).setn("outs", (0..numSpeakers-1));		}.forkIfNeeded		
+	}
+	
 	autorun{|offset = 0|
 		this.run;
 		autorout = Routine({
@@ -167,6 +177,18 @@ MultiChannelCheckGui{
 					channelcheck.autostop
 				})
 			});
+		RoundButton(win, Rect(360, 287, 50, 25))
+			.states_([["..|..", Color.black, Color.new255(184, 134, 11)], 
+				[".:|:.", Color.new255(184, 134, 11), Color.black]])
+			.action_({|btn|
+				if (btn.value == 1, {
+					channelcheck.runAll
+
+				}, {
+					channelcheck.stop
+				})
+			});
+			
 		fwd = RoundButton(win, Rect(65, 10, 50, 25))
 			.states_([[">>", Color.black, Color.new255(184, 134, 11)]])
 			.visible_(channelcheck.layers.size > 1)

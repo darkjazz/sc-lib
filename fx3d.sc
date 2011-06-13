@@ -492,6 +492,9 @@ Fx3D{
 FxPerformanceGUI{
 	
 	var fx, window, <panels, <zPanel, postwin, text = "", postview, synthview, mapFuncs, poststring, timer, tctr;
+	var bPanel, patfuncs;
+	
+	var patpath = "/Users/alo/Development/Fx3D/Audio/Live/patterns/*";
 	
 	*new{|fx, numZones|
 		^super.newCopyArgs(fx).init(numZones)
@@ -501,6 +504,8 @@ FxPerformanceGUI{
 		var font, npanels = 3;
 		
 		npanels = numZones ? npanels;
+		
+		patfuncs = Array.newClear(npanels);
 	
 		window = Window("_.f(x)L._", Rect(50, 50, 800, 510)).alpha_(0.95).front;
 		window.background = Color.black;
@@ -516,14 +521,14 @@ FxPerformanceGUI{
 		
 		zPanel.decorator = FlowLayout(zPanel.bounds, 5@5, 5@5);
 		
-		tctr = RoundButton(window, Rect(365, 10, 30, 20))
+		tctr = RoundButton(window, Rect(385, 10, 30, 20))
 			.font_(font)
 			.states_([["+", Color.grey(0.3), Color.black], ["-", Color.white, Color.black]])
 			.action_({|btn|
 				if (btn.value == 1) { timer.start } { timer.stop }
 			});
 		
-		timer = TimeDisplay(window, Rect(400, 5, 200, 50), font: Font("Helvetica", 30));
+		timer = TimeDisplay(window, Rect(420, 5, 180, 50), font: Font("Helvetica", 30));
 		timer.view.background = Color.clear;
 		timer.view.stringColor = Color.grey(0.6);
 		
@@ -553,6 +558,25 @@ FxPerformanceGUI{
 				.string_("zone " ++ i.asString);
 			panels[i].visible = false;
 			
+		});
+		
+		bPanel = CompositeView(window, Rect(240, 5, 110, 55));
+		
+		bPanel.decorator = FlowLayout(bPanel.bounds, 5@5, 5@5);
+		
+		npanels.do({|i|
+			Button(bPanel, Rect(width: 30, height: 20))
+				.font_(font)
+				.states_([[i.asString, Color.green, Color.grey(0.2)], [i.asString, Color.grey(0.2), Color.green ]])
+				.action_({|btn|
+					if (btn.value == 1) {
+						patfuncs[i] = patpath.pathMatch[i].load;
+					}
+					{
+						patfuncs[i].value;
+						patfuncs[i] = nil;
+					}
+				})
 		});
 		
 		postwin = CompositeView(window, Rect(600, 5, 195, 490));
@@ -669,7 +693,7 @@ FxOpenGL{
 	makeWindow{
 
 		var slider, label, button, gap = 5, font, weightSliders, settingValues, wspec, seedValues;
-		var seedspec, poll, seed = 0;
+		var seedspec, poll, seed = 0, settingSliders, settingTexts;
 		
 		font = Font("Lucida Grande", 9);
 	
@@ -684,7 +708,7 @@ FxOpenGL{
 				["quit f(x)", Color.green, Color.black]
 			])
 			.action_({|btn|
-				if (btn.value == 1) { fx.startFx } { fx.quitOpenGL }
+				if (btn.value == 1) { fx.startFx(true)} { fx.quitOpenGL }
 			});
 
 		RoundButton(window, Rect(10, 35, 50, 20))
@@ -695,6 +719,24 @@ FxOpenGL{
 			])
 			.action_({|btn|
 				if (btn.value == 1) { fx.sendMsg("freeze", 1) } { fx.sendMsg("freeze", 0) }
+			});
+		
+		RoundButton(window, Rect(10, 60, 50, 20))
+			.font_(font.copy.size_(10))
+			.states_([["sync", Color.grey(0.8), Color.grey(0.2)]])
+			.action_({
+				settingSliders.do({|slider, i|
+					var param;
+					param = fx.glOrder[i];
+					if (fx.visualdict.glSpecs[param].notNil)
+					{
+						slider.value = fx.visualdict.glSpecs[param].unmap(fx.visualdict.globals[param]);
+					}
+					{
+						slider.value = fx.visualdict.globals[param];
+					};
+					settingTexts[i].string_(fx.visualdict.globals[param].round(0.001).asString)
+				})
 			});
 		
 		ptPanel = CompositeView(window,
@@ -789,9 +831,11 @@ FxOpenGL{
 		);
 		
 		settingValues = Array.fill(fx.glOrder.size);
+		settingSliders = Array.newClear(fx.glOrder.size);
+		settingTexts = Array.newClear(fx.glOrder.size);
 					
 		fx.glOrder.do({|param, i|
-			var dsp, inval, val;
+			var inval, val;
 			if (fx.visualdict.glSpecs[param].notNil) {  
 				inval = fx.visualdict.glSpecs[param].unmap(fx.visualdict.globals[param]);
 				val = fx.visualdict.globals[param];
@@ -804,13 +848,15 @@ FxOpenGL{
 				.font_(font)
 				.stringColor_(Color.new255(255, 140, 0))
 				.string_(param.asString);
-			dsp = StaticText(glPanel, label.copy.top_(100))
+				
+			settingTexts.put(i, StaticText(glPanel, label.copy.top_(100))
 				.align_(\center)
 				.font_(font)
 				.stringColor_(Color.new255(28, 134, 238))
-				.string_(val.round(0.001).asString);
+				.string_(val.round(0.001).asString)
+			);
 			settingValues.put(i, fx.visualdict.globals[param]);
-			SmoothSlider(glPanel, slider)
+			settingSliders.put(i, SmoothSlider(glPanel, slider)
 				.value_(inval)
 				.action_({|sld|
 					if (fx.visualdict.glSpecs[param].notNil)
@@ -820,10 +866,11 @@ FxOpenGL{
 					{
 						val = sld.value;
 					};
-					dsp.string_(val.round(0.001).asString);
+					settingTexts[i].string_(val.round(0.001).asString);
 					settingValues.put(i, val);
 					fx.sendSettings(0, *settingValues)
-				});
+				})
+			);
 				
 			label.left = label.left + label.width + gap;
 			slider.left = slider.left + slider.width + gap;
