@@ -6,11 +6,11 @@ PenDisplay{
 	var fast, slow, rules;
 	var <>maxGens = inf, numAlive, display, statesx, statesy, <>drawFunc;
 	
-	*new{|world, rule, colors, cellSize=5, speed=0.2, window|
-		^super.newCopyArgs(world, rule, colors, cellSize, speed, window).init
+	*new{|world, rule, colors, cellSize=5, speed=0.2, window, bgc|
+		^super.newCopyArgs(world, rule, colors, cellSize, speed, window).init(bgc)
 	}
 	
-	init{
+	init{|background|
 		var font, items;
 		items = rule.family.rules.keys(Array).sort;
 		font = Font("Verdana", 10);
@@ -18,7 +18,7 @@ PenDisplay{
 		window = SCWindow(rule.family.asString, 
 			Rect(200, 200, world.size*cellSize + 250, world.sizey*cellSize+200)).front;
 //		window.view.background = Color.new(0.7, 0.73, 0.75 );
-		window.view.background = Color.black;
+		window.view.background = background ? Color.black;
 		});
 		rules = SCPopUpMenu(window, Rect(10, 25, 90, 20))
 			.font_(font)

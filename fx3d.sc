@@ -451,8 +451,19 @@ Fx3D{
 				})				
 			},
 			
-			4, { arr = Array.fill(16, {|x| Array.fill(16, {|y| [x, y, 9] }) }) }
-
+			4, { arr = Array.fill(16, {|x| Array.fill(16, {|y| [x, y, 9] }) }) },
+			
+			5, { 
+				16.do({|x|
+					16.do({|y|
+						16.do({|z|
+							if ((x+3%4==0).and(y+3%4==0)) {
+								arr=arr.add([x, y, z])
+							}			
+						})
+					})
+				})				
+			}
 
 		);
 		
@@ -953,7 +964,7 @@ FxOpenGL{
 		poll = PopUpMenu(wrPanel, Rect(5, 138, 60, 20))
 			.font_(font)
 			.stringColor_(Color.new255(28, 134, 238))
-			.items_(["sides", "uni", "mesh", "core", "sheet"]);
+			.items_(["sides", "uni", "mesh", "core", "sheet", "xl uni"]);
 			
 		RoundButton(wrPanel, Rect(70, 138, 25, 20))				.font_(font)
 			.states_([["--", Color.new255(28, 134, 238), Color.grey(0.2)]])

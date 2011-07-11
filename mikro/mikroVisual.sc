@@ -2,7 +2,7 @@ MikroGraphics{
 	
 	var <width, <height, <sizeX, <sizeY, <frameRate, <remoteAddr, <vectorSize, <trainDur, <lRate;
 	var debugMode, <bmu, bmuResponder, bmuResponderFunctions, statesResponder, statesResponderFunctions;
-	var <patternLib, <numPatterns = 9, <settings, <states;
+	var <patternLib, <numPatterns = 10, <settings, <states;
 	var settingOrder;
 	
 	var oscPrefix = "/mikro/";
