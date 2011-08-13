@@ -3,7 +3,7 @@ MultiChannelCheck{
 	classvar <standardSetups;
 	
 	var <layers, server, win, scope, gui, <scopebufs, synth, <numSpeakers, <outputs, <channels;
-	var <>channelOut = 0, autorout, buffer;
+	var <>channelOut = 0, autorout;
 	
 	*new{|layers|
 		^super.newCopyArgs(layers).init	
@@ -21,6 +21,10 @@ MultiChannelCheck{
 			numSpeakers = layers.collect({|it| it.speakersAzim.size}).sum;
 			server = Server.internal;
 			Server.default = server;
+			if (numSpeakers > server.options.numOutputBusChannels)
+			{
+				server.options.numOutputBusChannels = numSpeakers
+			};
 			if (server.serverRunning.not, {
 				server.waitForBoot({
 					this.prepareServer
@@ -39,26 +43,17 @@ MultiChannelCheck{
 				}).play(1, addAction: \addToTail)
 			})
 		});
-		
-		SynthDef("check", {|buffer|
-			var outs, sig;
+		SynthDef("check", {
+			var sig, outs, freqs, low, env;
+			env = EnvGen.kr(Env.perc, Impulse.kr(0.5), timeScale: 0.2, levelScale: 0.3);
 			outs = Control.names([\outs]).kr(Array.fill(outputs.size, 99));
-			sig = PlayBuf.ar(1, buffer, loop: 1.0);
-			Out.ar(outs, sig)
-		}).add;
-		
-//		SynthDef("check", {
-//			var lsrc, hsrc, lo, hi, gverb, sig, outs;
-//			lsrc = Dust.ar(10);
-//			hsrc = Dust.ar(10);
-//			outs = Control.names([\outs]).kr(Array.fill(outputs.size, 99));
-//			lo = RLPF.ar(lsrc, LFNoise2.kr(20, 60, 80).floor, 0.01);
-//			hi = RHPF.ar(hsrc, LFNoise2.kr(20, 1100, 12000).floor, 0.001) * 0.5;
-//			gverb = hi + GVerb.ar(lo + hi, 500, 30, 0.1, 0.1, 1, 0.0, 0.5, 0.5, 500);
-//			sig = Mix(VarSaw.ar(Array.geom(4, 40, 512**(1/4))))
-//				* EnvGen.kr(Env.perc, Impulse.kr(4), timeScale: 0.2, levelScale: 0.1);
-//			Out.ar(outs, gverb[0] + sig)
-//		}).add;
+			freqs = Array.geom(4, 40, 512**(1/4));
+			sig = Mix(VarSaw.ar(freqs, mul: AmpCompA.kr(freqs)))
+				* env;
+			low = Mix(SinOsc.ar(Array.geom(6, 20, 2**(1/17)) * (1..6), pi, 0.2)) * env;
+			sig = sig + CombC.ar(sig, 0.25, 0.25, 2);
+			Out.ar(outs, sig + low)
+		}).send(server);
 		
 		channels = Array.fill(numSpeakers, 99).put(channelOut, outputs[channelOut]);
 		
@@ -66,38 +61,23 @@ MultiChannelCheck{
 	}
 	
 	run{
-		{
-			if (buffer.isNil)
-			{
-				buffer = Buffer.read(server, "/Users/alo/sounds/fxchck.aif");
-				server.sync;
-			};
-			synth = Synth("check", [\buffer, buffer]).setn("outs", channels);		}.forkIfNeeded
-	}
-	
-	runAll{
-		{
-			if (buffer.isNil)
-			{
-				buffer = Buffer.read(server, "/Users/alo/sounds/fxchck.aif");
-				server.sync;
-			};
-			synth = Synth("check", [\buffer, buffer]).setn("outs", (0..numSpeakers-1));		}.forkIfNeeded		
+		synth = Synth("check").setn("outs", channels);
 	}
 	
 	autorun{|offset = 0|
 		this.run;
 		autorout = Routine({
-			var count = 0, seq;
+			var seq;
 			seq = Pseq(outputs, inf, offset).asStream;
 			inf.do({
 				layers.do({|layer, i|
-					layer.outputs.do({|out|
-						channels.wrapPut(count, seq.next);
-						channels.wrapPut(count - 1, 99);
+					layer.outputs.do({|out, j|
+						channels = Array.fill(numSpeakers, 99);
+						channels.put(j, seq.next);
 						synth.setn("outs", channels);
-						count = count + 1;
-						5.wait;
+						gui.playbuttons[i][j].value = 1;
+						3.98.wait;
+						gui.playbuttons[i][j].value = 0;
 					});
 					if (i == (layers.size - 1), {gui.firstScreen}, {gui.screenForward})
 				});
@@ -150,7 +130,7 @@ MultiChannelLayer{
 MultiChannelCheckGui{
 	
 	var channelcheck, win, scope, currentlayer, scopesize = 80, scopes, <fwd, <bck;
-	var scopeIndex = 0, index = 0, txts, fwsp, bksp, playbuttons;
+	var scopeIndex = 0, index = 0, txts, fwsp, bksp, <playbuttons;
 	
 	*new{|channelcheck|
 		^super.newCopyArgs(channelcheck).make
@@ -160,44 +140,36 @@ MultiChannelCheckGui{
 		currentlayer = if(channelcheck.layers.isKindOf(MultiChannelLayer), {channelcheck.layers}, 
 			{channelcheck.layers[index]});
 
-		win = Window(":: " + currentlayer.name + " ::", Rect(20, 200, 600, 600)).alpha_(0.9).front;
+		win = SCWindow(":: " + currentlayer.name + " ::", Rect(20, 200, 700, 700)).front;
 		win.onClose_({
 				Server.internal.freeAll
 			});
-		win.view.background_(HiliteGradient(Color.black, Color.grey(0.3), steps: 256));
-		RoundButton(win, Rect(250, 275, 100, 50))
-			.states_([["....", Color.black, Color.new255(184, 134, 11)], 
-				[".::.", Color.new255(184, 134, 11), Color.black]])
+		win.view.background_(HiliteGradient(Color.black, Color.new255(45, 70, 82), steps: 256));
+		SCButton(win, Rect(300, 325, 100, 50))
+			.states_([["....", Color.new255(45, 70, 82), Color.grey(0.7)], 
+				[".::.", Color.grey(0.7), Color.new255(45, 70, 82)]])
 			.action_({|btn|
 				if (btn.value == 1, {
 					channelcheck.autorun(
-						channelcheck.outputs.indexOf(currentlayer.outputs[0]))
+						channelcheck.outputs.indexOf(currentlayer.outputs[0]));
+					fwd.enabled_(false);
+					bck.enabled_(false);
 
 				}, {
-					channelcheck.autostop
+					channelcheck.autostop;
+					fwd.enabled_(true);
+					bck.enabled_(true);
 				})
 			});
-		RoundButton(win, Rect(360, 287, 50, 25))
-			.states_([["..|..", Color.black, Color.new255(184, 134, 11)], 
-				[".:|:.", Color.new255(184, 134, 11), Color.black]])
-			.action_({|btn|
-				if (btn.value == 1, {
-					channelcheck.runAll
-
-				}, {
-					channelcheck.stop
-				})
-			});
-			
-		fwd = RoundButton(win, Rect(65, 10, 50, 25))
-			.states_([[">>", Color.black, Color.new255(184, 134, 11)]])
+		fwd = SCButton(win, Rect(65, 10, 50, 25))
+			.states_([[">>", Color.new255(45, 70, 82), Color.grey(0.7)]])
 			.visible_(channelcheck.layers.size > 1)
 			.action_({|btn|
 				this.screenForward;
 				if (index == channelcheck.layers.lastIndex, {btn.visible = false});
 			});
-		bck = RoundButton(win, Rect(10, 10, 50, 25))
-			.states_([["<<", Color.black, Color.new255(184, 134, 11)]])
+		bck = SCButton(win, Rect(10, 10, 50, 25))
+			.states_([["<<", Color.new255(45, 70, 82), Color.grey(0.7)]])
 			.visible_(false)
 			.action_({|btn|
 				this.screenBack;
@@ -251,7 +223,7 @@ MultiChannelCheckGui{
 		bck.visible = true;
 		index = index + 1;
 		currentlayer = channelcheck.layers[index];
-		win.name = currentlayer.name;
+		win.name = ":: " + currentlayer.name + " ::";
 		this.setVisibility(true);	
 	}
 	
@@ -260,7 +232,7 @@ MultiChannelCheckGui{
 		fwd.visible = true;
 		index = index - 1;
 		currentlayer = channelcheck.layers[index];
-		win.name = currentlayer.name;
+		win.name = ":: " + currentlayer.name + " ::";
 		this.setVisibility(true);			
 	}
 	
@@ -291,7 +263,8 @@ MultiChannelCheckGui{
 					.background_(HiliteGradient(Color.grey(0.5), Color.clear, \v, 64, 0.66))
 					.bufnum_(channelcheck.scopebufs[layer.outputs[j]].bufnum)
 					.waveColors_([Color.grey(0.8)])
-					.visible_(i == 0);
+					.visible_(i == 0)
+					.yZoom_(6);
 //				lbl = SCStaticText(win, 
 //					Rect(
 //						win.bounds.height / 2 + (point.x - 40), 
@@ -299,15 +272,15 @@ MultiChannelCheckGui{
 //						scopesize, 20
 //						)
 //				).string_("channel :" + layer.outputs[j]).visible_(i == 0).align_(\center);
-				pbtn = RoundButton(win, Rect(
+				pbtn = SCButton(win, Rect(
 						win.bounds.height / 2 + (point.x - 40), 
 						win.bounds.height / 2 + (point.y - 40) + scopesize + 2,
 						scopesize, 20				
 				)).states_([
 					["channel :" + layer.outputs[j], 
-						Color.black, Color.new255(184, 134, 11)], 
+						Color.new255(45, 70, 82), Color.grey(0.7)], 
 					["channel :" + layer.outputs[j],
-						Color.new255(184, 134, 11), Color.black]
+						Color.grey(0.7), Color.new255(45, 70, 82)]
 				]).action_({|btn|
 					if (btn.value == 1, {
 						playbuttons[i].do({|pbt, indj|

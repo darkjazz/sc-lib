@@ -2,11 +2,11 @@ MikroGraphics{
 	
 	var <width, <height, <sizeX, <sizeY, <frameRate, <remoteAddr, <vectorSize, <trainDur, <lRate;
 	var debugMode, <bmu, bmuResponder, bmuResponderFunctions, statesResponder, statesResponderFunctions;
-	var <patternLib, <numPatterns = 10, <settings, <states;
+	var <patternLib, <numPatterns = 12, <settings, <states;
 	var settingOrder;
 	
 	var oscPrefix = "/mikro/";
-	var appPath = "/Users/alo/Development/mikro/visual/build/Release/mikro";
+	var appPath = "/Users/alo/Development/mikro/visual/build/Debug/mikro";
 	
 	*new{|width, height, sizeX, sizeY, frameRate, remoteAddr, vectorSize, trainDur, lRate|
 		^super.newCopyArgs(width, height, sizeX, sizeY, frameRate, remoteAddr, 
@@ -53,12 +53,17 @@ MikroGraphics{
 			bgred: 0,
 			bggreen: 0,
 			bgblue: 0,
+			bgalpha: 0,
 			transx: 0,
 			transy: 0,
-			transz: 0
+			transz: 0,
+			groupx: 10,
+			groupy: 10,
+			phase: 1,
+			symmetry: 2
 		);
 		
-		settingOrder = [\add, \bgred, \bggreen, \bgblue, \transx, \transy, \transz];
+		settingOrder = [\add, \bgred, \bggreen, \bgblue, \bgalpha, \transx, \transy, \transz, \groupx, \groupy, \phase, \symmetry];
 				
 	}
 		

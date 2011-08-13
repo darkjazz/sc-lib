@@ -6,6 +6,7 @@ Mikro{
 	var <currentPatch, <>patchChangeAction;
 	
 	var testBufferPath = "/Users/alo/sounds/eclambone_samples/*";
+//	var testBufferPath = "/Users/alo/Music/SuperCollider Recordings/mikroInput_110518_172904.aif";
 	
 	*new{|liveInput, decoder, graphics, duration, nCoef|
 		^super.newCopyArgs(liveInput, decoder, graphics).init(duration, nCoef)
@@ -38,7 +39,7 @@ Mikro{
 			shift = ArrayControl.kr(\shifts, 4, 1);	
 			Out.ar(aux, sig * xamp);
 			#a, b, c, d = Array.fill(4, {|i|
-				PitchShift.ar(DelayN.ar(sig, maxdel, del[i]), shift[i]);
+				PitchShift.ar(DelayN.ar(sig, maxdel, del[i]), 0.2, shift[i]);
 			});
 			#w, x, y, z = A2B.ar(a, b, c, d);
 			Out.ar(main, AtkRotateXYZ.ar(w, x, y, z, xang, yang, zang) * mamp);
@@ -97,21 +98,31 @@ Mikro{
 		}
 		{
 			this.loadTestBuffers({
-				irout = Routine({
-					inf.do({
-						testBuffers.scramble.do({|buf|
-							var dur;
-							dur = buf.numFrames / buf.sampleRate;
-							input = Synth.before(group, \inputbuf, [\main, decoder.bus, \aux, inputBus, \xamp, ixamp,
-							 	\mamp, imamp, \xang, 0.0, \yang, 0.0, \zang, 0.0, \maxdel, 0.1, \buf, buf])
-								.setn(\delays, Array.geom(4, 0.01, 1.618))
-								.setn(\shifts, Array.geom(4, 36/35, 35/36));
-							currentPatch = buf.path.basename.split($.).first.keep(6).asSymbol;
-							patchChangeAction.value(currentPatch);
-							dur.wait;
-						})
-					})				
-				})
+				
+				if (testBuffers.size == 1) {
+					input = Synth.before(group, \inputbuf, [\main, decoder.bus, \aux, inputBus, 
+						\xamp, ixamp, \mamp, imamp, \xang, 0.0, \yang, 0.0, \zang, 0.0, \maxdel, 0.1, 
+						\buf, testBuffers.first]
+					).setn(\delays, Array.geom(4, 0.01, 1.618)).setn(\shifts, Array.geom(4, 36/35, 35/36))
+				}
+				{	
+					
+					irout = Routine({
+						inf.do({
+							testBuffers.scramble.do({|buf|
+								var dur;
+								dur = buf.numFrames / buf.sampleRate;
+								input = Synth.before(group, \inputbuf, [\main, decoder.bus, \aux, inputBus, \xamp, ixamp,
+								 	\mamp, imamp, \xang, 0.0, \yang, 0.0, \zang, 0.0, \maxdel, 0.1, \buf, buf])
+									.setn(\delays, Array.geom(4, 0.01, 1.618))
+									.setn(\shifts, Array.geom(4, 36/35, 35/36));
+								currentPatch = buf.path.basename.split($.).first.keep(6).asSymbol;
+								patchChangeAction.value(currentPatch);
+								dur.wait;
+							})
+						})				
+					});
+				}
 			})
 		};
 
@@ -155,20 +166,20 @@ Mikro{
 		}
 	}
 	
-	makeGui{|composer, actions|
-		gui = MikroGui(this, composer, actions);
+	makeGui{|composer, recognizer, procs|
+		gui = MikroGui(this, composer, recognizer, procs);
 	}
 	
 }
 
 MikroGui{
 	
-	var mikro, composer, actions, window, postwin, postview, synthview, poststring, queryclock, ctrwin, ampspec, recth; 
-	var lag = 0.05, lagspec, msgrate = 20, ratespec, freesynth, release, debug = 1, time, graphSliders, graphwin;
-	var addspec;
+	var mikro, composer, recognizer, procs, window, postwin, postview, synthview, poststring, queryclock, ctrwin; 
+	var	ampspec, recth, addspec, liveProcs, patch, qrypatch, actual, common, btns; 
+	var lag = 0.05, lagspec, msgrate = 20, ratespec, freesynth, release, debug = 1, time, graphSliders, graphwin; 
 	
-	*new{|mikro, composer, actions|
-		^super.newCopyArgs(mikro, composer, actions).init
+	*new{|mikro, composer, recognizer, procs|
+		^super.newCopyArgs(mikro, composer, recognizer, procs).init
 	}
 	
 	init{
@@ -181,6 +192,8 @@ MikroGui{
 		addspec = CosineWarp(ControlSpec(0.001, 0.999));
 		
 		recth = -80.dbamp;
+		
+		btns = Array.newClear(mikro.graphics.numPatterns);
 		
 		window = Window("----<><><><><>----", Rect(200, 200, 600, 510)).alpha_(0.98).front;
 		window.background_(Color.grey(0.3));
@@ -213,7 +226,14 @@ MikroGui{
 			.action_({|btn|
 				if (btn.value == 1) {
 					mikro.start(recth, lag, msgrate);
-					time.start
+					time.start;
+					mikro.graphics.settings[\groupx] = 5;
+					mikro.graphics.settings[\groupy] = 5;
+					mikro.graphics.settings[\transz] = 40;
+					mikro.graphics.settings[\transx] = -40;
+					mikro.graphics.settings[\transy] = -30;
+					mikro.graphics.sendSettings
+					
 				}
 				{
 					mikro.stop;
@@ -379,14 +399,19 @@ MikroGui{
 				mikro.graphics.sendSetting(\add, addspec.map(sl.value));
 				sl.string_(addspec.map(sl.value).round(0.001).asString)
 			});		
-			
-		composer.liveProcs.keys(Array).do({|def, i|
+		
+		liveProcs = [\fbgverb, \latch, \cliq, \grains, \streamverb, \arhythmic];
+		
+		liveProcs.do({|def, i|
 			RoundButton(ctrwin, Rect(i*60+5, 225, 60, 25))
 				.font_(font)
 				.states_([[def.asString, Color.yellow, Color.grey(0.2)]])
 				.action_({
-					var id;
-					id = composer.startLiveSynth(def, Env([0, 1, 1, 0], [0.1, 0.4, 0.5], \sine, 2, 1));
+					var id, ind;
+					ind = Pseq((0..mikro.graphics.states.size-1), inf).asStream;
+					id = composer.play(def, Env([0.001, 1.0, 1.0, 0.001], [0.3, 0.4, 0.3], \sine, 2, 1), 
+						Pseq(mikro.graphics.states, inf).asStream);
+					composer.mapStates(id, composer.descLib[def].metadata.specs.collect({ ind.next }));
 					if (freesynth.items.size > 0)
 					{
 						freesynth.items = (Array.with(*freesynth.items) ++ [(def.asString ++ "(" ++ id ++ ")")]);
@@ -414,48 +439,93 @@ MikroGui{
 				var str, id, arr;
 				str = freesynth.items[freesynth.value];
 				id = str[(str.find("(")+1)..(str.find(")")-1)];
-				composer.freeSynth(id, release.value);
+				composer.releaseSynth(id.asInteger, release.value);
 				arr = freesynth.items;
 				arr.remove(str);
 				freesynth.items = arr;
 			});
 			
-		PopUpMenu(ctrwin, Rect(110, 290, 100, 20))
+		RoundButton(ctrwin, Rect(220, 255, 60, 25))
 			.font_(font)
-			.items_(actions.collect(_.actionName))
-			.action_({|mnu|
-				actions[mnu.value].action.value
+			.states_([["patch", Color.yellow, Color.grey(0.2)], ["patch", Color.grey(0.2), Color.yellow]])
+			.action_({|btn|
+				if (btn.value == 1)
+				{
+					recognizer.run;
+					qrypatch = Routine({
+						inf.do({
+							patch.string_((recognizer.currentGuess ? "").asString);
+							common.string_((recognizer.mostCommon ? "").asString);
+							if (debug == 1) { actual.string_((mikro.currentPatch ? "")) };
+							0.2.wait;
+						})
+					}).play(AppClock)
+				}
+				{
+					patch.string_("");
+					common.string_("");
+					if (debug == 1) { actual.string_("")};
+					recognizer.stop;
+					qrypatch.stop;
+					qrypatch = nil;
+				}
 			});
 			
+		patch = StaticText(ctrwin, Rect(280, 255, 60, 20))
+			.font_(font)
+			.align_(\center)
+			.stringColor_(Color.white);		
+		
+		common = StaticText(ctrwin, Rect(280, 275, 60, 20))
+			.font_(font)
+			.align_(\center)
+			.stringColor_(Color.black);
+						
+		actual = StaticText(ctrwin, Rect(280, 295, 60, 20))
+			.font_(font)
+			.align_(\center)
+			.stringColor_(Color.green);		
+			
+		procs.keys(Array).sort.do({|name, i|
+			RoundButton(ctrwin, Rect(i * (ctrwin.bounds.width - 110) / procs.size + 110, 320, 
+				(ctrwin.bounds.width - 155) / procs.size, 25))
+				.font_(font)
+				.states_([[name.asString, Color.green, Color.black]])
+				.action_({ procs[name].value })
+		});
+						
 		graphwin = CompositeView(window, Rect(5, 365, 390, 120));
 		
-		graphwin.decorator = FlowLayout(graphwin.bounds, 3@3, 3@3);
+		graphwin.decorator = FlowLayout(graphwin.bounds, 4@4, 4@4);
 				
 		graphSliders = Array.newClear(mikro.graphics.numPatterns);
 		
 		mikro.graphics.numPatterns.do({|i|
-			RoundButton(graphwin, Rect(width: graphwin.bounds.width / mikro.graphics.numPatterns - 6, height: 20))
+			btns[i] = RoundButton(graphwin, Rect(width: graphwin.bounds.width / mikro.graphics.numPatterns - 6, height: 20))
 				.font_(font)
-				.states_([["0%".format(i), Color.yellow, Color.black], ["0%".format(i), Color.black, Color.yellow]])
+				.states_([
+					[i.asStringToBase(10, 2), Color.yellow, Color.black], 
+					[i.asStringToBase(10, 2), Color.black, Color.yellow]
+				])
 				.action_({|btn|
 					if (btn.value == 1)
 					{
-						mikro.graphics.fadeInPattern(i, 1.0, 10);
-						Routine({
-							100.do({
-								graphSliders[i].value = graphSliders[i].value + 0.01;
-								0.1.wait;
-							})
-						}).play;
+						mikro.graphics.sendPattern(i, 1, 0.0);
+//						Routine({
+//							100.do({
+//								graphSliders[i].value = graphSliders[i].value + 0.01;
+//								0.1.wait;
+//							})
+//						}).play;
 					}
 					{
-						mikro.graphics.fadeOutPattern(i, 10);
-						Routine({
-							100.do({
-								graphSliders[i].value = graphSliders[i].value - 0.01;
-								0.1.wait;
-							})
-						}).play;
+						mikro.graphics.sendPattern(i, 0, 0.0);
+//						Routine({
+//							100.do({
+//								graphSliders[i].value = graphSliders[i].value - 0.01;
+//								0.1.wait;
+//							})
+//						}).play;
 					}
 				});
 				
@@ -466,7 +536,7 @@ MikroGui{
 			graphSliders.put(i, SmoothSlider(graphwin, 
 				Rect(width: graphwin.bounds.width / mikro.graphics.numPatterns - 6, height: 100))
 					.action_({|slider|
-						mikro.graphics.sendPattern(i, 1.0, slider.value)
+						mikro.graphics.sendPattern(i, btns[i].value, slider.value)
 					})
 			)
 			

@@ -395,14 +395,34 @@ Generations : Rule {
 				var alive;
 				alive = cell.n.select({|it, ind| it.history[0] == 1}).size;
 				if (cell.history[0] > 1, 
-					{if (cell.history[0] < states.size, 
-						{cell.state_(cell.history[0] + 1)}, {cell.state_(0)})}, 
-					{if (cell.history[0] == 0, 
-						{cell.state_(births[alive])}, 
-						{if (survivals[alive] == 0, {
+					{
+						if (cell.history[0] < states.size, 
+						{
+							cell.state_(cell.history[0] + 1)
+						}, 
+						{
+							cell.state_(0)
+						})
+					}, 
+					{
+						if (cell.history[0] == 0, 
+						{
+							cell.state_(births[alive])
+						}, 
+						{
+							if (survivals[alive] == 0, 
+							{
 								if (cell.history[0] < states.size, 
-									{cell.state_(cell.history[0] + 1)}, {cell.state_(0)})
-							}, {cell.state_(1)})
+								{
+									cell.state_(cell.history[0] + 1)
+								}, 
+								{
+									cell.state_(0)
+								})
+							}, 
+							{
+								cell.state_(1)
+							})
 						})
 					}
 				);	

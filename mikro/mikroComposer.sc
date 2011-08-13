@@ -1,4 +1,102 @@
 MikroComposer{
+	var mikro, <descLib, <stateBuses, <activeSynths;
+	
+	var descFile = "/Users/alo/Development/mikro/audio/synthdesc.scd";
+	
+	*new{|mikro, libName|
+		^super.newCopyArgs(mikro).init(libName)
+	}
+	
+	init{|libName|
+		descLib = SynthDescLib(libName ? \mikro);
+		descFile.load.do(_.add(descLib.name));
+		activeSynths = ();		
+	}
+			
+	play{|defname, env, argstream, buffer, dur|
+		var params, desc, synth;
+		desc = descLib[defname];
+		if (dur.isNil) {
+			env = env ? Env([0.001, 1.0, 1.0, 0.001], [0.3, 0.4, 0.3], \lin, 2, 1);
+		}
+		{
+			env = env ? Env([0.001, 1.0, 1.0, 0.001], [0.3, 0.4, 0.3]);
+		};
+		params = [\out, mikro.decoder.bus, \in, mikro.inputBus, \buf, buffer, \dur, dur ? 1.0];
+		params = params ++ desc.metadata.specs.collect(_.map(argstream.next)).asKeyValuePairs;
+		synth = Synth.tail(mikro.group, desc.name, params).setn(\env, env);
+		activeSynths[synth.nodeID.asSymbol] = synth;
+		if (env.loopNode.isNil) { this.clearSynth(dur) };
+		^synth.nodeID
+	}
+	
+	clearSynth{|id, time|
+		SystemClock.sched(time, { 
+			this.unmapStates(id);
+			mikro.graphics.removeStatesFunction(id.asSymbol);
+			mikro.graphics.removeBmuFunction(id.asSymbol);
+			activeSynths[id.asSymbol] = nil;
+		});
+	}
+	
+	releaseSynth{|id, time|
+		activeSynths[id.asSymbol].set(\gate, time.neg);
+		this.clearSynth(id, time);
+	}
+		
+	mapStates{|id, argMap|
+		var desc, synth;
+		synth = activeSynths[id.asSymbol];
+		desc = descLib[synth.defName.asSymbol];
+		mikro.graphics.putStatesFunction(synth.nodeID.asSymbol, {|states|
+			var params = ();
+			argMap.keysValuesDo({|name, index|
+				params[name] = desc.metadata.specs[name].map(states[index])
+			});
+			synth.set(*params.asKeyValuePairs)
+		});
+	}
+		
+	unmapStates{|id|
+		mikro.graphics.removeStatesFunction(id.asSymbol)
+	}
+	
+	mapStatesAndRelease{|id, argMap, time|
+		this.mapStates(id, argMap);
+		SystemClock.sched(time, {
+			this.unmapStates(id);
+			nil
+		});
+	}	
+	
+	mapVector{|id, argMap|
+		var desc, synth;
+		synth = activeSynths[id.asSymbol];
+		desc = descLib[synth.defName.asSymbol];
+		mikro.graphics.putBmuFunction(synth.nodeID.asSymbol, {|bmu|
+			var params = ();
+			argMap.keysValuesDo({|name, index|
+				params[name] = desc.metadata.specs[name].map(bmu.vector[index].clip(0.0, 1.0))
+			});
+			synth.set(*params.asKeyValuePairs)
+		});
+	}
+	
+	unmapVector{|id|
+		mikro.graphics.removeBmuFunction(id.asSymbol)
+	}
+	
+	mapVectorAndRelease{|id, argMap, time|
+		this.mapVector(id, argMap);
+		SystemClock.sched(time, {
+			this.unmapVector(id);
+			nil
+		});
+	}
+	
+}
+
+MikroComposerOld{
 		
 	var mikro, <liveProcs, <bufProcs, <synthProcs, <liveProcDict, <bufProcDict, <synthProcDict;
 	var <activeLiveSynths, <activeBufSynths, <activeSynthSynths, <>synthLimit = 15, <>cpuLimit = 60.0;

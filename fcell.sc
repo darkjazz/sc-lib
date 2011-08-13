@@ -7,11 +7,11 @@ FCell{
 	}
 	
 	init{|initState|
-		states = (initState ! 2);
+		states = (initState ! 3);
 	}
 	
 	initStates{|state|
-		states = (state ! 2)
+		states = (state ! 3)
 	}
 	
 	switchTag{
@@ -23,7 +23,7 @@ FCell{
 FWorld{
 	
 	var <cells, <nhood, <rule, <size, <generation = 1, <>alive = 0, <>active = 0;
-	var <initial;
+	var <initial, <index;
 	
 	*new{|cells, nhood, rule|
 		^super.newCopyArgs(cells, nhood, rule).init.setNeighborhood
@@ -33,6 +33,7 @@ FWorld{
 		size = cells.size;
 		rule.world_(this);
 		initial = Array.new;	
+		index = 0;
 	}
 	
 	setNeighborhood{
@@ -95,6 +96,10 @@ FWorld{
 		active = rule.next(drawFunc);
 		generation = generation + 1;
 	}	
+	
+	nextIndex{ ^(index+1).wrap(0, 2) }
+	
+	incrementIndex{ index = (index+1).wrap(0, 2) }
 	
 }
 
@@ -167,27 +172,29 @@ Flife : Rule{
 	}
 	
 	next{|drawFunc|
+		world.incrementIndex;
 		world.cells.do({|col, i|
 			col.do({|cell, j|
 				var alive;
-				cell.switchTag;
-				alive = cell.nhood.select({|it, ind| 
-					(if (it.tag == cell.tag) { it.states[1] } 
-						{ it.states[0] } 
-					) == 1
-				}).size;
-				cell.states[1] = cell.states[0];
-				if (cell.states[0] == 1, 
+//				cell.switchTag;
+//				alive = cell.nhood.select({|it, ind| 
+//					(if (it.tag == cell.tag) { it.states[1] } 
+//						{ it.states[0] } 
+//					) == 1
+//				}).size;
+				alive = cell.nhood.select({|it| it.states[world.index] == 1 }).size;
+				if (cell.states[world.index] == 1, 
 					{
-						cell.states[0] = survivals[alive]
+						cell.states[world.nextIndex] = survivals[alive]
 					}, 
 					{
-						cell.states[0] = births[alive]
+						cell.states[world.nextIndex] = births[alive]
 					}
 				);
 				drawFunc.value(cell)
 			});
 		});
+		
 	}
 	
 	births_{|bInds|
@@ -292,10 +299,10 @@ Fdisplay{
 			
 		window.drawHook = {
 			world.next({|cell|
-				if (cell.states[0] == 1)
+				if (cell.states[world.index] == 1)
 				{
-					Pen.color = colors[cell.states[0]];
-					Pen.fillOval(Rect(cell.x*cellSize, cell.y*cellSize+20, cellSize, cellSize))
+					Pen.color = colors[cell.states[world.index]];
+					Pen.strokeRect(Rect(cell.x*cellSize, cell.y*cellSize+20, cellSize, cellSize))
 				}
 			});
 		}	

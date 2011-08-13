@@ -189,6 +189,14 @@ MikroAnalyzer{
 		^intervals
 	}
 	
+	selectIntervals{|min = 0.1, max = 2.0|
+		^this.eventIntervals.select({|intr| (intr > min).and(intr < max) })
+	}
+	
+	selectEvents{|min = 0.1, max = 6.0|
+		^events.select({|ev| (ev.duration > min).and( ev.duration < max ) })
+	}
+	
 	saveEvents{
 		var file, path;
 		path = savePath ++ Date.getDate.stamp ++ ".events";
@@ -383,7 +391,7 @@ MikroEvent{
 		mfccBuffer = Buffer.loadCollection(Server.default, mfcs.collect(_.at(1)).flat, numChan, doneAction )
 	}
 	
-	ampsToEnv{|maxseg=8, curve = 'lin', fix = false, normalize = false|
+	ampsToEnv{|maxseg=8, curve = 'lin', fix = false, normalize = false, trim = false, trimGate = 0.0001|
 		var levels, times;
 		levels = amps.collect(_.at(1));
 		if (amps.size > maxseg) { 
@@ -391,6 +399,11 @@ MikroEvent{
 		};
 
 		if (normalize) { levels.normalize(0.0, 1.0) };
+		
+		if (trim) {	
+			levels = levels.select({|am| am > trimGate });  
+			if (levels.size < 2) { levels = [0, 1, 0]; fix = false; }
+		};
 		
 		if (fix) { levels = [0.0] ++ levels ++ [0.0] };
 		
