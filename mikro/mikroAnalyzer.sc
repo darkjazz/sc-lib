@@ -1,20 +1,25 @@
 MikroAnalyzer{
 
-	var <maxdur, <numcoef, recordInput;
+	var <maxdur, <numcoef, recordInput, isMono;
 	var eventResponder, <recBuffer, <events, <synth, <krbus;
 	var eventOn = false, <currentEvent, onsetResponder, <currentPitch;
 	var eventResponderFunctions, <elapsedTime, startTime;
 	var <>onsetAction, <>offAction, timeStamp, <>runningOnsetAction;
+	var <intMarkov, <durMarkov, <ampMarkov;
 	
 	var savePath = "/Users/alo/Data/mikro/";
 	
-	*new{|maxdur=60, numcoef=8, recordInput=true|
-		^super.newCopyArgs(maxdur, numcoef, recordInput).init
+	*new{|maxdur=60, numcoef=8, recordInput=true, isMono = true|
+		^super.newCopyArgs(maxdur, numcoef, recordInput, isMono).init
 	}
 	
 	init{
 		
 		timeStamp = Date.getDate.stamp;
+		
+		intMarkov = MarkovSet();
+		durMarkov = MarkovSet();
+		ampMarkov = MarkovSet();
 		
 		fork{
 			
@@ -26,7 +31,7 @@ MikroAnalyzer{
 			events = Array();
 			
 			Server.default.sync;
-									
+			
 			SynthDef(\eventDetector, {|krout, in, onsetth, lag, msgrate|
 				var input, onsets, chain, isOn, amp, off, local, mfcc, event, flat, pch;
 				input = In.ar(in);
@@ -34,47 +39,44 @@ MikroAnalyzer{
 					RecordBuf.ar(input, recBuffer, loop: 0);
 				};
 				amp = Amplitude.kr(input, lag);
-				pch = Pitch.kr(input).at(0);
+				pch = Tartini.kr(input).at(0);
 				chain = FFT(LocalBuf(1024), input);
 				onsets = Onsets.kr(chain, onsetth);
 				mfcc = MFCC.kr(chain, numcoef);
 				flat = SpecFlatness.kr(chain);
-				off = LagUD.kr(Trig.kr(amp < onsetth, lag), 0.01, 0.02);
-//				off = off + CheckBadValues.kr(flat); //InRange.kr(mfcc.mean, 0.25, 0.25);
-				local = LocalIn.kr;
+				if (isMono) {
+					off = LagUD.kr(Trig.kr(amp < onsetth, lag), 0.01, 0.02);
+					local = LocalIn.kr;
+					SendReply.kr(local, '/event', onsets, 1);
+					SendReply.kr(1.0 - local, '/event', off, 0);
+					isOn = SetResetFF.kr(onsets, off);
+					LocalOut.kr(isOn);
+					event = Impulse.kr(msgrate) * isOn;
+				}{
+					SendReply.kr(onsets, '/event', onsets, 1);
+					event = Impulse.kr(msgrate);
+				};
 				SendReply.kr(Onsets.kr(chain, -40.dbamp), '/onsets', amp);
-				SendReply.kr(local, '/event', onsets, 1);
-				SendReply.kr(1.0 - local, '/event', off, 0);
-				isOn = SetResetFF.kr(onsets, off);
-				LocalOut.kr(isOn);
-				event = Impulse.kr(msgrate) * isOn;
 				SendReply.kr(event, '/event', amp, 2);
 				SendReply.kr(event, '/event', mfcc, 3);
 				SendReply.kr(event, '/event', flat, 4);
 				SendReply.kr(event, '/event', pch, 5);
-				Out.kr(krout, [event, onsets, off, flat]);
+//				Out.kr(krout, [event, onsets, off, flat]);
 			}).add;
 						
 			eventResponder = OSCresponderNode(Server.default.addr, '/event', {|ti, re, ms|
 				elapsedTime = ti - startTime;
 				ms[2].switch(
 					0, {
-						if (currentEvent.notNil)
-						{
-							if (currentEvent.amps.size > 0) 
-							{
-								currentEvent.setDuration(elapsedTime);
-								if (recordInput)
-								{
-									currentEvent.loadBuffer(recBuffer, offAction)
-								};
-								events = events.add(currentEvent)
-							};
-							currentEvent = nil;
-						};
+						this.addCurrentEvent;
+						this.updateEventChains;
 						offAction.value(elapsedTime, re, this)
 					},
 					1, {
+						if (isMono.not) {
+							this.addCurrentEvent;
+							this.updateEventChains;
+						};
 						currentEvent = MikroEvent(elapsedTime);
 						onsetAction.value(elapsedTime, re, currentEvent);
 					},
@@ -139,6 +141,22 @@ MikroAnalyzer{
 
 	}
 	
+	addCurrentEvent{
+		if (currentEvent.notNil)
+		{
+			if (currentEvent.amps.size > 0) 
+			{
+				currentEvent.setDuration(elapsedTime);
+				if (recordInput)
+				{
+					currentEvent.loadBuffer(recBuffer, offAction)
+				};
+				events = events.add(currentEvent)
+			};
+			currentEvent = nil;
+		};		
+	}
+	
 	putEventResponderFunction{|key, func|
 		eventResponderFunctions[key] = func
 	}
@@ -156,8 +174,20 @@ MikroAnalyzer{
 		onsetResponder.add;
 	}
 	
-	set{|name, value|
+	updateEventChains{
+		var index, ampa, ampb, intv;
+		index = events.lastIndex;
+		if (events.size > 2) {
+			intv = this.eventIntervals;
+			intMarkov.read(intv[intv.lastIndex - 1], intv[intv.lastIndex]);
+		};
 		
+		if (events.size > 1) {
+			durMarkov.read(events[index - 1].duration, events[index].duration);
+			ampa = events[index - 1].amps.collect(_.last).maxItem + 0.01 ** 0.5;
+			ampb = events[index].amps.collect(_.last).maxItem + 0.01 ** 0.5;
+			ampMarkov.read(ampa, ampb);
+		}
 	}
 	
 	free{
@@ -397,8 +427,6 @@ MikroEvent{
 		if (amps.size > maxseg) { 
 			levels = levels.clump((amps.size / maxseg).floor).collect(_.mean) 
 		};
-
-		if (normalize) { levels.normalize(0.0, 1.0) };
 		
 		if (trim) {	
 			levels = levels.select({|am| am > trimGate });  
@@ -406,6 +434,8 @@ MikroEvent{
 		};
 		
 		if (fix) { levels = [0.0] ++ levels ++ [0.0] };
+
+		if (normalize) { levels = levels.normalize(0.0, 1.0) };
 		
 		^Env(levels, levels.lastIndex.reciprocal ! levels.lastIndex, curve)
 		

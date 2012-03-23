@@ -4,14 +4,14 @@ TimeDisplay {
 	*new{|win, rect, start=0, font|
 		var new, r, w;
 		r = rect ? Rect(10, 10, 100, 40);
-		w = if (win.isNil, {SCWindow(":time:", Rect(50, 300, 120, 60)).front}, {win});
+		w = if (win.isNil, {Window(":time:", Rect(50, 300, 120, 60)).front}, {win});
 		^super.new.init(w, r, start, font);
 	}
 	
 	init{|win, rect, start, font|
 		wn = win;
 		font = font ? Font("Helvetica", 10);
-		view = SCStaticText(win, rect);
+		view = StaticText(win, rect);
 		view.background_(Color.black);
 		view.align_(\center);
 		view.font_(font);

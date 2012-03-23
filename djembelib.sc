@@ -249,6 +249,72 @@ DjembeLib{
 		)
 	}
 	
+	*convert{|name, quant=1, dropEmpty=true|
+		var s1, s2, s3, s4, p1, p2, p3, p4, p5, patterns, pat, patsize;
+		pat = this.patterns[name];
+		patterns = Array.newClear(12);
+		s1 = Pseq(pat[1], 2).asStream;
+		p1 = pat[0].collect({|seq| if (seq == 1) { s1.next.switch('lo', 1, 'mi', 2, 'hi', 3) } { 0 } });
+		s2 = Pseq(pat[3], 2).asStream;
+		p2 = pat[2].collect({|seq| if (seq == 1) { s2.next.switch('lo', 1, 'mi', 2, 'hi', 3) } { 0 } });
+		s3 = Pseq(pat[5], 2).asStream;
+		p3 = pat[4].collect({|seq| if (seq == 1) { s3.next.switch('lo', 1, 'mi', 2, 'hi', 3) } { 0 } });
+		s4 = Pseq(pat[7], 2).asStream;
+		p4 = pat[6].collect({|seq| if (seq == 1) { s4.next.switch('lo', 1, 'mi', 2, 'hi', 3) } { 0 } });
+		p5 = pat[8];
+		
+		patsize = [p1, p2, p3, p4, p5].collect(_.size).maxItem;
+		
+		if (quant > 1) {
+			p1 = ([p1] ++ (0 ! patsize).dup(quant-1)).lace(patsize*quant);
+			p2 = ([p2] ++ (0 ! patsize).dup(quant-1)).lace(patsize*quant);
+			p3 = ([p3] ++ (0 ! patsize).dup(quant-1)).lace(patsize*quant);
+			p4 = ([p4] ++ (0 ! patsize).dup(quant-1)).lace(patsize*quant);
+			p5 = ([p5] ++ (0 ! patsize).dup(quant-1)).lace(patsize*quant);
+		};
+				
+		patterns[0] = p1.collect({|seq| if (seq == 1) { 1 } { 0 } });
+		patterns[1] = p1.collect({|seq| if (seq == 2) { 1 } { 0 } });
+		patterns[2] = p1.collect({|seq| if (seq == 3) { 1 } { 0 } });
+	
+		patterns[3] = p2.collect({|seq| if (seq == 1) { 1 } { 0 } });
+		patterns[4] = p2.collect({|seq| if (seq == 2) { 1 } { 0 } });
+		patterns[5] = p2.collect({|seq| if (seq == 3) { 1 } { 0 } });
+	
+		patterns[6] = p3.collect({|seq| if (seq == 1) { 1 } { 0 } });
+		patterns[7] = p3.collect({|seq| if (seq == 2) { 1 } { 0 } });
+		patterns[8] = p3.collect({|seq| if (seq == 3) { 1 } { 0 } });
+		
+		patterns[9] = p4.collect({|seq| if (seq == 1) { 1 } { 0 } });
+		patterns[10] = p4.collect({|seq| if (seq == 2) { 1 } { 0 } });
+	
+		patterns[11] = p5;
+		
+		if (quant == 1)
+		{
+			patterns = patterns.collect({|pat, i|
+				pat.dup((patsize/pat.size).asInt).flat
+			});
+		};
+				
+		if (dropEmpty) { patterns = patterns.select({|seq| seq.sum > 0 }) };
+				
+		^patterns
+		
+	}
+	
+	*convertAll{|quant=1, dropEmpty=true|
+		^patterns.collect({|pat, name| this.convert(name, quant, dropEmpty) })
+	}
+	
+	*makeSparse{|name, quant|
+		^SparsePattern(this.convert(name, quant))
+	}
+	
+	*makeAllSparse{|quant|
+		^this.convertAll(quant).collect(SparsePattern(_)).collect(_.makeSparse).collect(_.patterns)
+	}
+	
 }
 
 DjembePattern{
@@ -373,5 +439,60 @@ DjembePattern{
 				
 		}).play
 	}	
+	
+}
+
+SparsePattern{
+	
+	var original, <patterns, <subpatterns;
+	
+	*new{|original|
+		^super.newCopyArgs(original)
+	}
+		
+	makeSparse{|startFirst=false|
+		var beatsum, order, copy, rotate = 0;
+		
+		order = Pseq(original.collect(_.sum)
+			.collect({|count, i| (count:count,index:i) })
+			.sort({|a, b| a['count'] < b['count'] })
+			.collect(_.index),
+			1
+		).asStream;
+		
+		copy = Array.fill(original.first.size, {
+			(0 ! original.size)
+		});
+		
+		beatsum = original.flop.collect(_.sum);
+		
+		(1..beatsum.maxItem).do({|num|
+			beatsum.selectIndices({|sum| sum == num }).do({|ind|
+				var slot;
+				slot = order.next;
+				if (slot.notNil) {  
+					copy[ind][slot] = 1;
+				}
+			})
+		});
+		
+		if (startFirst) { rotate = copy.selectIndices({|a| a.first == 1 }).first };
+		
+		patterns = Array.newClear(copy.flop.size);
+		
+		copy.flop.do({|seq, i|
+			patterns[i] = seq.rotate(rotate.neg);
+		});
+		
+	}
+	
+	makeSubPatterns{|numPatterns=3|
+		subpatterns = Array();
+		numPatterns.do({|i|
+			subpatterns = subpatterns.add(
+				SparsePattern(original - ([patterns] ++ subpatterns).sum).makeSparse.patterns
+			);
+		});
+	}
 	
 }

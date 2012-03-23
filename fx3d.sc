@@ -151,10 +151,12 @@ Fx3D{
 		if (stResponder.notNil) { stResponder.remove; stResponder = nil };
 		
 		stResponder = OSCresponderNode(nil, '/fx/states', {|ti, re, ms|
-			if (ms[1].notNil)
-			{
-				invalues.states = ms[1].asFloatArray;
-				stFuncs.do({|func| func.value(invalues) });
+			if (ms.isKindOf(ArrayedCollection)) {
+				if (ms[1].isKindOf(Int8Array))
+				{
+					invalues.states = ms[1].asFloatArray;
+					stFuncs.do({|func| func.value(invalues) });
+				}
 			}
 		}).add;
 	}
@@ -597,6 +599,7 @@ FxPerformanceGUI{
 			.align_(\center)
 			.string_("post");
 		postview = TextView(postwin, Rect(5, 20, 185, 220))
+			.hasVerticalScroller_(true)
 			.background_(Color.grey(0.2))
 			.stringColor_(Color.grey(0.8))
 			.font_(font);
@@ -606,6 +609,7 @@ FxPerformanceGUI{
 			.align_(\center)
 			.string_("synth");		
 		synthview = TextView(postwin, Rect(5, 260, 185, 220))
+			.hasVerticalScroller_(true)
 			.background_(Color.grey(0.2))
 			.stringColor_(Color.grey(0.8))
 			.font_(font);	

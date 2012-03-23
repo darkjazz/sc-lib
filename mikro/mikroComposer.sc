@@ -1,10 +1,10 @@
 MikroComposer{
-	var mikro, <descLib, <stateBuses, <activeSynths;
+	var mikro, <procs, <descLib, <stateBuses, <activeSynths;
 	
 	var descFile = "/Users/alo/Development/mikro/audio/synthdesc.scd";
 	
-	*new{|mikro, libName|
-		^super.newCopyArgs(mikro).init(libName)
+	*new{|mikro, procs, libName|
+		^super.newCopyArgs(mikro, procs).init(libName)
 	}
 	
 	init{|libName|
@@ -22,7 +22,7 @@ MikroComposer{
 		{
 			env = env ? Env([0.001, 1.0, 1.0, 0.001], [0.3, 0.4, 0.3]);
 		};
-		params = [\out, mikro.decoder.bus, \in, mikro.inputBus, \buf, buffer, \dur, dur ? 1.0];
+		params = [\out, mikro.decoder.bus, \in, mikro.input.bus, \buf, buffer, \dur, dur ? 1.0];
 		params = params ++ desc.metadata.specs.collect(_.map(argstream.next)).asKeyValuePairs;
 		synth = Synth.tail(mikro.group, desc.name, params).setn(\env, env);
 		activeSynths[synth.nodeID.asSymbol] = synth;

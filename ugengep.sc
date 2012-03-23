@@ -5,19 +5,30 @@ UGenGraphGEP{
 	*new{|populationSize=40, chromosomeSize=16, ugenCollection|
 		^super.newCopyArgs(populationSize, chromosomeSize, ugenCollection).init
 	}
-	
+		
 	init{
-		var ar;
-		ar = UGen.subclasses.select(_.respondsTo('ar'));
-		ugenCollection = ugenCollection ? 
-			(ar ++ ar.select({|class| class.subclasses.notNil })
-				.collect({|class| class.subclasses }).flat);
+		if (ugenCollection.isNil) { 
+			this.collectAllUGens;
+			ugenCollection = ugenCollection.select(_.respondsTo('ar'));
+		};
+				
 		population = Array.fill(populationSize, {
 			[ugenCollection.choose.name] ++ Array.fill(chromosomeSize / 2 - 1, {
 				[ugenCollection.choose.name, "d", "f"].choose
 			}) ++ Array.fill(chromosomeSize / 2, { ["d", "f"].choose })
 		})
 	}
+	
+	collectAllUGens{|class|
+		if (class.isNil) { 
+			class = UGen; 
+			ugenCollection = Array();
+		};
+		if (class.subclasses.notNil) {
+			class.subclasses.do({|ugen| ugenCollection = ugenCollection.add(this.collectAllUGens(ugen)) })
+		};
+		^class
+	}	
 	
 	collectCodeStrings{
 		codeStrings = ();

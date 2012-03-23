@@ -1,10 +1,31 @@
-// email: alo@tehis.net
+/*
+ *  fxpublic.sc
+ *  Fx
+ *
+ *  Created by tehis on 23/09/2010.
+ *  
+ *	This file is part of Fx.
+ *
+ *	Fx is free software: you can redistribute it and/or modify
+ *	it under the terms of the GNU General Public License as published by
+ *	the Free Software Foundation, either version 3 of the License, or
+ *	(at your option) any later version.
+ 
+ *	Fx is distributed in the hope that it will be useful,
+ *	but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *	GNU General Public License for more details.
+ 
+ *	You should have received a copy of the GNU General Public License
+ *	along with Fx.  If not, see <http://www.gnu.org/licenses/>. 
+ *
+ */
 
 FxPublicOptions{
 	var <>fxip = "127.0.0.1";
 	var <>fxport = 7770;
 	var <>fxcmd = '/fx';
-	var <>fxapp = "/Users/alo/Development/FxPublic/objc/build/Release/Fx.app";
+	var <>fxapp = "/Fx.app";
 	var <>sendcmd = "/fx";
 }
 
@@ -39,12 +60,13 @@ FxPublic{
 		)	
 	}
 	
-	*new{
-		^super.new.init;
+	*new{|appPath|
+		^super.new.init(appPath);
 	}
 
-	init{
+	init{|appPath|
 		opts = FxPublicOptions();
+		opts.fxapp = (appPath ? "") ++ opts.fxapp;
 		vaddr = NetAddr(opts.fxip, opts.fxport);
 		invalues = Event();
 		visualdict = Event();

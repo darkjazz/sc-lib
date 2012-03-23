@@ -50,6 +50,10 @@ GA{
 		this.do(_.score_(0))
 	}
 	
+	at{|index|
+		^population[index]
+	}
+	
 }
 
 Chromosome{

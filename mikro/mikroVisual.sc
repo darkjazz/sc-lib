@@ -2,7 +2,7 @@ MikroGraphics{
 	
 	var <width, <height, <sizeX, <sizeY, <frameRate, <remoteAddr, <vectorSize, <trainDur, <lRate;
 	var debugMode, <bmu, bmuResponder, bmuResponderFunctions, statesResponder, statesResponderFunctions;
-	var <patternLib, <numPatterns = 12, <settings, <states;
+	var <patternLib, <numPatterns = 16, <settings, <states;
 	var settingOrder;
 	
 	var oscPrefix = "/mikro/";
@@ -66,6 +66,10 @@ MikroGraphics{
 		settingOrder = [\add, \bgred, \bggreen, \bgblue, \bgalpha, \transx, \transy, \transz, \groupx, \groupy, \phase, \symmetry];
 				
 	}
+	
+	countActivePatterns{
+		^patternLib.collect(_.active).sum
+	}
 		
 	putBmuFunction{|key, func|
 		bmuResponderFunctions[key] = func;
@@ -101,7 +105,11 @@ MikroGraphics{
 	
 	sendWeights{| ... weights| this.sendMsg("weights", *weights) }
 	
-	sendPattern{|index, active, alpha| this.sendMsg("pattern", index, active, alpha) }
+	sendPattern{|index, active, alpha| 
+		patternLib[index]['active'] = active;
+		patternLib[index]['alpha'] = alpha;
+		this.sendMsg("pattern", index, active, alpha) 
+	}
 	
 	sendSettings{
 		this.sendMsg("settings", *this.collectSettings )

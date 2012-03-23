@@ -4,6 +4,8 @@ PatchRecognizer{
 	
 	var mikro, <weightDict, <currentGuess, <mostCommon, lastValues, <length = 20;
 	
+	var responderFunctions;
+	
 	*new{|mikro|
 		^super.newCopyArgs(mikro).init
 	}
@@ -11,6 +13,7 @@ PatchRecognizer{
 	init{
 		weightDict = ();
 		lastValues = (0 ! length);
+		responderFunctions = ();
 	}
 	
 	run{
@@ -24,12 +27,25 @@ PatchRecognizer{
 				weights = ms[3..mikro.analyzer.numcoef+2];
 				currentGuess = this.findBestMatch(weights);
 				this.findMostCommon;
+				responderFunctions.do(_.value(this))
 			}
 		})
 	}
 	
 	stop{
 		mikro.analyzer.removeEventResponderFunction(\patchRecognizer);
+	}
+	
+	addResponderFunction{|key, func|
+		responderFunctions.put(key, func);
+	}
+	
+	removeResponderFunction{|key|
+		responderFunctions[key] = nil;
+	}
+	
+	clearResponderFunctions{
+		responderFunctions.clear;
 	}
 	
 	findMostCommon{

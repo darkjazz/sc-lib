@@ -13,11 +13,11 @@ EnvControl{
 ArrayControl{
 	
 	*kr{|name, size = 8, fillFunc|
-		^Control.names([name]).kr(Array.fill(size, fillFunc));
+		^Control.names([name]).kr(Array.fill(size, fillFunc ? 0));
 	}
-	
+		
 	*ir{|name, size = 8, fillFunc|
-		^Control.names([name]).ir(Array.fill(size, fillFunc));
+		^Control.names([name]).ir(Array.fill(size, fillFunc ? 0));
 	}
 	
 }
