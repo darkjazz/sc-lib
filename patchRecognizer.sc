@@ -69,13 +69,19 @@ PatchRecognizer{
 		mostCommon = str.asSymbol;
 	}
 	
-	patchStringToInt{|str|
-		var arr = Array.newClear(5);
-		str.removeAt(2);
-		str.do({|chr, i|
+	patchStringAsDigits{|str|
+		var tempstr, arr = Array.newClear(5);
+		str = str ? currentGuess.asString;
+		tempstr = str.copy;
+		tempstr.removeAt(2);
+		tempstr.do({|chr, i|
 			arr[i] = chr.asString.asInt;
 		});
-		^arr.convertDigits;
+		^arr		
+	}
+	
+	patchStringToInt{|str|
+		^this.patchStringAsDigits(str).convertDigits(2);
 	}
 	
 	load{|path|
@@ -125,7 +131,7 @@ PatchRecognizer{
 			var weights, key;
 			if (ms[2] == 3) {
 				weights = ms[3..~nCoef+2];
-				key = mikro.currentPatch;
+				key = mikro.input.currentPatch;
 				weightDict[key].weights = weightDict[key].weights * weightDict[key].hits 
 					+ weights / (weightDict[key].hits + 1);
 				weightDict[key].hits = weightDict[key].hits + 1

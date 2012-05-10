@@ -455,4 +455,8 @@ MikroEvent{
 		BufferToAts(buffer).convert({|ats| atsFile = ats })
 	}
 	
+	meanAmp{ ^amps.collect(_.at(1)).mean }
+	
+	peakAmp{ ^amps.collect(_.at(1)).maxItem }
+	
 }

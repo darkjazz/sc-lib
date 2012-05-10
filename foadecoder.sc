@@ -2,45 +2,59 @@ FoaDecoder{
 		
 	var <isLocal, <bus, <synth, <isRunning = false, <decoder;
 	
-	*new{|isLocal=true, decoderType='quad'|
-		^super.newCopyArgs(isLocal).init(decoderType)
+	*new{|isLocal=true, decoderType='quad', normalize=false|
+		^super.newCopyArgs(isLocal).init(decoderType, normalize)
 	}
 	
-	init{|decoderType|
+	init{|decoderType, normalize|
 		bus = Bus.audio(Server.default, 4);
-		this.makeSynthDef(decoderType);	
+		this.makeSynthDef(decoderType, normalize);	
 	}
 	
-	makeSynthDef{|decoderType|
-		var decoder;
+	makeSynthDef{|decoderType, normalize|
+
 		if (isLocal) {
 			{	
 				case 
-				{ decoderType == 'stereo' } { 
+				{ decoderType == 'uhj' } { 
 					decoder = FoaDecoderKernel.newUHJ;
-					Server.default.sync
+					Server.default.sync;
+				} 
+				{ decoderType == 'stereo' } { 
+					decoder = FoaDecoderMatrix.newStereo;
+					Server.default.sync;
 				} 
 				{ decoderType == 'binaural' } {
 					decoder = FoaDecoderKernel.newCIPIC;
 					Server.default.sync
 				}
 				{ decoderType == 'quad' } {
-					decoder = FoaDecoderMatrix.newQuad(0.25pi.neg, k: 'dual')
+					decoder = FoaDecoderMatrix.newQuad(0.25pi.neg)
 				}
 				{ decoderType == 'hex' } {
-					decoder = FoaDecoderMatrix.newPanto(6, k: 'dual')
+					decoder = FoaDecoderMatrix.newPanto(6)
 				}
 				{ decoderType == 'octo' } {
 					decoder = FoaDecoderMatrix.newPanto(8)
 				};
 				SynthDef(\decoder, {|amp=1|
-					Out.ar(0, FoaDecode.ar(Limiter.ar(In.ar(bus, 4)) * amp, decoder))
+					if (normalize) {
+						Out.ar(0, FoaDecode.ar(Normalizer.ar(In.ar(bus, 4), 0.95) * amp, decoder))
+					}
+					{
+						Out.ar(0, FoaDecode.ar(Limiter.ar(In.ar(bus, 4), 0.95) * amp, decoder))
+					}
 				}).add
 			}.fork
 		}
 		{
 			SynthDef(\decoder, {|amp=1|
-				Out.ar(0, Limiter.ar(In.ar(bus, 4)) * amp)
+				if (normalize) {
+					Out.ar(0, Normalizer.ar(In.ar(bus, 4), 0.95) * amp)
+				}
+				{
+					Out.ar(0, Limiter.ar(In.ar(bus, 4), 0.95) * amp)
+				}
 			}).add
 		}
 
@@ -60,6 +74,10 @@ FoaDecoder{
 		synth.free;
 		isRunning = false;
 	}
+	
+	numChannels{ ^decoder.numChannels }
+	
+	type{ ^decoder.kind }
 	
 	test{
 		{

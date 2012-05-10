@@ -3,7 +3,7 @@ FunktApp{
 	var <screenX, <screenY, <fps, <scAddr, <ciAddr, <mode, <appPath;
 	var args, oscPrefix = "/funkt/", patternLib, settings, symmetry;
 
-	*new{|screenX=800, screenY=600, fps=32, scAddr, ciAddr, mode=0, path, numPatterns=16|
+	*new{|screenX=800, screenY=600, fps=32, scAddr, ciAddr, mode=0, path, numPatterns=20|
 		^super.newCopyArgs(screenX, screenY, fps, scAddr, ciAddr, mode, path).init(numPatterns);
 	}
 	
@@ -11,15 +11,6 @@ FunktApp{
 		scAddr = scAddr ? NetAddr(NetAddr.localAddr.hostname, NetAddr.localAddr.port);
 		ciAddr = ciAddr ? NetAddr("127.0.0.1", 7000);
 		appPath = appPath ? "~/Development/funkt/cinder/xcode/build/Release/funktApp.app";
-		args = (
-			'-screenx': screenX, 
-			'-screeny': screenY, 
-			'-fps': fps, 
-			'-remote': scAddr.hostname, 
-			'-outport': scAddr.port, 
-			'-inport': ciAddr.port, 
-			'-wmode': mode 
-		);
 		patternLib = Array.fill(numPatterns, {|i|
 			(index: i, active: 0, alpha: 0.0, alphamap: 0, colormap: 0)
 		});
@@ -30,6 +21,16 @@ FunktApp{
 		
 	makeArgumentString{
 		var str = "";
+		
+		args = (
+			'-screenx': screenX, 
+			'-screeny': screenY, 
+			'-fps': fps, 
+			'-remote': scAddr.hostname, 
+			'-outport': scAddr.port, 
+			'-inport': ciAddr.port, 
+			'-wmode': mode 
+		);		
 
 		args.keysValuesDo({|key, val|
 			str = (str + key.asString + val.asString)
@@ -38,8 +39,18 @@ FunktApp{
 		^("--args" ++ str)
 	}
 	
-	open{
-		("open" + appPath + this.makeArgumentString).unixCmd;
+	open{|includeArgs=true|
+		if (includeArgs) {
+			("open" + appPath + this.makeArgumentString).unixCmd
+		}
+		{
+			("open" + appPath).unixCmd
+		}
+	}
+	
+	start{|argMode|
+		mode = argMode ? 0;
+		this.open;
 	}
 	
 	initWorld{|sizeX, sizeY, vectorSize, tdur, lrate|
@@ -85,7 +96,7 @@ FunktApp{
 		}
 	}
 	
-	sendWeights{|weights|
+	sendWeights{| ... weights|
 		this.sendMsg("weights", *weights)
 	}
 	
@@ -100,5 +111,7 @@ FunktApp{
 	sendMsg{|cmd ... msg|
 		ciAddr.sendMsg(oscPrefix++cmd, *msg)
 	}
+	
+	changeOscPrefix{|prefix| oscPrefix = prefix }
 	
 }

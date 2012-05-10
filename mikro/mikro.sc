@@ -284,9 +284,9 @@ MikroFoaInput : MikroInput{
 			sig = PlayBuf.ar(1, buf, doneAction: 2);
 			del = ArrayControl.kr(\delays, 4, 0);
 			shift = ArrayControl.kr(\shifts, 4, 1);	
-			Out.ar(aux, input * xamp);
+			Out.ar(aux, sig * xamp);
 			sig = Array.fill(4, {|i|
-				PitchShift.ar(DelayN.ar(input, maxdel, del[i]), 0.2, shift[i]);
+				PitchShift.ar(DelayN.ar(sig, maxdel, del[i]), 0.2, shift[i]);
 			});
 			bfrm = FoaEncode.ar(sig, FoaEncoderMatrix.newAtoB );
 			Out.ar(main, FoaTransform.ar(bfrm, 'rtt', xang, yang, zang) * mamp);
