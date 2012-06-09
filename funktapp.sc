@@ -16,7 +16,7 @@ FunktApp{
 		});
 //		symmetry = ('ZERO': 0, 'AX': 1, 'AY': 2, 'DIAG': 3, 'QUAD': 4);
 // 		interp = ( 'NONE': 0, 'LINEAR': 1, 'COSINE': 2 ); // interp count
-		settings = ('rule': 0, 'add': 0.005, 'symmetry': 4, 'interp': [0, 1]);
+		settings = ('rule': 0, 'add': 0.005, 'symmetry': 4, 'interp': [0, 1], 'background': (0.0 ! 3));
 	}
 		
 	makeArgumentString{

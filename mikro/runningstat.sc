@@ -27,4 +27,6 @@ RunningStat{
 	
 	stdDev{ ^this.variance.sqrt }
 	
+	asEvent{ ^(mean: this.mean, stdDev: this.stdDev) }
+	
 }

@@ -277,10 +277,15 @@ ORF{
 	}
 	
 	asExpressionTree{|includeObjects=true|
-		if (tree.isNil) { tree = ExpressionTree(this, includeObjects) };
+		tree = ExpressionTree(this, includeObjects);
 		^tree
 	}
-		
+	
+	asUgenExpressionTree{|includeObjects=true|
+		tree = UGExpressionTree(this, includeObjects);
+		^tree
+	}
+	
 	asSymbols{
 		^code.collect({|it| if (it.class == Symbol) { it } { it.name }  })
 	}
@@ -351,14 +356,7 @@ ExpressionTree{
 		}); 
 		^GepNode(gene[event.keys.pop], nodes)		
 	}
-	
-	asSynthDefString{|defname|
-		var string;
-		string = "SynthDef('" ++ defname ++ "', " 
-			++ "{" ++ this.appendSynthDefTerminals ++ " Out.ar(out, Normalizer.ar(" ++ this.asFunctionString(false) ++ ")) })";
-		^string
-	}
-	
+		
 	asFunctionString{|includeBrackets=true|
 		var string = "";
 		if (includeBrackets) {
@@ -436,14 +434,6 @@ ExpressionTree{
 		^(str.keep(str.size-1) ++ "| ")
 	}
 	
-	appendSynthDefTerminals{
-		var str = "|out=0,";
-		orf.terminals.do({|sym|
-			str = str ++ sym.asString ++ ","
-		});
-		^(str.keep(str.size-1) ++ "| ")		
-	}
-
 }
 
 GepNode{
