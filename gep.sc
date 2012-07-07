@@ -180,17 +180,35 @@ GEP{
 			head = newcode.removeAt(targetindex);
 			newcode.insert(0, head);
 			newcode = newcode.flat
-		}
+		};
+		
 		^newcode
 	}
 	
 	nextGeneration{
-		var weights, newgen;
-		weights = chromosomes.collect(_.score).normalizeSum;
+		var weights, newgen, scores;
+		scores = chromosomes.collect(_.score);
+		if (scores.sum > 0) {
+			weights = chromosomes.collect(_.score).normalizeSum;
+		}
+		{
+			"no previous scores detected..".warn;
+			weights = (populationSize.reciprocal ! populationSize);
+		};
 		
 		// replication
 		newgen = Array.fill(populationSize, {
-			chromosomes.wchoose(weights)
+			var orf, index;
+			index = weights.windex;
+			orf = ORF(chromosomes[index].code.copy, terminals, numgenes, linker);
+			orf.score = chromosomes[index].score;
+			if (chromosomes.first.constants.notNil) {
+				orf.constants = chromosomes[index].constants.copy;
+			};
+			if (chromosomes.first.extraDomains.notNil) {
+				orf.extraDomains = chromosomes[index].extraDomains.copy;
+			};
+			orf
 		});
 		
 		// mutation
@@ -270,7 +288,7 @@ GEP{
 // Open Reading Frame
 ORF{
 	var <>code, <terminals, <numGenes, <linker, <>score=0;
-	var tree, <extraDomains, <constants;
+	var <tree, <>extraDomains, <>constants;
 	
 	*new{|code, terminals, ngenes, linker|
 		^super.newCopyArgs(code, terminals, ngenes, linker)
@@ -282,7 +300,7 @@ ORF{
 	}
 	
 	asUgenExpressionTree{|includeObjects=true|
-		tree = UGExpressionTree(this, includeObjects);
+		tree = UGenExpressionTree(this, includeObjects);
 		^tree
 	}
 	

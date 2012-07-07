@@ -54,8 +54,8 @@ CinderApp{
 		this.open;
 	}
 	
-	initWorld{|sizeX, sizeY, sizeZ|
-		this.sendMsg("world/init", sizeX.asInt, sizeY.asInt, sizeZ.asInt)
+	initWorld{|sizeX, sizeY, sizeZ, vectorSize|
+		this.sendMsg("world/init", sizeX.asInt, sizeY.asInt, sizeZ.asInt, vectorSize.asInt)
 	}
 	
 	resetWorld{|left, bottom, front, width, height, depth, random=false, includeAllStates=false, aliveRatio|
@@ -112,6 +112,11 @@ CinderApp{
 	
 	sendPattern{|index|
 		this.sendMsg("graphics/pattern", index.asInt, *this.collectPatternArgs(index))
+	}
+	
+	sendSOMVector{|vector|
+		vector = vector.collect(_.asFloat);
+		this.sendMsg("world/somvector", *vector)
 	}
 		
 	collectPatternArgs{|index|

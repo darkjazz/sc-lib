@@ -1,6 +1,6 @@
 UGEP : GEP {
 	
-	classvar <archDir = "/Users/alo/Data/gep/data", <fileExt = "gepdata";
+	classvar <archDir = "/Users/alo/Data/gep/data", <fileExt = "gepdata", <>ranges;
 	classvar <fileNamePrefix = "gep";
 				
 	*new{|populationSize, numgenes, headsize, ugens, terminals, linker|
@@ -100,10 +100,10 @@ UGEP : GEP {
 		archive.close;
 		^data
 	}
-				
+	
 }
 
-UGExpressionTree : ExpressionTree {
+UGenExpressionTree : ExpressionTree {
 	
 	classvar <defDir = "/Users/alo/Data/gep/synthdefs/", <metaDir = "/Users/alo/Data/gep/metadata/";
 	
@@ -220,7 +220,7 @@ UGExpressionTree : ExpressionTree {
 		arch = nil;
 		Post << "Wrote metadata for " << name << " to " << this.class.metaDir << Char.nl; 
 	}
-	
+		
 	*loadMetadata{|defname|
 		var meta, arch;
 		arch = ZArchive.read(this.metaDir ++ defname.asString ++ ".gepmeta");
@@ -230,4 +230,22 @@ UGExpressionTree : ExpressionTree {
 		^meta
 	}
 	
+	*loadMetadataFromDir{|path|
+		path = path ? this.metaDir;
+		^(path++"*").pathMatch.collect(_.basename).collect(_.split($.)).collect(_.first).collect({|name|
+			var data = this.loadMetadata(name);
+			data.defname = name;
+			data
+		})
+	}
+	
+}
+
+UGepNode : GepNode{
+	var <value, <>nodes, <>range;
+	
+	*new{|value, nodes, range|
+		^super.new(value, nodes).range_(range)
+	}
+
 }
