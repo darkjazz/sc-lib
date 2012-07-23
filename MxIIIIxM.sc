@@ -1,14 +1,14 @@
 MxIIIIxM{
 	
-	var path, defs, win, <tracks, <server, slib, <xfade, xfadech1, xfadech2, send, selectTrack;
+	var path, <cue, defs, win, <tracks, <server, slib, <xfade, xfadech1, xfadech2, send, selectTrack;
 	var <ampR = 0.0, <ampL = 1.0, <>synthR, <>synthL, scope, scopeBuf, changePath, record, <font;
 	var listen, sendBuffer, listitems, columnlen = 30, bpmsynth, bpmresp;
 	var <archivepath = "/Users/alo/mxIIIIxm/archive/bpmarchive.sctxar";
 	var <archive, <masterbpm = 120, masterbps, levels, outL, outR, cueL, cueR, txtCue, txtMain;
 	var outResponder, cueResponder, eq, <xfader, volumeControl;
 
-	*new{|path|
-		^super.newCopyArgs(path).init
+	*new{|path, cue=2|
+		^super.newCopyArgs(path, cue).init
 	}
 	
 	init{
@@ -135,19 +135,19 @@ MxIIIIxM{
 				}.defer
 			}).add;
 			
-			volumeControl = SynthDef(\volumes, {|main = 1, cue = 1|
-				ReplaceOut.ar(2, In.ar(2, 2) * cue);
+			volumeControl = SynthDef(\volumes, {|main = 1, cueamp = 1|
+				ReplaceOut.ar(cue, In.ar(cue, 2) * cueamp);
 				ReplaceOut.ar(0, In.ar(0, 2) * main)
 			}).play(1, addAction: \addToTail);
 			
 			server.sync;
 			
 			levels = SynthDef(\levelIndicators, {
-				var trig, main, cue, del;
+				var trig, main, mcue, del;
 				trig = Impulse.kr(10);
 				del = Delay1.kr(trig);
 				main = In.ar(0, 2);
-				cue = In.ar(2, 2);
+				mcue = In.ar(cue, 2);
 				SendReply.kr(trig, '/main', [
 					Amplitude.kr(main[0]),
 					K2A.ar(Peak.ar(main[0], del).lag(0, 3)),
@@ -156,10 +156,10 @@ MxIIIIxM{
 				]
 				);
 				SendReply.kr(trig, '/cue', [
-					Amplitude.kr(cue[0]),
-					K2A.ar(Peak.ar(cue[0], del).lag(0, 3)),
-					Amplitude.kr(cue[1]),
-					K2A.ar(Peak.ar(cue[1], del).lag(0, 3)),
+					Amplitude.kr(mcue[0]),
+					K2A.ar(Peak.ar(mcue[0], del).lag(0, 3)),
+					Amplitude.kr(mcue[1]),
+					K2A.ar(Peak.ar(mcue[1], del).lag(0, 3)),
 				]
 				);
 			}).play(volumeControl, addAction: \addAfter)
@@ -196,8 +196,9 @@ MxIIIIxM{
 				if (xfader.notNil) { xfader.update }; 
 				if (this.needsConversion(it))
 				{
-					if (it.format == "mp3") 	{ trk.loadMP3(path++it.path, true) }
-											{ trk.loadM4A(path++it.path, true) }
+//					if (it.format == "mp3") 	{ trk.loadMP3(path++it.path, true) }
+//											{ trk.loadM4A(path++it.path, true) }
+					trk.loadM4A(path++it.path, true)
 				}
 				{
 					trk.loadTrack(path++it.path, true);
@@ -215,8 +216,9 @@ MxIIIIxM{
 				if (xfader.notNil) { xfader.update }; 
 				if (this.needsConversion(it))
 				{
-					if (it.format == "mp3") 	{ trk.loadMP3(path++it.path, false) }
-											{ trk.loadM4A(path++it.path, false) }
+//					if (it.format == "mp3") 	{ trk.loadMP3(path++it.path, false) }
+//											{ trk.loadM4A(path++it.path, false) }
+					trk.loadM4A(path++it.path, true)
 				}
 				{
 					trk.loadTrack(path++it.path, false);
@@ -234,8 +236,9 @@ MxIIIIxM{
 				if (xfader.notNil) { xfader.update }; 
 				if (this.needsConversion(it))
 				{
-					if (it.format == "mp3") 	{ trk.loadMP3(path++it.path, true) }
-											{ trk.loadM4A(path++it.path, true) };
+//					if (it.format == "mp3") 	{ trk.loadMP3(path++it.path, true) }
+//											{ trk.loadM4A(path++it.path, true) };
+					trk.loadM4A(path++it.path, true)
 				}
 				{
 					trk.loadTrack(path++it.path, true);
@@ -367,7 +370,7 @@ MxIIIIxM{
 			.value_(1)
 			.action_({|slider|
 				var sp = ControlSpec(0.001, 1.0, \exp);
-				volumeControl.set(\cue, sp.map(slider.value));
+				volumeControl.set(\cueamp, sp.map(slider.value));
 				txtCue.string_(sp.map(slider.value).ampdb.round(1).asString)
 			});
 
@@ -423,7 +426,7 @@ MxTrack{
 	classvar <>tracks = 0;
 	
 	var master, <id, <name, useWarp = false, <bpm, <warpslider, <ampslider, <cueslider; 
-	var <waveview, view, pitch = 1.0, play, cue = 0.0, <amp = 0.0, sf; 
+	var <waveview, view, pitch = 1.0, <play, cue = 0.0, <amp = 0.0, sf; 
 	var <>synth, wspec, bufferB, bufferD, rout, <xfadeTrack, <>position = 0;
 	var fadeL = false, fadeR = false, viewscroll, bpmview;
 	var done = false, bpmToggle, filepath, <>synthRunning = false, bpmSave, <numFrames = 0;
@@ -499,12 +502,12 @@ MxTrack{
 					{
 						if (useWarp)
 						{
-							synth = Synth("mx", [\beat, bbus, \bufnum, bufferB.bufnum,
+							synth = Synth("mx", [\cue, master.cue, \beat, bbus, \bufnum, bufferB.bufnum,
 								\amp, amp, \cueamp, cue, \warp, pitch, 
 								\start, position, \id, id]);
 						}
 						{
-							synth = Synth("bmx", [\beat, bbus, \bufnum, bufferB.bufnum, 
+							synth = Synth("bmx", [\cue, master.cue, \beat, bbus, \bufnum, bufferB.bufnum, 
 								\amp, amp, \cueamp, cue, \warp, pitch, 
 								\start, position, \id, id]);
 						}
@@ -512,7 +515,7 @@ MxTrack{
 					{
 						bufferD = Buffer.cueSoundFile(master.server, filepath, position, 2);
 						AppClock.sched(0.1, {
-							synth = Synth("dmx", [\beat, bbus, \bufnum, bufferD.bufnum, 
+							synth = Synth("dmx", [\cue, master.cue, \beat, bbus, \bufnum, bufferD.bufnum, 
 								\frames, bufferInfo.numFrames, \amp, amp, 
 								\cueamp, cue, \start, position, \id, id]);
 							nil
@@ -680,7 +683,7 @@ MxTrack{
 	
 	loadTrack{|path, loadBuffer = false|
 		var archbpm;
-		filepath = path;
+		filepath = path.asUnixPath;
 		sf = SoundFile.new;
 		sf.openRead(filepath);
 		waveview.soundfile = sf;

@@ -79,7 +79,7 @@ CinderApp{
 	setAdd{|value|
 		this.sendMsg("world/rule/add", value.asFloat)
 	}
-	
+		
 	initLife{|births, survivals|
 		this.sendMsg("world/rule/init", 1);
 		this.sendMsg("world/rule/births", *(births ? [2]));
@@ -147,6 +147,25 @@ CinderApp{
 			ctrx.asFloat, ctry.asFloat, ctrz.asFloat)
 	}
 	
+	moveCamera{|start, end, time, rate, donefunc|
+	
+		Routine({
+			
+			var num, steps, incr, value;
+			steps = time * rate;
+			incr = end - start / steps;
+			value = start;
+			steps.do({
+				this.setViewpoint(*value);
+				value = value + incr;
+				rate.reciprocal.wait
+			});		
+			donefunc.();
+			
+		}).play;
+
+	}
+	
 	setBackground{|red, green, blue|
 		this.sendMsg("graphics/background", red.asFloat, green.asFloat, blue.asFloat)
 	}
@@ -162,6 +181,22 @@ CinderApp{
 		queryFunc.disable;
 		queryFunc = nil;
 		this.sendMsg("world/query/stop");
+	}
+	
+	activateSwarm{|size, x, y, z, speed, cohesion, separation, alignment, center|
+		this.sendMsg("boids/init", size, x, y, z, speed, cohesion, separation, alignment, center)
+	}
+	
+	setSwarm{|speed, cohesion, separation, alignment, center|
+		this.sendMsg("boids/set", speed, cohesion, separation, alignment, center)
+	}
+	
+	killSwarm{
+		this.sendMsg("boids/kill")
+	}
+	
+	setBoidCam{|attachEye=false, lookAtCentroid=false|
+		this.sendMsg("graphics/boidcam", attachEye.asInt, lookAtCentroid.asInt)
 	}
 	
 	quit{

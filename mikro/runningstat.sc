@@ -21,6 +21,8 @@ RunningStat{
 		}
 	}
 	
+	reset{ count = 0 }
+	
 	mean{ ^if( count > 0 ) { newM } { 0.0 } }
 	
 	variance{ ^if ( count > 1 ) { newS / (count - 1) } { 0.0 } }

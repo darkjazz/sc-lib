@@ -37,4 +37,8 @@ SlideShow{
 		}
 	}
 	
+	closeWindow{
+		window.close
+	}
+	
 }
