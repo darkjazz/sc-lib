@@ -433,7 +433,7 @@ MikroGui{
 			.string_("0(db)")
 			.value_(1)
 			.action_({|sl|
-				mikro.decoder.set(\amp, ampspec.map(sl.value));
+				mikro.decoder.synth.set(\amp, ampspec.map(sl.value));
 				sl.string_(ampspec.map(sl.value).ampdb.round(1).asString ++ "(db)")
 			});
 

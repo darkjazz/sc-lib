@@ -5,8 +5,7 @@ MikroAnalyzer{
 	var eventOn = false, <currentEvent, onsetResponder, <currentPitch;
 	var eventResponderFunctions, <elapsedTime, startTime;
 	var <>onsetAction, <>offAction, timeStamp, <>runningOnsetAction;
-	var <intMarkov, <durMarkov, <ampMarkov, <clusterBoundaries, <eventdiff;
-	var <clusters;
+	var <clusters, <clusterBoundaries, <eventdiff, <>addEventFunc;
 	
 	var savePath = "/Users/alo/Data/mikro/lib000/";
 	
@@ -17,11 +16,7 @@ MikroAnalyzer{
 	init{
 		
 		timeStamp = Date.getDate.stamp;
-		
-		intMarkov = MarkovSet();
-		durMarkov = MarkovSet();
-		ampMarkov = MarkovSet();
-		
+				
 		events = Array();
 	
 		fork{
@@ -78,16 +73,16 @@ MikroAnalyzer{
 			ms[2].switch(
 				0, {
 					this.addCurrentEvent;
-					this.updateEventChains;
+					addEventFunc.(events);
 					offAction.value(elapsedTime, re, this)
 				},
 				1, {
 					if (isMono.not) {
 						this.addCurrentEvent;
-						this.updateEventChains;
+						addEventFunc.(events);
 					};
 					currentEvent = MikroEvent(elapsedTime);
-					onsetAction.value(elapsedTime, re, currentEvent);
+					onsetAction.value(elapsedTime, re, ms );
 				},
 				2, {
 					if (currentEvent.notNil)
@@ -145,6 +140,14 @@ MikroAnalyzer{
 		onsetResponder = OSCresponderNode(Server.default.addr, '/onsets', {|ti, re, ms|
 			runningOnsetAction.value(ti, re, ms)
 		});		
+	}
+	
+	addMFCCResponderFunction{|func|
+		eventResponderFunctions[\mfccfunc] = {|time, re, ms, analyzer|
+			if (ms[2] == 3) {
+				func.(time, re, ms, analyzer)
+			}
+		}
 	}
 	
 	addCurrentEvent{
@@ -221,23 +224,7 @@ MikroAnalyzer{
 		eventResponder.add;
 		onsetResponder.add;
 	}
-	
-	updateEventChains{
-		var index, ampa, ampb, intv;
-		index = events.lastIndex;
-		if (events.size > 2) {
-			intv = this.eventIntervals;
-			intMarkov.read(intv[intv.lastIndex - 1], intv[intv.lastIndex]);
-		};
 		
-		if (events.size > 1) {
-			durMarkov.read(events[index - 1].duration, events[index].duration);
-			ampa = events[index - 1].amps.collect(_.last).maxItem + 0.01 ** 0.5;
-			ampb = events[index].amps.collect(_.last).maxItem + 0.01 ** 0.5;
-			ampMarkov.read(ampa, ampb);
-		}
-	}
-	
 	free{
 		synth.free;
 		synth = nil;

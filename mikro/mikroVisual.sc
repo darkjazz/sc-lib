@@ -6,7 +6,7 @@ MikroGraphics{
 	var settingOrder;
 	
 	var oscPrefix = "/mikro/";
-	var appPath = "/Users/alo/Development/mikro/visual/build/Debug/mikro";
+	var appPath = "/Users/alo/Development/mikro/visual/build/Release/mikro";
 	
 	*new{|width, height, sizeX, sizeY, frameRate, remoteAddr, vectorSize, trainDur, lRate|
 		^super.newCopyArgs(width, height, sizeX, sizeY, frameRate, remoteAddr, 

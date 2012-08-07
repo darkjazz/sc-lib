@@ -122,3 +122,30 @@ MikroData{
 	}
 	
 }
+
+
+MikroMeans : KMeans {
+	
+	classvar <>filePath = "/Users/alo/Data/mikro/"; 
+	
+	saveData{
+		var arch, data;
+		arch = ZArchive.write(this.class.filePath ++ Date.getDate.stamp ++ ".kmeans");
+		data = (centroids: centroids, assignments: assignments);
+		arch.writeItem(data);
+		arch.writeClose;
+		arch = nil;
+	}
+	
+	loadData{|path|
+		var arch, data;
+		path = path ? (this.class.filePath ++ "*.kmeans").pathMatch.first;
+		arch = ZArchive.read(path);
+		data = arch.readItem;
+		arch.close;
+		arch = nil;
+		assignments = data.assignments;
+		centroids = data.centroids;
+	}
+	
+}

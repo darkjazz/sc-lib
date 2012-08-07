@@ -11,7 +11,7 @@ CinderApp{
 	init{|numPatterns|
 		scAddr = scAddr ? NetAddr(NetAddr.localAddr.hostname, NetAddr.localAddr.port);
 		ciAddr = ciAddr ? NetAddr("127.0.0.1", 7000);
-		appPath = appPath ? "~/Development/lambda/xcode/build/Release/lambdaApp.app";
+		appPath = appPath ? "~/Development/lambda/xcode/build/Release/lambda.app";
 		patternLib = Array.fill(numPatterns, {|i|
 			(index: i, active: 0, alpha: 0.0, alphamap: 0, colormap: 0, r: 0.0, g: 0.0, b: 0.0)
 		});
@@ -149,7 +149,7 @@ CinderApp{
 	
 	moveCamera{|start, end, time, rate, donefunc|
 	
-		Routine({
+		Tdef(\move, {
 			
 			var num, steps, incr, value;
 			steps = time * rate;
@@ -164,6 +164,29 @@ CinderApp{
 			
 		}).play;
 
+	}
+	
+	stopMove{
+		Tdef(\move).stop
+	}
+	
+	rotateCamera{
+		Tdef(\rotate).play
+	}
+	
+	stopRotation{
+		Tdef(\rotate).stop
+	}
+	
+	setCameraRotation{|rotation, lx, ly, lz, addx, addy, addz, msgrate=10|
+				
+		Tdef(\rotate, {
+			loop({
+				this.setViewpoint(rotation.x + addx, rotation.y + addy, rotation.z + addz, lx, ly, lz);
+				msgrate.reciprocal.wait;
+				rotation.update;
+			})
+		});		
 	}
 	
 	setBackground{|red, green, blue|
@@ -209,4 +232,31 @@ CinderApp{
 	
 	changeOscPrefix{|prefix| oscPrefix = prefix }
 		
+}
+
+Rotation{
+	
+	var <>rhoRate, <>rhoMin, <>rhoRange, <>thetaRate, <>phiRate;
+	var spherical, rho;
+	
+	*new{|initRho, rhoRate, rhoMin, rhoRange, initTheta, thetaRate, initPhi, phiRate|
+		^super.newCopyArgs(rhoRate, rhoMin, rhoRange, thetaRate, phiRate).init(initRho, initTheta, initPhi)
+	}
+	
+	init{|initRho, initTheta, initPhi|
+		spherical = Spherical(initRho, initTheta, initPhi);
+		rho = 0;
+	}
+	
+	update{
+		rho = (rho + rhoRate).wrap(0, 2pi);
+		spherical.rho = rhoMin+(sin(rho)*rhoRange);
+		spherical.theta = (spherical.theta+thetaRate).wrap(0, 2pi);
+		spherical.phi = (spherical.phi+phiRate).wrap(0, 2pi);
+	}
+	
+	x{ ^spherical.x }	
+	y{ ^spherical.y }	
+	z{ ^spherical.z }		
+	
 }

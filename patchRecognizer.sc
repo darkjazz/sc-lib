@@ -2,12 +2,12 @@ PatchRecognizer{
 	
 	classvar <savePath = "/Users/alo/Data/mikro/", <extension = ".plib";
 	
-	var mikro, <weightDict, <currentGuess, <mostCommon, lastValues, <length = 20;
+	var mikro, <length, <weightDict, <currentGuess, <mostCommon, lastValues;
 	
 	var responderFunctions;
 	
-	*new{|mikro|
-		^super.newCopyArgs(mikro).init
+	*new{|mikro, length=20|
+		^super.newCopyArgs(mikro, length).init
 	}
 	
 	init{
@@ -27,7 +27,7 @@ PatchRecognizer{
 				weights = ms[3..mikro.analyzer.numcoef+2];
 				currentGuess = this.findBestMatch(weights);
 				this.findMostCommon;
-				responderFunctions.do(_.value(this))
+				responderFunctions.do(_.value(this, time, re, ms))
 			}
 		})
 	}
@@ -71,13 +71,18 @@ PatchRecognizer{
 	
 	patchStringAsDigits{|str|
 		var tempstr, arr = Array.newClear(5);
-		str = str ? currentGuess.asString;
+		str = str ? currentGuess;
+		str = str.asString;
 		tempstr = str.copy;
 		tempstr.removeAt(2);
 		tempstr.do({|chr, i|
 			arr[i] = chr.asString.asInt;
 		});
 		^arr		
+	}
+	
+	mostCommonAsDigits{
+		^this.patchStringAsDigits(mostCommon)
 	}
 	
 	patchStringToInt{|str|

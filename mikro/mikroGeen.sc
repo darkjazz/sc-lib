@@ -1,8 +1,9 @@
 MikroGeen{
 	
-	var nclusters, timeQuant, metadata, datasize = 20, clusters;
+	var nclusters, timeQuant, <metadata, datasize = 20, clusters;
 	var durSet, freqSet, ampSet, intervalSet, clusterSet, envSet;
-	var eventData, allEvents, <currentEvent, defclusters, <group, player, globalbus;
+	var eventData, allEvents, <currentEvent, defclusters, <group;
+	var player, <globalbus, dynsynth;
 	
 	*new{|nclusters, timeQuant, defdir|
 		^super.newCopyArgs(nclusters, timeQuant).init(defdir)
@@ -11,7 +12,8 @@ MikroGeen{
 	init{|defdir|
 		Server.default.loadDirectory(defdir ? UGenExpressionTree.defDir);
 		metadata = UGenExpressionTree.loadMetadataFromDir.select({|data|
-			data.stats.mfcc.size == datasize && data.stats.mfcc.collect(_.mean).sum.isNaN.not
+			(data.stats.mfcc.size == datasize).and(data.stats.amp.mean <= 1.0)
+				.and(data.stats.mfcc.collect(_.mean).sum.isNaN.not)
 		});
 		
 		durSet = MarkovSet();
@@ -25,7 +27,7 @@ MikroGeen{
 		
 		nclusters = nclusters ? 64;
 		
-		SynthDef(\dynamics, {|in, ra, rt, er, tl|
+		SynthDef(\dynamics, {|out, in, amp, ra, rt, er, tl|
 			var eq, input, sig, rev;
 			eq = (
 				ugen: [BLowShelf, (BPeakEQ ! 3), BHiShelf].flat,
@@ -33,27 +35,46 @@ MikroGeen{
 				bw: [0.65, 1, 3.5, 1.5, 1],
 				db: [4, 0, -4, 2, 6]
 			);
-			input = Limiter.ar(In.ar(in, 2).tanh, -1.0.dbamp, 0.1);
+			input = Limiter.ar(In.ar(in, 4), -1.0.dbamp, 0.1);
 			sig = Mix.fill(5, {|i| eq.ugen[i].ar(input, eq.freq[i], eq.bw[i], eq.db[i]) });
-			rev = GVerb.ar(sig[0] * ra, 10, rt, drylevel: 0, earlyreflevel: er, taillevel: tl);
-			Out.ar(0, ((sig**0.3) + rev) * -1.0.dbamp)
+			rev = GVerb.ar(sig[0] * ra, 6, rt, drylevel: 0, earlyreflevel: er, taillevel: tl);
+			Out.ar(out, (sig.pow(0.2) + rev.dup.flat) * amp)
 		}).add;
 
 		SynthDef(\procgen, {|out, in, dur, amp|
-			var env, input;
+			var env, input, sig, fft, bf, rot, til, tum;
 			env = EnvControl.kr(size: 16);
-			input = In.ar(in, 2) * EnvGen.kr(env, timeScale: dur, levelScale: amp, doneAction: 3);
-			Out.ar(out, input)
+			input = Mix(In.ar(in, 2)).tanh * EnvGen.kr(env, timeScale: dur, levelScale: amp, doneAction: 3);
+			fft = FFT(LocalBuf(1024), input);
+			bf = FoaEncode.ar(Array.fill(4, {IFFT(PV_Diffuser(fft, Dust.ar(10.0))) }), FoaEncoderMatrix.newAtoB );
+			rot = LFNoise2.kr(bf[0].explin(0.001, 1.0, 0.5, 20.0)).range(-pi, pi);
+			til = LFNoise2.kr(bf[1].explin(0.001, 1.0, 0.5, 20.0)).range(-pi, pi);
+			tum = LFNoise2.kr(bf[2].explin(0.001, 1.0, 0.5, 20.0)).range(-pi, pi);
+			bf = FoaTransform.ar(bf, 'rtt', rot, til, tum );
+			Out.ar(out, bf)
 		}).add;
 		
 	}
 	
 	updateClusters{
-		clusters = KMeans(nclusters);
+//		clusters = KMeans(nclusters);
+		clusters = MikroMeans(nclusters);
 		metadata.do({|data|
 			clusters.add(data.stats.mfcc.collect(_.mean))
 		});
 		clusters.update
+	}
+	
+	saveClusters{ clusters.saveData }
+	
+	loadClusters{ 
+		if (clusters.isNil) {
+			clusters = MikroMeans(nclusters);
+			metadata.do({|data|
+				clusters.add(data.stats.mfcc.collect(_.mean))
+			});		
+		};
+		clusters.loadData 
 	}
 	
 	roundFreq{|freq, octavediv=24, ref=440|
@@ -121,43 +142,73 @@ MikroGeen{
 		)		
 	}
 	
-	play{|record=false, timeScale=1|
-		player = Routine({
-			var dynsynth;
-			var defaultEnv = Env([0.001, 1.0, 1.0, 0.001], [0.3, 0.4, 0.3], \sine);
-			globalbus = Bus.audio(Server.default, 2);
-			group = Group();
-			Server.default.sync;
-			dynsynth = Synth.tail(group, \dynamics, [\in, globalbus, \ra, 0.06, \rt, 3, \er, 0.7, \tl, 0.7]);
-			if (record) { Server.default.record };
-			CmdPeriod.add({ this.stop });
-			Server.default.sync;
+	playCurrentEvent{|target, addAction, timeScale=1|
+		var synth, defindex, data, bus, args, env;
+		bus = Bus.audio(Server.default, 2);
+		defindex = defclusters[currentEvent.cluster].choose;
+		data = metadata[defindex];
+		args = data.args;
+		args.selectIndices({|item| item > this.roundFreq("c 0".notemidi.midicps) }).do({|argindex|
+			args[argindex] = this.roundFreq(args[argindex], 24, currentEvent.freq)
+		});
+		if (currentEvent.env.notNil) {
+			if (currentEvent.env.levels.size > 16) 
+				{ env = Env([0.001, 1.0, 1.0, 0.001], [0.3, 0.4, 0.3], \sine) } 
+				{ env = currentEvent.env }
+		} {
+			 env = Env([0.001, 1.0, 1.0, 0.001], [0.3, 0.4, 0.3], \sine)
+		};
+		synth = Synth(data.defname, [\out, bus] ++ args, target, addAction);
+		Synth.after(synth, \procgen, [\out, globalbus, \in, bus, \dur, currentEvent.dur * timeScale, 
+			\amp, currentEvent.amp])
+			.setn(\env, env);
+		SystemClock.sched(currentEvent.dur * timeScale, { bus.free; bus = nil; });
+	}
+	
+	playSequence{|size=4, target, addAction, timeScale=1|
+		var seq;
+		Routine({
 			currentEvent ? this.initializeChain;
-			loop({
-				var synth, defindex, data, bus, args, env;
-				bus = Bus.audio(Server.default, 2);
-				defindex = defclusters[currentEvent.cluster].choose;
-				data = metadata[defindex];
-				args = data.args;
-				args.selectIndices({|item| item > this.roundFreq("c 0".notemidi.midicps) }).do({|argindex|
-					args[argindex] = this.roundFreq(args[argindex], 24, currentEvent.freq)
-				});
-				if (currentEvent.env.levels.size > 16) { env = defaultEnv } { env = currentEvent.env };
-				synth = Synth.before(dynsynth, data.defname, [\out, bus] ++ args);
-				Synth.after(synth, \procgen, [\out, globalbus, \in, bus, \dur, currentEvent.dur * timeScale, 
-					\amp, currentEvent.amp])
-					.setn(\env, env);
-				SystemClock.sched(currentEvent.dur * timeScale, { bus.free; bus = nil; });
+			size.do({|i|
+				this.playCurrentEvent(target, addAction, timeScale);
 				currentEvent.int.wait;
 				this.nextEvent;
 			})
 		}).play
 	}
 	
+	prepareForPlay{|record=false, timeScale=1, decoderbus, doneFunc|
+		Routine({
+			globalbus = Bus.audio(Server.default, 4);
+			group = Group.before(1);
+			Server.default.sync;
+			dynsynth = Synth.tail(group, \dynamics, [\out, decoderbus, \in, globalbus, \amp, -1.dbamp,
+				\ra, 0.06, \rt, 3, \er, 0.7, \tl, 0.7]);
+			if (record) { Server.default.record };
+			CmdPeriod.add({ this.stop });
+			Server.default.sync;
+			currentEvent ? this.initializeChain;
+			doneFunc.();
+		}).play
+	}
+	
+	play{|record=false, timeScale=1, bus|
+		this.prepareForPlay(record, timeScale, bus, {
+			player = Routine({
+				loop({
+					this.playCurrentEvent(dynsynth, \addBefore, timeScale);
+					currentEvent.int.wait;
+					this.nextEvent;
+				})
+			}).play
+		});
+	}
+	
 	stop{
 		if (Server.default.recordNode.notNil) { Server.default.stopRecording }; 
 		player.stop;
 		SystemClock.sched(currentEvent.dur, {
+			dynsynth.free;
 			group.free; 
 			globalbus.free;
 			nil
