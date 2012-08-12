@@ -368,11 +368,13 @@ MikroGui{
 					mikro.graphics.settings[\transy] = -30;
 					mikro.graphics.sendSettings;
 					this.post("performance running");
+					composer.start(5.0);
 					
 				}
 				{
 					mikro.stop;
-					time.stop
+					time.stop;
+					composer.stop;
 				}
 			});
 
@@ -542,7 +544,7 @@ MikroGui{
 					var id, ind;
 					ind = Pseq((0..mikro.graphics.states.size-1), inf).asStream;
 					id = composer.play(def, Env([0.001, 1.0, 1.0, 0.001], [0.3, 0.4, 0.3], \sine, 2, 1), 
-						Pseq(mikro.graphics.states, inf).asStream);
+						Pseq(mikro.graphics.states ? Array.rand(16, 0.0, 1.0), inf).asStream);
 					composer.mapStates(id, composer.descLib[def].metadata.specs.collect({ ind.next }));
 					if (freesynth.items.size > 0)
 					{
@@ -623,7 +625,7 @@ MikroGui{
 				(ctrwin.bounds.width - 155) / composer.procs.size, 25))
 				.font_(font)
 				.states_([[name.asString, Color.green, Color.black]])
-				.action_({ composer.procs[name].value })
+				.action_({ composer.procs[name].(composer, mikro.analyzer) })
 		});
 						
 		graphwin = CompositeView(window, Rect(5, 365, 390, 120));
@@ -694,7 +696,7 @@ MikroGui{
 			.stringColor_(Color.grey(0.8))
 			.font_(font);			
 									
-		window.drawHook = {
+		window.drawFunc = {
 			Pen.color = Color.grey(0.5); 
 			Pen.strokeRect(Rect(5, 5, 390, 490));
 			Pen.strokeRect(Rect(400, 5, 195, 490));

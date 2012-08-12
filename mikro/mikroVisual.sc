@@ -16,7 +16,7 @@ MikroGraphics{
 	init{
 		remoteAddr = remoteAddr ? NetAddr("127.0.0.1", 7770);
 		bmu = (x: 0, y: 0, state: 0, vector: (0!vectorSize) );
-				
+		
 		bmuResponderFunctions = Event();
 		
 		statesResponderFunctions = Event();
@@ -36,9 +36,18 @@ MikroGraphics{
 		}).add;
 		
 		statesResponder = OSCresponderNode(nil, '/mikro/states', {|ti, re, ms|
+			var received;
 			if (ms.isKindOf(ArrayedCollection)) {
 				if (ms[1].isKindOf(Int8Array)) {
-					states = ms[1].asFloatArray;
+					received = ms[1].asFloatArray;
+					if (received.sum.isNaN) {
+						"Received bad input from graphics".error;
+						ms[1].postln;
+						received.postln;
+					}
+					{
+						states = received
+					};
 					statesResponderFunctions.do(_.value(states))
 				}
 			}

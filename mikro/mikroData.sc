@@ -5,7 +5,7 @@ MikroData{
 	
 	var <datalib;
 		
-	loadPathMatch{|pathmatch|
+	loadPathMatch{|pathmatch, doneAction|
 		pathmatch = pathmatch ? (this.class.loadPath ++ "*");
 		fork{
 			Post << "loading data from " << pathmatch << " ..." << Char.nl;
@@ -17,6 +17,8 @@ MikroData{
 			});
 			Post << Char.nl;
 			Post << "Loading data lib complete..." << Char.nl;
+			
+			doneAction.()
 		}
 	}
 	
