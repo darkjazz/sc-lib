@@ -97,7 +97,7 @@ MikroInput{
 	
 	var <decoder, <>testBufferPath, <thruBus, isLive, <bus, <group;
 	var <testBuffers, auxamp = 1.0, mainamp = 1.0;
-	var <synth, routine, testBuffers;
+	var <synth, routine;
 	var <currentPatch, <>patchChangeAction;
 	
 	*new{|decoder, testBufferPath, thruBus|
