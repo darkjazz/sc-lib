@@ -150,6 +150,10 @@ MikroAnalyzer{
 		}
 	}
 	
+	removeMFCCResponderFunction{
+		eventResponderFunctions[\mfccfunc] = nil
+	}
+	
 	addCurrentEvent{
 		if (currentEvent.notNil)
 		{

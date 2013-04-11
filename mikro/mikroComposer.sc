@@ -5,11 +5,11 @@ MikroComposer{
 	
 	var descFile = "/Users/alo/Development/mikro/audio/synthdesc.scd";
 	
-	*new{|mikro, procs, recognizer, libName, timeQuant, roundAmp|
-		^super.newCopyArgs(mikro, procs, recognizer, timeQuant, roundAmp).init(libName)
+	*new{|mikro, procs, recognizer, libName, timeQuant, roundAmp, useEventData=true|
+		^super.newCopyArgs(mikro, procs, recognizer, timeQuant, roundAmp).init(libName, useEventData)
 	}
 	
-	init{|libName|
+	init{|libName, useEventData|
 		descLib = SynthDescLib(libName ? \mikro);
 		descFile.load.do(_.add(descLib.name));
 		activeSynths = ();		
@@ -64,7 +64,9 @@ MikroComposer{
 				[9, 5, 8, 2, 5, 4, 7, 6, 10, 7, 5, 8, 6, 8, 10, 8].normalizeSum, inf).asStream
 		);
 		
-		eventData = MikroData().loadPathMatch(doneAction: { this.trainSets });
+		if (useEventData) {
+			eventData = MikroData().loadPathMatch(doneAction: { this.trainSets })
+		}	
 	
 	}
 	
@@ -133,13 +135,15 @@ MikroComposer{
 		^synth.nodeID
 	}
 	
-	clearSynth{|id, time|
+	clearSynth{|id, time, doneAction|
 		SystemClock.sched(time + 0.5, { 
 			this.unmapStates(id);
 			mikro.graphics.removeStatesFunction(id.asSymbol);
 			mikro.graphics.removeBmuFunction(id.asSymbol);
 			activeSynths[id.asSymbol] = nil;
 			Post << "node " << id << " cleared" << Char.nl;
+			doneAction.();
+			Post << "done action for node " << id << " executed" << Char.nl;
 			nil
 		});
 	}
@@ -148,10 +152,11 @@ MikroComposer{
 		activeSynths[id.asSymbol].set(\gate, time.neg);
 		this.clearSynth(id, time);
 		Post << "node " << id << " released in " << time << " seconds" << Char.nl;
-		SystemClock.sched(time + 0.5, {
-			doneAction.();
-			Post << "done action for node " << id << " executed" << Char.nl;
-			nil
+	}
+	
+	releaseAllSynths{|time|
+		activeSynths.keysValuesDo({|key, val|
+			this.releaseSynth(key, time)
 		})
 	}
 		

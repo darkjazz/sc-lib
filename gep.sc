@@ -1,5 +1,5 @@
 GEP{
-	var <populationSize, <numgenes, <headsize, <methods, <terminals, linker, <tailsize, <chromosomes;
+	var <populationSize, <numgenes, <headsize, <methods, <terminals, <linker, <tailsize, <chromosomes;
 	var <>mutationRate = 0.05, <>recombinationRate = 0.3, <>transpositionRate = 0.1, <>rootTranspositionRate = 0.1;
 	var <>geneRecombinationRate = 0.1, <>geneTranspositionRate = 0.1, fitnessFuncs;
 	var <generationCount = 0;
@@ -7,13 +7,13 @@ GEP{
 	*new{|populationSize, numgenes, headsize, methods, terminals, linker|
 		^super.newCopyArgs(populationSize, numgenes, headsize, methods, terminals, linker).init
 	}
-	
+		
 	init{
 		tailsize = headsize * (this.maxNumberOfArgs - 1) + 1;
 		this.randInitChromosomes;
 		fitnessFuncs = Array();
 	}
-	
+		
 	maxNumberOfArgs{
 		var max = 0;
 		methods.do({|method|
@@ -25,27 +25,31 @@ GEP{
 	}
 	
 	randInitChromosomes{|forceInitFunc=true|
-		chromosomes = Array.fill(populationSize, {
-			var indv;
-			indv = Array();
-			numgenes.do({
-				if (forceInitFunc) {
-					indv = indv ++ Array.with(methods.choose) ++ Array.fill(headsize-1, {
-						[methods, terminals].choose.choose
+		if (terminals.notNil.and(methods.notNil)) {
+			chromosomes = Array.fill(populationSize, {
+				var indv;
+				indv = Array();
+				numgenes.do({
+					if (forceInitFunc) {
+						indv = indv ++ Array.with(methods.choose) ++ Array.fill(headsize-1, {
+							[methods, terminals].choose.choose
+						})
+					}
+					{
+						indv = indv ++ Array.fill(headsize, {
+							[methods, terminals].choose.choose
+						})
+					};
+					indv = indv ++ Array.fill(tailsize, {
+						terminals.choose
 					})
-				}
-				{
-					indv = indv ++ Array.fill(headsize, {
-						[methods, terminals].choose.choose
-					})
-				};
-				indv = indv ++ Array.fill(tailsize, {
-					terminals.choose
-				})
-			});
-			ORF(indv, terminals, numgenes, linker )
-		})
+				});
+				ORF(indv, terminals, numgenes, linker )
+			})
+		}
 	}
+	
+	add{|orf| chromosomes = chromosomes.add(orf) }
 		
 	// one point recombination
 	recombineSingle{|codeA, codeB|		
@@ -185,6 +189,24 @@ GEP{
 		^newcode
 	}
 	
+	performRecombination{|orfA, orfB|
+		var codeA, codeB;
+		codeA = orfA.code;
+		codeB = orfB.code;
+		if (recombinationRate > 0.0) {
+			if (0.5.coin) {
+				#codeA, codeB = this.recombineSingle(codeA, codeB);
+			} {
+				#codeA, codeB = this.recombineMultiple(codeA, codeB);
+			}
+		};
+		if (geneRecombinationRate > 0.0) {
+			#codeA, codeB = this.recombineGene(codeA, codeB)
+		};
+		orfA.code = codeA;
+		orfB.code = codeB;
+	}
+	
 	nextGeneration{
 		var weights, newgen, scores;
 		scores = chromosomes.collect(_.score);
@@ -233,21 +255,22 @@ GEP{
 		
 		// recombination
 		newgen.do({|orfA|
-			var codeA, codeB, orfB = newgen.choose;
-			codeA = orfA.code;
-			codeB = orfB.code;
-			if (recombinationRate > 0.0) {
-				if (0.5.coin) {
-					#codeA, codeB = this.recombineSingle(codeA, codeB);
-				} {
-					#codeA, codeB = this.recombineMultiple(codeA, codeB);
-				}
-			};
-			if (geneRecombinationRate > 0.0) {
-				#codeA, codeB = this.recombineGene(codeA, codeB)
-			};
-			orfA.code = codeA;
-			orfB.code = codeB;
+			this.performRecombination(orfA, newgen.choose)
+//			var codeA, codeB, orfB = newgen.choose;
+//			codeA = orfA.code;
+//			codeB = orfB.code;
+//			if (recombinationRate > 0.0) {
+//				if (0.5.coin) {
+//					#codeA, codeB = this.recombineSingle(codeA, codeB);
+//				} {
+//					#codeA, codeB = this.recombineMultiple(codeA, codeB);
+//				}
+//			};
+//			if (geneRecombinationRate > 0.0) {
+//				#codeA, codeB = this.recombineGene(codeA, codeB)
+//			};
+//			orfA.code = codeA;
+//			orfB.code = codeB;
 		});
 		
 		chromosomes = newgen;
@@ -282,13 +305,18 @@ GEP{
 		var max = this.maxScore;
 		^chromosomes.select({|chr| chr.score == max  }) 
 	}
+	
+	// hack: use with caution
+	replacePopulation{|orfArray|
+		chromosomes = orfArray
+	}
 				
 }
 
 // Open Reading Frame
 ORF{
 	var <>code, <terminals, <numGenes, <linker, <>score=0;
-	var <tree, <>extraDomains, <>constants;
+	var <tree, <>extraDomains, <>constants, parents;
 	
 	*new{|code, terminals, ngenes, linker|
 		^super.newCopyArgs(code, terminals, ngenes, linker)
@@ -327,6 +355,14 @@ ORF{
 		
 		extraDomains = extraDomains.add(domain)
 	}
+	
+	setParents{|indA, indB|
+		parents = Array.newClear(2);
+		parents[0] = indA;
+		parents[1] = indB;
+	}
+	
+	progenyOf{ ^parents }
 }
 
 

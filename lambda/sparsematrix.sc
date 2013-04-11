@@ -2,22 +2,26 @@ SparseMatrix{
 	
 	classvar <>allPatterns, <>patterns12, <>patterns16, <>sparseObjects, <>sparsePatterns;
 	
-	var <decoder, <graphics, <quant, <envs, <buffers, <group, <efxgroup, <nofxbus, <bpm, <bps, <beatdur;
+	var <decoder, <graphics, <quant, <ncoef, <envs, <buffers, <group, <efxgroup, <nofxbus, <bpm, <bps, <beatdur;
 	var <rDB, <efx, <efxamps, <patterndefs, <argproto, <deffuncs, codewindow, <listener, <mfccresp;
 	var <skismDefs, skismSynths, grainEnvs;
 	
 	var <>defpath = "/Users/alo/Development/lambda/supercollider/sparsematrix/sparsedefs.scd";
-	var <>skismDefPath = "/Users/alo/Development/skism/sc/defs.scd";
+	var <>skismDefPath = "/Users/alo/Development/lambda/supercollider/sparsematrix/skismdefs.scd";
 
 	
-	*new{|decoder, graphics, quant=2|
-		^super.newCopyArgs(decoder, graphics, quant).init
+	*new{|decoder, graphics, quant=2, ncoef=8|
+		^super.newCopyArgs(decoder, graphics, quant, ncoef).init
 	}
 	
 	init{
 		{
-		decoder = decoder ? FoaDecoder();
-		graphics = graphics ? CinderApp();
+		if (decoder.isNil) {
+			decoder = FoaDecoder()
+		};
+		if (graphics.isNil) {
+			graphics ? CinderApp()
+		};
 		
 		this.loadBuffers;
 		
@@ -60,7 +64,12 @@ SparseMatrix{
 		
 		Server.default.sync;
 		
-		group = Group();
+		if (decoder.isRunning) {
+			group = Group.before(decoder.synth)
+		}
+		{
+			group = Group();
+		};
 		efxgroup = Group.after(group);
 		nofxbus = Server.default.options.numAudioBusChannels-1;
 		
@@ -257,7 +266,25 @@ SparseMatrix{
 			{ CA1.ar(4410, 32, 45, 0) },
 			{ CA1.ar(4410, 64, 73, 0) },
 			{ CA1x.ar(4410, 32, 89, 0) },
-			{ CA1x.ar(4410, 64, 105, 0) }
+			{ CA1x.ar(4410, 64, 105, 0) },
+			
+			{ Logist0.ar(1000 * IRand(1, 5), 1.8) },
+			{ CML0.ar(Select.kr(IRand(0, 4), Scale.jiao.ratios * 120), 1.2, 0.05, 1.0) },
+			{ GCM0.ar(Select.kr(IRand(0, 4), Scale.jiao.ratios * 880), 1.5, 0.01) },
+			{ HCM0.ar(Select.kr(IRand(0, 4), Scale.jiao.ratios * 256), 1.1, 0.3) },
+			{ Nagumo.ar(0.01, 0.01, LFPulse.ar(10).range(0, 1)) },
+			{ FIS.ar(LFSaw.ar(4).range(1,4),LFNoise0.ar(10).abs,SinOsc.ar(2**11).range(1,10).round(1)) },
+			{ CombN.ar(CA1.ar(800,20,SinOsc.kr(30, 0.5pi).range(30, 60).round(1)),0.2,0.125,0.25) },
+			{ Mix(GVerb.ar(LPF.ar(Impulse.ar(1),800,20),5)) },
+			
+			{ Logist0.ar(50 * IRand(1, 5), 1.1) },
+			{ CML0.ar(Select.kr(IRand(0, 4), Scale.jiao.ratios * 880), 1.99, 0.01, 0.1) },
+			{ GCM3.ar(Select.kr(IRand(0, 4), Scale.jiao.ratios * 660), 1.7, 0.1) },
+			{ HCM3.ar(Select.kr(IRand(0, 4), Scale.jiao.ratios * 1024), 1.99, 0.8) },
+			{ Nagumo.ar(0.01, 0.001, LFPulse.ar(110).range(0, 1)) },
+			{ FIS.ar(LFSaw.ar(1).range(1,4),Crackle.ar(1.99).abs,LFSaw.ar(64).range(1,10).round(1)) },
+			{ Mix(DelayN.ar(CombN.ar(CA1.ar(440,200,165),0.2,0.01,0.2),0.05,(0.01,0.02..0.04))) },
+			{ Mix(GVerb.ar(HPF.ar(Impulse.ar(1),500,20),5)) }
 			
 		];
 		deffuncs.collect({|fnc, i|
@@ -337,7 +364,7 @@ SparseMatrix{
 			codewindow = document
 		};
 		codewindow.keyDownAction = {|doc, char, mod, uni, key|
-			if ((uni == 3) and: { key == 76 }) 
+			if ((uni == 3) and: { key == 76 })
 			{
 				sendarray = doc.selectedString.split(Char.nl);
 				sendarray[0] = "@ " ++ sendarray[0];
@@ -350,19 +377,21 @@ SparseMatrix{
 	
 	runGraphicsApp{ graphics.open }
 	
-	startDecoder{
+	prepareAudio{
 		{
-			decoder.start(efxgroup, \addAfter);
+			if (decoder.isRunning.not) {
+				decoder.start(efxgroup, \addAfter)
+			};
 			Server.default.sync;
 			listener = Synth.before(decoder.synth, \mfcc, [\in, decoder.bus, \th, -6.dbamp]);
 			mfccresp = OSCFunc({|ms|
-				graphics.sendSOMVector(ms[3..11]);
+				graphics.sendSOMVector(ms[3..(ncoef+2)]);
 			}, '/mfcc', Server.default.addr ).add;
 		}.fork
 	}
-	
-	quit{
-		decoder.free;
+		
+	quit{|quitDecoder=true|
+		if (quitDecoder) { decoder.free };
 		mfccresp.disable;
 		listener.free;
 	}
@@ -382,6 +411,7 @@ SparseMatrix{
 		args[\out] = decoder.bus;
 		args[\in] = decoder.bus;
 		args[\amp] = 0.0;
+		args[\bps] = bps;
 		if (def.metadata.includesKey(\grainEnvBuf)) {
 			args[\grainEnvBuf] = grainEnvs[def.metadata.grainEnvBuf]
 		};			
@@ -401,7 +431,73 @@ SparseMatrix{
 		skismSynths[name].free;
 		skismSynths[name] = nil;
 	}
-			
+	
+	preparePatternDefs{
+		this.addPatternCycleDef('c00', 4, this.buffers.cycles[[1, 2, 7, 14]], 'frag05', "c0");
+
+		this.addPatternSynthDef('r00', 
+			sourcenames: ['kpanilogo', 'yole', 'diansa', 'sorsornet'], prefix: "r0");
+		
+		this.addPatternSynthDef('r01', div: 4, 
+			sourcenames: ['diansa', 'liberte', 'macrou'], prefix: "r1");
+		
+		this.addPatternSynthDef('r02', 
+			sourcenames: ['raboday'], subpatterns: 3, prefix: "r2");
+		
+		this.addPatternSynthDef('r03', 48, 8, 8, ['kpanilogo', 'yole'], 2, "r3");
+
+		this.addPatternSynthDef('r04', 64, 8, 8, ['tiriba', 'foret'], 2, "r4");
+
+		this.addPatternSynthDef('r05', 64, 8, 8, ['basikolo', 'djakandi'], 2, "r5");
+
+		this.addPatternSynthDef('r06', 64, 8, 8, ['doudoumba'], 3, "r6");
+
+		this.addPatternBufferDef('b00',
+			size: 32, groupsize: 4, 
+			sourcenames: ['kokou', 'soli', 'macrou'],
+			prefix: "b0", protoname: 'fragproto',
+			buffers: this.buffers.frags, defname: 'frag02'
+		);
+		
+		this.addPatternBufferDef('b01',
+			size: 32, groupsize: 4, div: 2,
+			sourcenames: ['kokou', 'soli', 'macrou'],
+			prefix: "b1", protoname: 'fragproto01',
+			buffers: this.buffers.frags, defname: 'frag01'
+		);
+		
+		this.addPatternBufferDef('b02', 
+			size: 64, groupsize: 8,
+			sourcenames: ['kpanilogo', 'yole', 'diansa', 'kokou', 'kakilambe', 'soli', 'mandiani'], 
+			prefix: "b2", protoname: 'argproto',
+			buffers: this.buffers.bits, defname: 'bit01'
+		);
+		
+		this.addPatternBufferDef('b03', 
+			size: 32, groupsize: 4, div: 4,
+			sourcenames: ['sokou', 'cassa'], 
+			subpatterns: 1, protoname: 'argproto',
+			prefix: "b3", buffers: this.buffers.bits.keep(32), defname: 'bit00'
+		);
+		
+		this.addPatternBufferDef('b04', 
+			size: 32, groupsize: 4, div: 4,
+			sourcenames: ['rumba', 'liberte'], 
+			subpatterns: 1,
+			prefix: "b4", buffers: this.buffers.bits.drop(32), defname: 'bit00'
+		);
+		
+	}
+	
+	patternKeys{ ^patterndefs.keys(Array) }
+	
+	collectPatternKeys{|names|
+		if (names.isNil) {
+			names = this.patternKeys;
+		};
+		^names.collect({|name| Pdef(name.asSymbol) }) 
+	}
+	
 }
 
 SparseMatrixPattern{

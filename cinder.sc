@@ -1,19 +1,22 @@
 CinderApp{
 		
 	var <screenX, <screenY, <fps, <scAddr, <ciAddr, <mode, <appPath;
-	var args, oscPrefix = "/lambda/", patternLib, settings, symmetry;
+	var args, oscPrefix = "/lambda/", patternLib, boidPatternLib, settings, symmetry;
 	var <queryFunc, <world;
 
-	*new{|screenX=800, screenY=600, fps=32, scAddr, ciAddr, mode=0, path, numPatterns=20|
-		^super.newCopyArgs(screenX, screenY, fps, scAddr, ciAddr, mode, path).init(numPatterns);
+	*new{|screenX=800, screenY=600, fps=32, scAddr, ciAddr, mode=0, path, numPatterns=26, numBoidPatterns=6|
+		^super.newCopyArgs(screenX, screenY, fps, scAddr, ciAddr, mode, path).init(numPatterns, numBoidPatterns);
 	}
 	
-	init{|numPatterns|
+	init{|numPatterns, numBoidPatterns|
 		scAddr = scAddr ? NetAddr(NetAddr.localAddr.hostname, NetAddr.localAddr.port);
 		ciAddr = ciAddr ? NetAddr("127.0.0.1", 7000);
 		appPath = appPath ? "~/Development/lambda/xcode/build/Release/lambda.app";
 		patternLib = Array.fill(numPatterns, {|i|
 			(index: i, active: 0, alpha: 0.0, alphamap: 0, colormap: 0, r: 0.0, g: 0.0, b: 0.0)
+		});
+		boidPatternLib = Array.fill(numBoidPatterns, {|i| 
+			(index: i, active: 0, mapIndex: 0) 
 		});
 // 		rule = ('CONT', 'LIFE', 'GEN');
 // 		interp = ( 'NONE': 0, 'LINEAR': 1, 'COSINE': 2 ); // interp count
@@ -113,6 +116,11 @@ CinderApp{
 		var pre = Generations.rules[name];
 		this.sendGenRule(pre[0], pre[1], pre[2]);
 	}
+
+	sendPredefined3DRule{|name|
+		var pre = Generations.rules[name];
+		this.sendGenRule(pre[0]*2, pre[1]*2, pre[2]);
+	}
 	
 	sendGenRule{|births, survivals, states|
 		this.sendMsg("world/rule/births", *(births ? [2]));
@@ -131,6 +139,75 @@ CinderApp{
 		
 		this.sendPattern(index);
 	}
+
+	fadeInPattern{|index, time, alpha|
+		Routine({
+			var steps, incr, value = 0.0;
+			steps = time / 0.1;
+			incr = alpha / steps;
+			patternLib[index].active = 1;
+			patternLib[index].alpha = 0.0;
+			steps.do({
+				this.sendPattern(index);
+				value = value + incr;
+				patternLib[index].alpha = value;
+				0.1.wait;
+			});
+			patternLib[index].alpha = alpha;
+			this.sendPattern(index);
+			Post << "Pattern " << index << " fade in complete" << Char.nl;
+		}).play
+	}
+
+	fadeOutPattern{|index, time|
+		Routine({
+			var steps, incr, value;
+			steps = time / 0.1;
+			incr = patternLib[index].alpha / steps;
+			value = patternLib[index].alpha; 
+			steps.do({
+				this.sendPattern(index);
+				value = value - incr;
+				patternLib[index].alpha = value;
+				0.1.wait;
+			});
+			patternLib[index].alpha = 0.0;
+			patternLib[index].active = 0;
+			this.sendPattern(index);
+			Post << "Pattern " << index << " fade out complete" << Char.nl;
+		}).play
+	}
+	
+	xfadePatterns{|fadeInIndex, fadeInAlpha, fadeOutIndex, time|
+		Routine({
+			var steps, incrIn, incrOut, valueIn = 0.0, valueOut;
+			steps = time / 0.1;
+			incrIn = fadeInAlpha / steps;
+			incrOut = patternLib[fadeOutIndex].alpha / steps;
+			patternLib[fadeInIndex].active = 1;
+			patternLib[fadeInIndex].alpha = 0.0;
+			valueOut = patternLib[fadeOutIndex].alpha;
+			steps.do({
+				this.sendPattern(fadeInIndex);
+				valueIn = valueIn + incrIn;
+				patternLib[fadeInIndex].alpha = valueIn;
+				0.05.wait;
+				this.sendPattern(fadeOutIndex);
+				valueOut = valueOut - incrOut;
+				patternLib[fadeOutIndex].alpha = valueOut;
+				0.05.wait;
+			});
+			patternLib[fadeInIndex].alpha = fadeInAlpha;
+			this.sendPattern(fadeInIndex);
+			0.05.wait;
+			patternLib[fadeOutIndex].alpha = 0.0;
+			patternLib[fadeOutIndex].active = 0;
+			this.sendPattern(fadeOutIndex);
+
+			Post << "Xfade from " << fadeOutIndex << " to " << fadeInIndex << " complete" << Char.nl;
+		}).play
+
+	}
 	
 	setPatternArg{|index, argname, value, send=true|
 		patternLib[index][argname] = value;
@@ -141,7 +218,19 @@ CinderApp{
 		this.sendMsg("graphics/pattern", index.asInt, *this.collectPatternArgs(index))
 	}
 	
+	sendBoidPattern{|index, active, mapIndex|
+		boidPatternLib[index].active = active;
+		boidPatternLib[index].mapIndex = mapIndex;
+		this.sendMsg("graphics/boidpattern", index.asInt, active.asInt, mapIndex.asInt)
+	}
+	
 	sendSOMVector{|vector|
+		vector = vector.collect(_.asFloat);
+		this.sendMsg("world/somvector", *vector)
+	}
+	
+	// support an older version of the graphics app messaging 
+	sendWeights{| ... vector|
 		vector = vector.collect(_.asFloat);
 		this.sendMsg("world/somvector", *vector)
 	}
@@ -233,6 +322,18 @@ CinderApp{
 		this.sendMsg("world/query/stop");
 	}
 	
+	putStatesFunction{|id, func|
+		
+	}
+	
+	removeStatesFunction{|id|
+		
+	}
+	
+	removeBmuFunction{|id|  
+		
+	}
+	
 	activateSwarm{|size, x, y, z, speed, cohesion, separation, alignment, center|
 		this.sendMsg("boids/init", size, x, y, z, speed, cohesion, separation, alignment, center)
 	}
@@ -257,6 +358,10 @@ CinderApp{
 
 	hideCodePanel{ this.sendMsg("livecode/activate", 0) }
 	
+	mapCodePanel{ this.sendMsg("livecode/map", 1) }
+
+	unmapCodePanel{ this.sendMsg("livecode/map", 0) }
+	
 	setSymmetry{|sym|
 		this.sendMsg("world/symmetry", sym.asInt ? 0)
 	}
@@ -270,6 +375,11 @@ CinderApp{
 	}
 	
 	changeOscPrefix{|prefix| oscPrefix = prefix }
+	
+	setFrameRate{|value| 
+		fps = value;
+		this.sendMsg("framerate", fps.asFloat)  
+	}
 		
 }
 

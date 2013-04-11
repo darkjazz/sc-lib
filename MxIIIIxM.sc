@@ -683,7 +683,7 @@ MxTrack{
 	
 	loadTrack{|path, loadBuffer = false|
 		var archbpm;
-		filepath = path.asUnixPath;
+		filepath = path;
 		sf = SoundFile.new;
 		sf.openRead(filepath);
 		waveview.soundfile = sf;

@@ -450,15 +450,16 @@ SparsePattern{
 		^super.newCopyArgs(original)
 	}
 		
-	makeSparse{|startFirst=false|
-		var beatsum, order, copy, rotate = 0;
+	makeSparse{|startFirst=false, reorder=false|
+		var beatsum, order, copy, rotate = 0, arr;
 		
-		order = Pseq(original.collect(_.sum)
+		arr = original.collect(_.sum)
 			.collect({|count, i| (count:count,index:i) })
 			.sort({|a, b| a['count'] < b['count'] })
-			.collect(_.index),
-			1
-		).asStream;
+//			.sort({|a, b| a['count'] > b['count'] })
+			.collect(_.index);
+		
+		order = Pseq(arr, 1).asStream;
 		
 		copy = Array.fill(original.first.size, {
 			(0 ! original.size)
@@ -466,7 +467,8 @@ SparsePattern{
 		
 		beatsum = original.flop.collect(_.sum);
 		
-		(1..beatsum.maxItem).do({|num|
+//		(1..beatsum.maxItem).do({|num|
+		(beatsum.maxItem..1).do({|num|
 			beatsum.selectIndices({|sum| sum == num }).do({|ind|
 				var slot;
 				slot = order.next;
@@ -481,9 +483,25 @@ SparsePattern{
 		patterns = Array.newClear(copy.flop.size);
 		
 		copy.flop.do({|seq, i|
-			patterns[i] = seq.rotate(rotate.neg);
+			patterns[arr[i]] = seq.rotate(rotate.neg);
 		});
 		
+		if (reorder) { this.reorder }
+		
+	}
+	
+	reorder{
+		patterns.do({|pat, i|
+			var j;
+			if (original[i][pat.indexOf(1)] == 0) {
+				j = original.selectIndices({|it, itind|
+					(it[pat.indexOf(1)] == 1).and(itind > i)
+				}).first;
+				if (j.notNil) {
+					patterns.swap(i, j)
+				}
+			}
+		});		
 	}
 	
 	makeSubPatterns{|numPatterns=3|

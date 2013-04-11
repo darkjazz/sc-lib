@@ -17,24 +17,30 @@ FoaDecoder{
 			{	
 				case 
 				{ decoderType == 'uhj' } { 
+					"Making uhj decoder".inform;
 					decoder = FoaDecoderKernel.newUHJ;
 					Server.default.sync;
 				} 
 				{ decoderType == 'stereo' } { 
+					"Making stereo decoder".inform;
 					decoder = FoaDecoderMatrix.newStereo;
 					Server.default.sync;
 				} 
 				{ decoderType == 'binaural' } {
+					"Making uhj decoder".inform;
 					decoder = FoaDecoderKernel.newCIPIC;
 					Server.default.sync
 				}
 				{ decoderType == 'quad' } {
-					decoder = FoaDecoderMatrix.newQuad(0.25pi.neg)
+					"Making quad decoder".inform;
+					decoder = FoaDecoderMatrix.newQuad()
 				}
 				{ decoderType == 'hex' } {
+					"Making hex decoder".inform;
 					decoder = FoaDecoderMatrix.newPanto(6)
 				}
 				{ decoderType == 'octo' } {
+					"Making octo decoder".inform;
 					decoder = FoaDecoderMatrix.newPanto(8)
 				};
 				SynthDef(\decoder, {|amp=1|

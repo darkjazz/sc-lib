@@ -1,9 +1,11 @@
 MikroGeen{
 	
-	var nclusters, timeQuant, <metadata, datasize = 20, clusters;
+	classvar <>archPath = "/Users/alo/Data/mikro/sets/";
+	
+	var nclusters, timeQuant, <metadata, datasize = 20, <clusters;
 	var <durSet, <freqSet, <ampSet, <intervalSet, <clusterSet, <envSet;
-	var <eventData, allEvents, <currentEvent, <defclusters, <group;
-	var player, <globalbus, dynsynth, <currentSequence, <currentSource;
+	var <eventData, <allEvents, <currentEvent, <defclusters, <group;
+	var player, <globalbus, <dynsynth, <currentSequence, <currentSource;
 	
 	*new{|nclusters, timeQuant, defdir|
 		^super.newCopyArgs(nclusters, timeQuant).init(defdir)
@@ -67,22 +69,22 @@ MikroGeen{
 	
 	saveClusters{ clusters.saveData }
 	
-	loadClusters{ 
+	loadClusters{|path| 
 		if (clusters.isNil) {
 			clusters = MikroMeans(nclusters);
 			metadata.do({|data|
 				clusters.add(data.stats.mfcc.collect(_.mean))
 			});		
 		};
-		clusters.loadData 
+		clusters.loadData(path)
 	}
 	
 	roundFreq{|freq, octavediv=24, ref=440|
 		^(2**(round(log2(freq/ref)*octavediv)/octavediv)*ref)
 	}
 	
-	loadEventData{|path|
-		eventData = MikroData().loadPathMatch
+	loadEventData{|path, doneAction|
+		eventData = MikroData().loadPathMatch(path, doneAction)
 	}
 	
 	trainSets{
@@ -104,6 +106,7 @@ MikroGeen{
 			});
 			
 			allEvents = eventData.datalib.values.collect(_.events).flat;
+			"Training completed...".postln;
 		}
 		{
 			"No training data loaded. Execute loadEventData first.".warn
@@ -111,7 +114,9 @@ MikroGeen{
 	}
 	
 	initializeChain{|source, firstInterval|
-		source = source ? allEvents.choose;
+		if (source.isNil) {
+			source = allEvents.choose
+		};
 		if (firstInterval.notNil) {
 			firstInterval = firstInterval.round(timeQuant)
 		}
@@ -136,15 +141,30 @@ MikroGeen{
 	}
 	
 	nextEvent{
-		var dur;
-		dur = durSet.next(currentEvent.dur) ? this.getNearestMatch(durSet, currentEvent.dur);
+		var dur, frq, amp, int;
+		dur = durSet.next(currentEvent.dur); 
+		if (dur.isNil) { 
+			dur = this.getNearestMatch(durSet, currentEvent.dur)
+		};
+		frq = freqSet.next(currentEvent.freq);
+		if ( frq.isNil) {
+			frq = this.getNearestMatch(freqSet, currentEvent.freq)
+		};
+		amp = ampSet.next(currentEvent.amp);
+		if (amp.isNil) { 
+			amp = this.getNearestMatch(ampSet, currentEvent.amp)
+		};
+		int = intervalSet.next(currentEvent.int);
+		if (int.isNil) {
+			int = this.getNearestMatch(intervalSet, currentEvent.int)
+		};
 		currentEvent = (
 			dur: dur, 
-			freq: freqSet.next(currentEvent.freq) ? this.getNearestMatch(freqSet, currentEvent.freq),
-			amp: ampSet.next(currentEvent.amp) ? this.getNearestMatch(ampSet, currentEvent.amp),
+			freq: frq,
+			amp: amp,
 			env: envSet[dur],
 			cluster: clusterSet.next(currentEvent.cluster),
-			int: intervalSet.next(currentEvent.int) ? this.getNearestMatch(intervalSet, currentEvent.int)
+			int: int
 		)		
 	}
 	
@@ -203,7 +223,10 @@ MikroGeen{
 	playEvent{|event, target, addAction, timeScale=1|
 		var synth, defindex, data, bus, args, env, amp;
 		bus = Bus.audio(Server.default, 2);
-		defindex = this.findNearestInCluster(event.cluster) ? defclusters[event.cluster].choose;
+		defindex = this.findNearestInCluster(event.cluster);
+		if (defindex.isNil) { 
+			defclusters[event.cluster].choose
+		};
 		data = metadata[defindex];
 		args = data.args;
 		args.selectIndices({|item| item > this.roundFreq("c 0".notemidi.midicps) }).do({|argindex|
@@ -236,7 +259,9 @@ MikroGeen{
 	playSequence{|size=4, target, addAction, timeScale=1, source, doneAction|
 		var seq;
 		Routine({
-			currentEvent ? this.initializeChain(source);
+			if (currentEvent.isNil) {
+				this.initializeChain(source)
+			};
 			size.do({|i|
 				this.playCurrentEvent(target, addAction, timeScale);
 				currentEvent.int.wait;
@@ -248,8 +273,8 @@ MikroGeen{
 	
 	playPreparedSequence{|size=4, timeScale=1, source, firstInterval, doneAction|
 		var seqdur;
-		[source.duration.round(timeQuant), firstInterval.round(timeQuant)].postln;
 		"---".postln;
+		(\dur: source.duration.round(timeQuant), \intr: firstInterval.round(timeQuant)).postln;
 		currentSource = source;
 		this.prepareSequence(size, source, firstInterval);
 		seqdur = ([0.0] ++ currentSequence.keep(size-1).collect(_.int)).integrate + 
@@ -308,22 +333,24 @@ MikroGeen{
 		})
 	}
 	
-	prepareForPlay{|record=false, timeScale=1, decoderbus, doneFunc|
+	prepareForPlay{|record=false, timeScale=1, decoderbus, doneFunc, amp=1|
 		Routine({
 			globalbus = Bus.audio(Server.default, 4);
 			group = Group.before(1);
 			Server.default.sync;
-			dynsynth = Synth.tail(group, \dynamics, [\out, decoderbus, \in, globalbus, \amp, -1.dbamp,
+			dynsynth = Synth.tail(group, \dynamics, [\out, decoderbus, \in, globalbus, \amp, amp,
 				\ra, 0.06, \rt, 3, \er, 0.7, \tl, 0.7]);
 			if (record) { Server.default.record };
-			CmdPeriod.add({ this.stop });
+//			CmdPeriod.add({ this.stop });
 			Server.default.sync;
-			currentEvent ? this.initializeChain;
+			if (currentEvent.isNil) { 
+				this.initializeChain
+			};
 			doneFunc.();
 		}).play
 	}
 	
-	play{|record=false, timeScale=1, bus|
+	play{|record=false, timeScale=1, bus, amp = 1|
 		this.prepareForPlay(record, timeScale, bus, {
 			player = Routine({
 				loop({
@@ -332,7 +359,7 @@ MikroGeen{
 					this.nextEvent;
 				})
 			}).play
-		});
+		}, amp);
 	}
 	
 	stop{
@@ -347,7 +374,7 @@ MikroGeen{
 	}
 	
 	getDefArgs{|name|
-		var ev = metadata.select({|data| data.defname == name }).first;
+		var ev = metadata.select({|data| data.defname == name.asString }).first;
 		if (ev.notNil) { ^ev.args } { ^nil }
 	}
 	
@@ -362,5 +389,53 @@ MikroGeen{
 			^nil
 		}
 	}
+	
+	archiveSets{
+		var path;
+		path = this.getArchivePath;
+		durSet.writeArchive(path ++ "durSet");
+		freqSet.writeArchive(path ++ "freqSet");
+		ampSet.writeArchive(path ++ "ampSet");
+		intervalSet.writeArchive(path ++ "intervalSet");
+		clusterSet.writeArchive(path ++ "clusterSet");
+		envSet.writeArchive(path ++ "envSet");
+	}
+	
+	loadSets{
+		var path; 
+		path = this.getArchivePath;
+		durSet = MarkovSet.readArchive(path ++ "durSet");
+		freqSet = MarkovSet.readArchive(path ++ "freqSet");
+		ampSet = MarkovSet.readArchive(path ++ "ampSet");
+		intervalSet = MarkovSet.readArchive(path ++ "intervalSet");
+		clusterSet = MarkovSet.readArchive(path ++ "clusterSet");
+		envSet = MarkovSet.readArchive(path ++ "envSet");
+	}
+	
+	getArchivePath{
+		var path, dir, temp;
+		temp = MikroData.loadPath.split($/);
+		temp.pop;
+		dir = temp.last;
+		path = this.class.archPath ++ dir ++ "/";
+		if (File.exists(path).not) {
+			File.mkdir(path)
+		};
+		^path;	
+	}
 		
+}
+
+LiveGeen : MikroGeen{
+	
+	activate{|decoderbus, amp|
+		Routine({
+			globalbus = Bus.audio(Server.default, 4);
+			group = Group.before(1);
+			Server.default.sync;
+			dynsynth = Synth.tail(group, \dynamics, [\out, decoderbus, \in, globalbus, \amp, amp,
+				\ra, 0.06, \rt, 3, \er, 0.7, \tl, 0.7]);
+		}).play		
+	}
+	
 }

@@ -1,7 +1,7 @@
 Mikro{
 	
 	var <input, <graphics, <analyzer;
-	var <decoder, <group, <gui, initFuncs, cleanFuncs;
+	var <decoder, <>group, <gui, initFuncs, cleanFuncs;
 		
 	*new{|input, graphics, analyzer, duration, nCoef|
 		^super.newCopyArgs(input, graphics, analyzer).init(duration, nCoef)
@@ -62,6 +62,16 @@ Mikro{
 		
 	}
 	
+	initRemote{
+		group = Group();
+		decoder.start(group, \addAfter);
+
+		input.prepare(group);
+		
+		initFuncs.do(_.value);
+		
+	}
+	
 	start{|onsetGate, lag, msgRate|
 		analyzer.start(input.bus, group, \addToHead, onsetGate, lag, msgRate);
 		
@@ -79,11 +89,11 @@ Mikro{
 		input.stop;
 	}
 	
-	quit{
+	quit{|quitDecoder=true, quitGraphics=true|
 		group.free;
 		input.free;
-		graphics.quit;
-		decoder.free;
+		if (quitGraphics) { graphics.quit };
+		if (quitDecoder) { decoder.free };
 		cleanFuncs.do(_.value);		
 	}
 		
@@ -93,15 +103,33 @@ Mikro{
 		
 }
 
+
+MikroLambda : Mikro{
+
+	start{|onsetGate, lag, msgRate|
+		analyzer.start(input.bus, group, \addToHead, onsetGate, lag, msgRate);
+		
+		analyzer.putEventResponderFunction(\sendWeights, {|time, re, ms|
+			if (ms[2] == 3) {
+				 graphics.sendSOMVector(ms[3..analyzer.numcoef+2])
+			}
+		});
+
+		input.start;	
+		
+	}
+	
+}
+
 MikroInput{
 	
-	var <decoder, <>testBufferPath, <thruBus, isLive, <bus, <group;
+	var <decoder, <>testBufferPath, <thruBus, <inputBus, <isLive, <bus, <group;
 	var <testBuffers, auxamp = 1.0, mainamp = 1.0;
 	var <synth, routine;
-	var <currentPatch, <>patchChangeAction;
+	var <currentPatch, <>patchChangeAction, <defs;
 	
-	*new{|decoder, testBufferPath, thruBus|
-		^super.newCopyArgs(decoder, testBufferPath, thruBus).init
+	*new{|decoder, testBufferPath, thruBus, inputBus=0|
+		^super.newCopyArgs(decoder, testBufferPath, thruBus, inputBus).init
 	}
 	
 	init{
@@ -109,39 +137,41 @@ MikroInput{
 		this.sendSynthDefs;
 	}
 	
-	sendSynthDefs{		
-		SynthDef(\inputlive, {|main, aux, xamp, mamp, xang, yang, zang, maxdel|
-			var sig, a, b, c, d, w, x, y, z, del, shift;
-			sig = SoundIn.ar(0);
-			del = ArrayControl.kr(\delays, 4, 0);
-			shift = ArrayControl.kr(\shifts, 4, 1);	
-			Out.ar(aux, sig * xamp);
-			#a, b, c, d = Array.fill(4, {|i|
-				PitchShift.ar(DelayN.ar(sig, maxdel, del[i]), 0.2, shift[i]);
-			});
-			#w, x, y, z = A2B.ar(a, b, c, d);
-			Out.ar(main, AtkRotateXYZ.ar(w, x, y, z, xang, yang, zang) * mamp);
-		}).add;		
-
-		SynthDef(\inputbuf, {|main, aux, xamp, mamp, xang, yang, zang, maxdel, buf|
-			var sig, a, b, c, d, w, x, y, z, del, shift;
-			sig = PlayBuf.ar(1, buf, doneAction: 2);
-			del = ArrayControl.kr(\delays, 4, 0);
-			shift = ArrayControl.kr(\shifts, 4, 1);	
-			Out.ar(aux, sig * xamp);
-			#a, b, c, d = Array.fill(4, {|i|
-				PitchShift.ar(DelayN.ar(sig, maxdel, del[i]), shift[i]);
-			});
-			#w, x, y, z = A2B.ar(a, b, c, d);
-			Out.ar(main, AtkRotateXYZ.ar(w, x, y, z, xang, yang, zang) * mamp);
-		}).add;
-		
-		SynthDef(\inputhru, {|main, aux, in, xamp, mamp|
-			var bformat;
-			bformat = In.ar(in, 4);
-			Out.ar(aux, bformat.first * xamp);
-			Out.ar(main, bformat * mamp);
-		}).add;
+	sendSynthDefs{	
+		defs = Array.with(	
+			SynthDef(\inputlive, {|main, aux, xamp, mamp, xang, yang, zang, maxdel|
+				var sig, a, b, c, d, w, x, y, z, del, shift;
+				sig = SoundIn.ar(inputBus);
+				del = ArrayControl.kr(\delays, 4, 0);
+				shift = ArrayControl.kr(\shifts, 4, 1);	
+				Out.ar(aux, sig * xamp);
+				#a, b, c, d = Array.fill(4, {|i|
+					PitchShift.ar(DelayN.ar(sig, maxdel, del[i]), 0.2, shift[i]);
+				});
+				#w, x, y, z = A2B.ar(a, b, c, d);
+				Out.ar(main, AtkRotateXYZ.ar(w, x, y, z, xang, yang, zang) * mamp);
+			}).add,	
+	
+			SynthDef(\inputbuf, {|main, aux, xamp, mamp, xang, yang, zang, maxdel, buf|
+				var sig, a, b, c, d, w, x, y, z, del, shift;
+				sig = PlayBuf.ar(1, buf, doneAction: 2);
+				del = ArrayControl.kr(\delays, 4, 0);
+				shift = ArrayControl.kr(\shifts, 4, 1);	
+				Out.ar(aux, sig * xamp);
+				#a, b, c, d = Array.fill(4, {|i|
+					PitchShift.ar(DelayN.ar(sig, maxdel, del[i]), shift[i]);
+				});
+				#w, x, y, z = A2B.ar(a, b, c, d);
+				Out.ar(main, AtkRotateXYZ.ar(w, x, y, z, xang, yang, zang) * mamp);
+			}).add,
+			
+			SynthDef(\inputhru, {|main, aux, in, xamp, mamp|
+				var bformat;
+				bformat = In.ar(in, 4);
+				Out.ar(aux, bformat.first * xamp);
+				Out.ar(main, bformat * mamp);
+			}).add
+		)
 
 	}
 		
@@ -162,7 +192,7 @@ MikroInput{
 		
 	}
 	
-	prepare{|target|
+	prepare{|target, doneAction|
 		
 		bus = Bus.audio;
 		group = Group.before(target);
@@ -185,6 +215,8 @@ MikroInput{
 		{
 			this.loadTestBuffers({
 				
+				doneAction.();
+				
 				if (testBuffers.size > 1) 
 				{
 					routine = Routine({
@@ -206,7 +238,7 @@ MikroInput{
 	}
 	
 	start{
-		if (isLive.not) { 
+		if (isLive.not) {
 			if (testBuffers.size == 1) {
 				synth = Synth.head(group, \inputbuf, [\main, decoder.bus, \aux, bus, 
 					\xamp, auxamp, \mamp, mainamp, \xang, 0.0, \yang, 0.0, \zang, 0.0, \maxdel, 0.1, 
@@ -236,10 +268,19 @@ MikroInput{
 		if (isLive) { 
 			synth.free;  
 			synth = nil;
+		}
+		{
+			testBuffers.do({|buf|
+				buf.free
+			});
+			testBuffers = nil;
 		};
 		
 		bus.free;
 		group.free;
+		bus = nil;
+		group = nil;
+		
 	}
 	
 	auxamp_{|value|
@@ -256,8 +297,8 @@ MikroInput{
 
 MikroFoaInput : MikroInput{
 
-	*new{|decoder, testBufferPath, thruBus|
-		^super.new(decoder, testBufferPath, thruBus).init
+	*new{|decoder, testBufferPath, thruBus, inputBus=0|
+		^super.new(decoder, testBufferPath, thruBus, inputBus).init
 	}
 	
 	init{
@@ -265,40 +306,75 @@ MikroFoaInput : MikroInput{
 		this.sendSynthDefs;
 	}
 	
-	sendSynthDefs{		
-		SynthDef(\inputlive, {|main, aux, xamp, mamp, xang, yang, zang, maxdel|
-			var input, sig, bfrm, del, shift;
-			input = SoundIn.ar(0);
-			del = ArrayControl.kr(\delays, 4, 0);
-			shift = ArrayControl.kr(\shifts, 4, 1);	
-			Out.ar(aux, input * xamp);
-			sig = Array.fill(4, {|i|
-				PitchShift.ar(DelayN.ar(input, maxdel, del[i]), 0.2, shift[i]);
-			});
-			bfrm = FoaEncode.ar(sig, FoaEncoderMatrix.newAtoB );
-			Out.ar(main, FoaTransform.ar(bfrm, 'rtt', xang, yang, zang) * mamp);
-		}).add;		
-
-		SynthDef(\inputbuf, {|main, aux, xamp, mamp, xang, yang, zang, maxdel, buf|
-			var input, sig, bfrm, del, shift;
-			sig = PlayBuf.ar(1, buf, doneAction: 2);
-			del = ArrayControl.kr(\delays, 4, 0);
-			shift = ArrayControl.kr(\shifts, 4, 1);	
-			Out.ar(aux, sig * xamp);
-			sig = Array.fill(4, {|i|
-				PitchShift.ar(DelayN.ar(sig, maxdel, del[i]), 0.2, shift[i]);
-			});
-			bfrm = FoaEncode.ar(sig, FoaEncoderMatrix.newAtoB );
-			Out.ar(main, FoaTransform.ar(bfrm, 'rtt', xang, yang, zang) * mamp);
-		}).add;
+	sendSynthDefs{
+		defs = Array.with(	
 		
-		SynthDef(\inputhru, {|main, aux, in, xamp, mamp|
-			var bformat;
-			bformat = In.ar(in, 4);
-			Out.ar(aux, bformat.first * xamp);
-			Out.ar(main, bformat * mamp);
-		}).add;
+			SynthDef(\inputlive, {|main, aux, xamp, mamp, xang, yang, zang, maxdel|
+				var input, sig, bfrm, del, shift, fft;
+				input = SoundIn.ar(inputBus);
+				del = ArrayControl.kr(\delays, 4, 0);
+				shift = ArrayControl.kr(\shifts, 4, 1);	
+				Out.ar(aux, input * xamp);
+				fft = FFT(LocalBuf(1024), input);
+				sig = Array.fill(4, { IFFT(PV_Diffuser(fft, Dust.kr(10))) });
+				bfrm = FoaEncode.ar(sig, FoaEncoderMatrix.newAtoB );
+				Out.ar(main, FoaTransform.ar(bfrm, 'rtt', xang, yang, zang) * mamp);
+			}).add,		
+	
+			SynthDef(\inputbuf, {|main, aux, xamp, mamp, xang, yang, zang, maxdel, buf|
+				var input, sig, bfrm, del, shift, fft;
+				input = PlayBuf.ar(1, buf, doneAction: 2);
+				del = ArrayControl.kr(\delays, 4, 0);
+				shift = ArrayControl.kr(\shifts, 4, 1);	
+				Out.ar(aux, input * xamp);
+				fft = FFT(LocalBuf(1024), input);
+				sig = Array.fill(4, { IFFT(PV_Diffuser(fft, Dust.kr(10))) });
+				bfrm = FoaEncode.ar(sig, FoaEncoderMatrix.newAtoB );
+				Out.ar(main, FoaTransform.ar(bfrm, 'rtt', xang, yang, zang) * mamp);
+			}).add,
+			
+			SynthDef(\inputhru, {|main, aux, in, xamp, mamp|
+				var bformat;
+				bformat = In.ar(in, 4);
+				Out.ar(aux, bformat.first * xamp);
+				Out.ar(main, bformat * mamp);
+			}).add
+			
+		)
+	}
+	
+}
 
+MikroInputOnsetTracker{
+	
+	var <input, <graphics, <synth, <responder, <>onsetFunc;
+	
+	*new{|input, graphics|
+		^super.newCopyArgs(input, graphics).init
+	}
+	
+	init{
+		SynthDef(\onsetTracker, {|th, lag|
+			var sig, fft, trig;
+			sig = SoundIn.ar(input.inputBus);
+			fft = FFT(LocalBuf(1024), sig);
+			trig = Onsets.kr(fft, th);
+			SendReply.kr(trig, '/onsetTracker', Amplitude.kr(sig, lag))
+		}).add
+	}
+
+	start{|th=0.01, lag=0.05|
+		synth = Synth(\onsetTracker, [\th, th, \lag, lag ]);
+		responder = OSCFunc({|msg|
+			onsetFunc.(msg)
+		}, '/onsetTracker');
+	}
+
+	stop{
+		synth.free;
+		synth = nil;
+		responder.disable;
+		responder = nil;
 	}
 	
 }

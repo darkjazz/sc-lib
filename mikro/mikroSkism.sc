@@ -161,3 +161,100 @@ MikroSkism{
 	}
 	
 }
+
+SkismLambda : MikroSkism{
+	
+	run{
+		var patch;
+		synths = ();
+		Routine({
+			synthDefs.do({|def|
+				var readbufs;
+				if (def.metadata.includesKey(\readbufs)) {
+					readbufs = def.metadata.readbufs.();
+					Server.default.sync;
+					def.metadata.buffers = readbufs.collect(_.bufnum);
+				}
+			});
+			
+			mikro.analyzer.putEventResponderFunction(\skism, {|ti, re, ms|
+				amps = recognizer.patchStringAsDigits(recognizer.mostCommon.asString);
+				sections[currentIndex].do({|assoc, i|
+					if (assoc.notNil) {
+						synths[assoc.key].set(\amp, amps[i]*assoc.value.amp);
+						mikro.graphics.setPattern(assoc.value.pattern, amps[i], rrand(0.5, assoc.value.amp), 2.rand, 2.rand,
+							1.0.rand, 1.0.rand, 1.0.rand
+						)
+					}
+				});
+			});	
+			
+			this.activateStats;
+							
+			sections.do({|sectarray, i|
+				Post << "changing section to: " << i << Char.nl;
+				sectarray.select(_.notNil).collect(_.key).do({|name|
+					this.activateSynth(name)
+				});
+				sectionDurations.wrapAt(i).wait;
+				currentIndex = currentIndex + 1;
+				sectarray.select(_.notNil).do({|assoc|
+					this.deactivateSynth(assoc.key);
+					mikro.graphics.setPattern(assoc.value.pattern, 0, 0.0, 0, 0, 1.0, 1.0, 1.0)
+				})
+			});
+
+			Post << "elapsed time is approximately: " << mikro.analyzer.elapsedTime << Char.nl;
+			
+			Post << "i'm finished, cleanup commencing in 4 seconds..." << Char.nl;
+			
+			Post << "goodbye!" << Char.nl;
+				
+			4.wait;
+			
+			cleanup.();				
+			
+		}).play
+	}
+	
+	activateStats{
+		mikro.analyzer.offAction = {
+			var lastEvent, includeEvents, dur, amp;
+			lastEvent = mikro.analyzer.events.last;
+			includeEvents = mikro.analyzer.events.select({|ev|
+				ev.start > (lastEvent.start - eventStats.timeFrame) 
+			});
+			if (includeEvents.size > 0) {
+				dur = includeEvents.collect(_.duration);
+				eventStats.duration.avg = dur.mean;
+				eventStats.duration.dev = dur.stdDev;
+				amp = includeEvents.collect(_.peakAmp);
+				eventStats.peakamp.avg = amp.mean;
+				eventStats.peakamp.dev = amp.stdDev;
+				eventStats.eventcount = includeEvents.size;
+			};
+			
+			if (0.1.coin) {
+				if (0.7.coin) {
+					mikro.graphics.setAdd(max(eventStats.peakamp.avg, 0.005));
+					Post << "changed add to " << max(eventStats.peakamp.avg, 0.005) << Char.nl;
+				}
+				{
+					mikro.graphics.setAdd(min(1.0 - eventStats.peakamp.avg, 0.995));
+					Post << "changed add to " << min(1.0 - eventStats.peakamp.avg, 0.995) << Char.nl;
+				}
+			};
+			if (0.05.coin) {
+				if (0.7.coin) {
+					mikro.graphics.setSymmetry((1..11).wchoose((11..1).normalizeSum))
+				}
+				{
+					mikro.graphics.setInterpolation(3.rand, (1..4).choose)
+				}
+			}
+			
+		}		
+	}
+	
+
+}

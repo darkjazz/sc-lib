@@ -11,14 +11,116 @@ UGEP : GEP {
 		^super.new(populationSize, numgenes, headsize, ugens, terminals, linker).initValid
 	}
 	
+	*newRandomFromLibrary{|populationSize, numgenes, headsize, linker, excludeUGenList|
+		^super.new(populationSize, numgenes, headsize, nil, nil, linker).initFromLibrary(excludeUGenList)
+	}
+	
+	*newFromLibrary{|numgenes, headsize, linker, excludeUGenList|
+		^super.new(1, numgenes, headsize, nil, nil, linker).loadAllFromLibrary(excludeUGenList)
+	}
+	
+	*newFromList{|list, numgenes, headsize, linker|
+		^super.new(list.size, numgenes, headsize, nil, nil, linker).fillFromList(list)
+	}
+	
 	init{
-		tailsize = headsize * (this.maxNumberOfArgs - 1) + 1;
+		this.setTailSize;
 		this.randInitChromosomes;
 	}
 	
 	initValid{
+		this.setTailSize;
+		this.randInitValidChromosomes;
+	}
+	
+	initFromLibrary{|excludeUGenList|
+		var selection, data, randInd;
+		data = this.class.loadDataFromDir;
+		selection = data.select({|data|
+			(data.header.headsize == headsize).and(data.header.numgenes == numgenes)
+		});
+		excludeUGenList = excludeUGenList ? [];
+		selection = selection.select({|data|
+			excludeUGenList.collect({|class| data.code.includes(class) }).asInt.sum == 0
+		});
+		methods = [];
+		terminals = [];
+		selection.do({|data|
+			data.code.select(_.isKindOf(Class)).do({|meth|
+				if (methods.includes(meth).not) {
+					methods = methods.add(meth)
+				}
+			});
+			data.code.select(_.isKindOf(Symbol)).do({|term|
+				if (terminals.includes(term).not) {
+					terminals = terminals.add(term)
+				}				
+			})
+		});
+		terminals.sort;
+		this.setTailSize;
+		chromosomes = Array.fill(populationSize, {
+			randInd = selection.size.rand;
+			ORF( selection.removeAt(randInd).code, terminals, numgenes, linker )
+		});
+	}
+	
+	loadAllFromLibrary{|excludeUGenList|
+		var selection, data, randInd;
+		data = this.class.loadDataFromDir;
+		selection = data.select({|data|
+			(data.header.headsize == headsize).and(data.header.numgenes == numgenes)
+		});
+		excludeUGenList = excludeUGenList ? [];
+		selection = selection.select({|data|
+			excludeUGenList.collect({|class| data.code.includes(class) }).asInt.sum == 0
+		});
+		methods = [];
+		terminals = [];
+		selection.do({|data|
+			data.code.select(_.isKindOf(Class)).do({|meth|
+				if (methods.includes(meth).not) {
+					methods = methods.add(meth)
+				}
+			});
+			data.code.select(_.isKindOf(Symbol)).do({|term|
+				if (terminals.includes(term).not) {
+					terminals = terminals.add(term)
+				}				
+			})
+		});
+		terminals.sort;
+		this.setTailSize;		
+		populationSize = selection.size;
+		chromosomes = Array.fill(populationSize, {|i|
+			ORF( selection[i].code, terminals, numgenes, linker )
+		});		
+	}
+	
+	fillFromList{|list|
+		methods = [];
+		terminals = [];		
+		list.do({|code|
+			code.select(_.isKindOf(Class)).do({|meth|
+				if (methods.includes(meth).not) {
+					methods = methods.add(meth)
+				}
+			});
+			code.select(_.isKindOf(Symbol)).do({|term|
+				if (terminals.includes(term).not) {
+					terminals = terminals.add(term)
+				}				
+			})
+		});
+		terminals.sort;
+		this.setTailSize;		
+		chromosomes = list.collect({|code|
+			ORF(code, terminals, numgenes, linker)
+		});
+	}
+	
+	setTailSize{
 		tailsize = headsize * (this.maxNumberOfArgs - 1) + 1;
-		this.randInitValidChromosomes
 	}
 	
 	randInitValidChromosomes{
@@ -57,15 +159,15 @@ UGEP : GEP {
 	}
 	
 	maxNumberOfArgs{
-		var max = 0;
-		max = methods.collect({|ugen|
+		var max;
+		max = (methods.collect({|ugen|
 			var ar;
 			ar = ugen.class.methods.select({|mth| mth.name == 'ar' }).first;
 			if (ar.isNil) {
 				ar = ugen.superclass.class.methods.select({|mth| mth.name == 'ar' }).first
 			};
 			ar.argNames.size - 1
-		}).maxItem;
+		}) ? [0]).maxItem;
 		^max
 	}
 	
@@ -101,11 +203,17 @@ UGEP : GEP {
 		^data
 	}
 	
+	*loadDataFromDir{|path|
+		path = path ? this.archDir;
+		^(path+/+"*").pathMatch.collect({|name| this.loadData(name) })
+	}
+	
 }
 
 UGenExpressionTree : ExpressionTree {
 	
 	classvar <defDir = "/Users/alo/Data/gep/synthdefs/", <metaDir = "/Users/alo/Data/gep/metadata/";
+	classvar <foaControls;
 	
 	unpack{
 		var code;
@@ -174,8 +282,52 @@ UGenExpressionTree : ExpressionTree {
 		^string
 	}
 	
+	asFoaSynthDefString{|defname, limiter, rotX, rotY, rotZ|
+		var string;
+		string = "SynthDef('" ++ defname ++ "', " 
+			++ "{" ++ this.appendFoaSynthDefTerminals ++ " Out.ar(out, ";
+		string = string ++ this.openFoaString;
+		if (limiter.notNil) {
+			string = string ++ limiter.asString ++ ".ar("
+		};
+		string = string ++ this.asFunctionString(false);
+		if (limiter.notNil) {
+			string = string ++ ")"
+		};
+		if (rotX.isKindOf(Symbol).and(this.class.foaControls.keys.includes(rotX) )) {
+			string = string ++ this.closeFoaString(*this.class.foaControls[rotX])
+		}
+		{
+			if (rotX.isKindOf(Symbol)) { rotX = 0 };
+			string = string ++ this.closeFoaString(rotX, rotY ? 0, rotZ ? 0);
+		};
+		string = string ++ ") })";
+		^string
+		
+	}
+	
+	asFoaNdefString{|defname, limiter, rotX, rotY, rotZ|
+		^this.asFoaSynthDefString(defname, limiter, rotX, rotY, rotZ).replace("SynthDef", "Ndef")
+	}
+	
+	openFoaString{
+		^"FoaTransform.ar( FoaEncode.ar( Array.fill(4, { IFFT( PV_Diffuser( FFT( LocalBuf(1024), Limiter.ar("
+	}
+	
+	closeFoaString{|rotX, rotY, rotZ|
+		^(")*amp))) }), FoaEncoderMatrix.newAtoB ), 'rtt', " ++ rotX ++ ", " ++ rotY ++ ", " ++ rotZ ++ ")")
+	}
+	
 	appendSynthDefTerminals{
 		var str = "|out=0,";
+		orf.terminals.do({|sym|
+			str = str ++ sym.asString ++ ","
+		});
+		^(str.keep(str.size-1) ++ "| ")		
+	}
+	
+	appendFoaSynthDefTerminals{
+		var str = "|out=0,amp=0,rotx=0,roty=0,rotz=0,";
 		orf.terminals.do({|sym|
 			str = str ++ sym.asString ++ ","
 		});
@@ -221,9 +373,10 @@ UGenExpressionTree : ExpressionTree {
 		Post << "Wrote metadata for " << name << " to " << this.class.metaDir << Char.nl; 
 	}
 		
-	*loadMetadata{|defname|
+	*loadMetadata{|defname, path|
 		var meta, arch;
-		arch = ZArchive.read(this.metaDir ++ defname.asString ++ ".gepmeta");
+		path = path ? this.metaDir;
+		arch = ZArchive.read(path ++ defname.asString ++ ".gepmeta");
 		meta = arch.readItem;
 		arch.close;
 		arch = nil;
@@ -233,10 +386,54 @@ UGenExpressionTree : ExpressionTree {
 	*loadMetadataFromDir{|path|
 		path = path ? this.metaDir;
 		^(path++"*").pathMatch.collect(_.basename).collect(_.split($.)).collect(_.first).collect({|name|
-			var data = this.loadMetadata(name);
+			var data = this.loadMetadata(name, path);
 			data.defname = name;
 			data
 		})
+	}
+	
+	*initClass{
+		foaControls = Dictionary();
+		foaControls['noise0'] = [
+			"LFNoise0.kr(rotx).range(-pi, pi)", 
+			"LFNoise0.kr(roty).range(-pi, pi)", 
+			"LFNoise0.kr(rotz).range(-pi, pi)"
+		];
+		foaControls['noise2'] = [
+			"LFNoise2.kr(rotx).range(-pi, pi)", 
+			"LFNoise2.kr(roty).range(-pi, pi)", 
+			"LFNoise2.kr(rotz).range(-pi, pi)"
+		];
+		foaControls['saw'] = [
+			"LFSaw.kr(rotx).range(-pi, pi)", 
+			"LFSaw.kr(roty).range(-pi, pi)", 
+			"LFSaw.kr(rotz).range(-pi, pi)"
+		];
+		foaControls['sine'] = [
+			"SinOsc.kr(rotx).range(-pi, pi)", 
+			"SinOsc.kr(roty).range(-pi, pi)", 
+			"SinOsc.kr(rotz).range(-pi, pi)"
+		];
+		foaControls['mix1'] = [
+			"SinOsc.kr(rotx).range(-pi, pi)", 
+			"LFSaw.kr(roty).range(-pi, pi)", 
+			"LFNoise0.kr(rotz).range(-pi, pi)"
+		];
+		foaControls['mix2'] = [
+			"LFNoise1.kr(rotx).range(-pi, pi)", 
+			"LFTri.kr(roty).range(-pi, pi)", 
+			"SinOsc.kr(rotz).range(-pi, pi)"
+		];
+		foaControls['mix3'] = [
+			"LFSaw.kr(rotx).range(-pi, pi)", 
+			"LFNoise1.kr(roty).range(-pi, pi)", 
+			"LFPulse.kr(rotz).range(-pi, pi)"
+		];
+		foaControls['mix4'] = [
+			"LFNoise0.kr(rotx).range(-pi, pi)", 
+			"SinOsc.kr(roty).range(-pi, pi)", 
+			"LFSaw.kr(rotz).range(-pi, pi)"
+		];
 	}
 	
 }

@@ -32,3 +32,47 @@ RunningStat{
 	asEvent{ ^(mean: this.mean, stdDev: this.stdDev) }
 	
 }
+
+SegmentStat{
+	
+	var <start, <delta, <mfcc, <flat, <cent, <amps, <err, <diff;
+	
+	*new{|start, delta|
+		^super.newCopyArgs(start, delta).init
+	}
+	
+	init{
+		mfcc = Array();
+		flat = Array();
+		cent = Array();
+		amps = Array();
+		err = Array();
+	}
+	
+	addMFCC{|time, value|
+		mfcc = mfcc.add([time, value])
+	}
+
+	addFlatness{|time, value|
+		flat = flat.add([time, value])
+	}
+
+	addCentroid{|time, value|
+		cent = cent.add([time, value])
+	}
+
+	addAmp{|time, value|
+		amps = amps.add([time, value])
+	}
+
+	addError{|time, error|
+		err = err.add([time, error])
+	}
+	
+	duration{ 
+		^(amps.last.first + delta - start)
+	}
+	
+	size{ ^[mfcc.size, flat.size, cent.size, amps.size].minItem }
+		
+}

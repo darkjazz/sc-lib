@@ -2,7 +2,7 @@ FxLambda{
 	
 	var decoder, graphics, geen, nano, loops, loopstreams, fxdef, efxsynth, mapSynths, fxsynths, fxReady=false;
 	var group, freqs, nano, accActive, accControl, oscfncs, rotation, efxbus, gepnames, <gepdefs, gepsynths;
-	var <>accMin, <>accMax;
+	var <>accMin, <>accMax, <>bpm=0;
 	
 	*new{|decoder, graphics, geen, nano|
 		^super.newCopyArgs(decoder, graphics, geen, nano).init
@@ -206,7 +206,7 @@ FxLambda{
 				synth: Synth.newPaused(\zone01wrp, [\out, decoder.bus, \amp, 0, \efx, efxbus, \gate, 1.0, 
 					\aamp, 0.5, \eamp, 0.0, \dur, 1.0, \buf, loops['detloop'][i], \str, 0, \end, 1.0, 
 					\wrp, 0.001, \frq, 1.0, \rate, freqs@i, \wsz, 0.1, \dns, rrand(2, 10), \rnd, 0.01, 
-					\doneAction, 2], ).setn(\del, [0.0, 0.001, 0.002, 0.003], group)
+					\doneAction, 2] ).setn(\del, [0.0, 0.001, 0.002, 0.003], group)
 				)
 			});
 			gepsynths = 4.collect({
@@ -219,7 +219,7 @@ FxLambda{
 				)
 			});
 			0.25.wait;
-			graphics.initWorld(24, 24, 24, 8);
+			graphics.initWorld(20, 20, 20, 8);
 			0.25.wait;
 			graphics.initContinuous;
 			0.25.wait;
@@ -266,6 +266,34 @@ FxLambda{
 		})
 	}
 	
+	performSynthAction{|index|
+		var args;
+		if (gepsynths[index]['active']) {
+			if ( gepsynths[index]['synth'].isNil ) {
+				args = gepdefs[index]['def'][gepdefs[index]['current']];
+				gepsynths[index]['synth'] = Synth.before(gepsynths[index]['proc'], gepdefs[index]['current'], 
+					[\out, gepsynths[index]['bus']] ++ this.scaleArgsToBeat(args)
+				)
+			}
+		}
+		{
+			if (gepsynths[index]['synth'].notNil) {
+				gepsynths[index]['synth'].free;
+				gepsynths[index]['synth'] = nil
+			}
+		}		
+	}
+	
+	scaleArgsToBeat{|args|
+		if (bpm > 0) {
+			^Event.newFrom(args).collect({|value| geen.roundFreq(value, 1, this.calcBeatDur)  }).asKeyValuePairs;
+		} {
+			^args
+		}
+	}
+	
+	calcBeatDur{ ^(bpm/60).reciprocal }
+		
 	mapNANO{	
 	
 		var addspec, interspec, ampspec, decspec;
@@ -386,19 +414,7 @@ FxLambda{
 			if (gepsynths.notNil) {
 				gepsynths[0]['proc'].set('amp', ampspec.map(slider.value) ); 
 				gepsynths[0]['active'] = slider.value > 0.1;
-				if (gepsynths[0]['active']) {
-					if ( gepsynths[0]['synth'].isNil ) {
-						gepsynths[0]['synth'] = Synth.before(gepsynths[0]['proc'], gepdefs[0]['current'], 
-							[\out, gepsynths[0]['bus']] ++ gepdefs[0]['def'][gepdefs[0]['current']]
-						)
-					}
-				}
-				{
-					if (gepsynths[0]['synth'].notNil) {
-						gepsynths[0]['synth'].free;
-						gepsynths[0]['synth'] = nil
-					}
-				}
+				this.performSynthAction(0);
 			}
 		};
 
@@ -406,19 +422,7 @@ FxLambda{
 			if (gepsynths.notNil) {
 				gepsynths[1]['proc'].set('amp', ampspec.map(slider.value) );
 				gepsynths[1]['active'] = slider.value > 0.1;
-				if (gepsynths[1]['active']) {
-					if ( gepsynths[1]['synth'].isNil ) {
-						gepsynths[1]['synth'] = Synth.before(gepsynths[1]['proc'], gepdefs[1]['current'], 
-							[\out, gepsynths[1]['bus']] ++ gepdefs[1]['def'][gepdefs[1]['current']]
-						)
-					}
-				}
-				{
-					if (gepsynths[1]['synth'].notNil) {
-						gepsynths[1]['synth'].free;
-						gepsynths[1]['synth'] = nil
-					}
-				}
+				this.performSynthAction(1);
 			}
 		};
 
@@ -426,19 +430,7 @@ FxLambda{
 			if (gepsynths.notNil) {
 				gepsynths[2]['proc'].set('amp', ampspec.map(slider.value) );
 				gepsynths[2]['active'] = slider.value > 0.1;
-				if (gepsynths[2]['active']) {
-					if ( gepsynths[2]['synth'].isNil ) {
-						gepsynths[2]['synth'] = Synth.before(gepsynths[2]['proc'], gepdefs[2]['current'], 
-							[\out, gepsynths[2]['bus']] ++ gepdefs[2]['def'][gepdefs[2]['current']]
-						)
-					}
-				}
-				{
-					if (gepsynths[2]['synth'].notNil) {
-						gepsynths[2]['synth'].free;
-						gepsynths[2]['synth'] = nil
-					}
-				}
+				this.performSynthAction(2);
 			}
 		};
 
@@ -446,19 +438,7 @@ FxLambda{
 			if (gepsynths.notNil) {
 				gepsynths[3]['proc'].set('amp', ampspec.map(slider.value) );
 				gepsynths[3]['active'] = slider.value > 0.1;
-				if (gepsynths[3]['active']) {
-					if ( gepsynths[3]['synth'].isNil ) {
-						gepsynths[3]['synth'] = Synth.before(gepsynths[3]['proc'], gepdefs[3]['current'], 
-							[\out, gepsynths[3]['bus']] ++ gepdefs[3]['def'][gepdefs[3]['current']]
-						)
-					}
-				}
-				{
-					if (gepsynths[3]['synth'].notNil) {
-						gepsynths[3]['synth'].free;
-						gepsynths[3]['synth'] = nil
-					}
-				}
+				this.performSynthAction(3);
 			}
 		};
 		
