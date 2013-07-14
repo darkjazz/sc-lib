@@ -4,7 +4,7 @@ SparseMatrix{
 	
 	var <decoder, <graphics, <quant, <ncoef, <envs, <buffers, <group, <efxgroup, <nofxbus, <bpm, <bps, <beatdur;
 	var <rDB, <efx, <efxamps, <patterndefs, <argproto, <deffuncs, codewindow, <listener, <mfccresp;
-	var <skismDefs, skismSynths, grainEnvs;
+	var <skismDefs, skismSynths, grainEnvs, <gepdefs, <gepsynths;
 	
 	var <>defpath = "/Users/alo/Development/lambda/supercollider/sparsematrix/sparsedefs.scd";
 	var <>skismDefPath = "/Users/alo/Development/lambda/supercollider/sparsematrix/skismdefs.scd";
@@ -202,6 +202,10 @@ SparseMatrix{
 		
 		patterndefs = ();	
 		
+		gepdefs = ();
+		
+		gepsynths = ();
+		
 		this.setBPM(120);
 		
 		skismSynths = ();
@@ -213,80 +217,79 @@ SparseMatrix{
 	}
 	
 	loadDefFuncs{
-		deffuncs = [
-			{ Mix(SinOsc.ar(this.roundFreq([40, 51, 63]), 0.5pi)) },
-			{ Impulse.ar(1, 10, 10).clip(-0.9, 0.9) },
-			{ PinkNoise.ar.clip(-0.9, 0.9) },
-			{ Mix(LFSaw.ar(this.roundFreq([20, 31]) + LFSaw.ar([1, 8]).range(20, 40))).clip(-0.9, 0.9) },
-			{ RLPF.ar(BrownNoise.ar(10).softclip, this.roundFreq(320), 0.5, 1) },
-			{ VarSaw.ar(IRand(*this.roundFreq([60, 80])), 0.25, 0.01, 20).clip(-0.5, 0.5) },
-			{ LFPulse.ar(this.roundFreq(20) + LFPulse.ar(this.roundFreq(10))).distort },
-			{ Dust2.ar(this.roundFreq(1000), 2, SinOsc.ar(Rand(8000, 16000).round(2**(1/5)))) },
+		deffuncs = [			
+			{|freq=40| Mix(SinOsc.ar([freq, freq+11, freq+23], 0.5pi)) },
+			{|freq=1| Impulse.ar(1, 10, 10).clip(-0.9, 0.9) },
+			{|freq=8000| PinkNoise.ar.clip(-0.9, 0.9) * SinOsc.ar(freq) },
+			{|freq=20| Mix(LFSaw.ar([freq, freq + 11] + LFSaw.ar([1, 8]).range(freq, freq*2))).clip(-0.9, 0.9) },
+			{|freq=320| RLPF.ar(BrownNoise.ar(10).softclip, freq, 0.5, 1) },
+			{|freq=60| VarSaw.ar(IRand(*[freq, freq+20]), 0.25, 0.01, 20).clip(-0.5, 0.5) },
+			{|freq=20| LFPulse.ar(freq + LFPulse.ar(freq/2)).distort },
+			{|freq=1000| Dust2.ar(freq, 2, SinOsc.ar(Rand(freq*8, freq*16).round(2**(1/5)))) },
 			
-			{ LFGauss.ar(1/44, XLine.kr(0.1, 0.01, 0.2)) },
-			{ LFNoise0.ar(this.roundFreq(1000) + LFNoise0.ar(2500, 10).range(*this.roundFreq([50, 200])), 200).tanh * 0.8 },
-			{ Mix(SinOsc.ar(this.roundFreq([20, 25, 30, 35]), 0.5pi)) },
-			{ Mix(SinOsc.ar(SinOsc.ar(this.roundFreq([1000, 100])).range(*this.roundFreq([20, 200])), 0.5pi)) },
-			{ Mix(SinOsc.ar(SinOsc.ar(this.roundFreq([51, 50])).range(*this.roundFreq([20, 80])), 0.5pi)) },
-			{ Impulse.ar(1, 100, 10).clip(-0.9, 0.9) + Dust2.ar(this.roundFreq(10000), 2).tanh },
-			{ LFSaw.ar(this.roundFreq(32), 0.5, LFNoise0.ar(10000).range(10, 100)).distort },
-			{ Blip.ar(this.roundFreq(10), 100, 10).clip(-0.9, 0.9) },
+			{|freq=44| LFGauss.ar(1/freq, XLine.kr(0.1, 0.01, 0.2)) },
+			{|freq=1000| LFNoise0.ar(freq + LFNoise0.ar(freq*2, 10).range(*[freq/20, freq/5]), freq/5).tanh * 0.8 },
+			{|freq=20| Mix(SinOsc.ar([freq,freq+5,freq+10,freq+15], 0.5pi)) },
+			{|freq=1000| Mix(SinOsc.ar(SinOsc.ar([freq, freq/10]).range(*[freq*2, freq*20]), 0.5pi)) },
+			{|freq=50| Mix(SinOsc.ar(SinOsc.ar([freq, freq+1]).range(*[freq/2, freq*2]), 0.5pi)) },
+			{|freq=10000| Impulse.ar(1, 100, 10).clip(-0.9, 0.9) + Dust2.ar(freq, 2).tanh },
+			{|freq=32| LFSaw.ar(freq, 0.5, LFNoise0.ar(10000).range(10, 100)).distort },
+			{|freq=10| Blip.ar(freq, 100, 10).clip(-0.9, 0.9) },
 			
-			{ LFTri.ar(this.roundFreq(32), 0, LFNoise0.ar(this.roundFreq(200)).range(*this.roundFreq([40, 80]))).clip(-0.9, 0.9).distort },
-			{ SinOsc.ar(this.roundFreq(2**13*1.5)) },
-			{ Crackle.ar(1.6, 35).softclip },
-			{ Logistic.ar(VarSaw.kr(pi**2).range(3.57, 3.8), 2**14) },
-			{ Osc.ar(LocalBuf.newFrom((32.fib.mirror2.normalizeSum - 0.1) * [-1, 1].lace(128)), IRand(*this.roundFreq([16, 32])), 0, 5).softclip },
-			{ Pluck.ar(SinOsc.ar(LFNoise0.ar(999).range(*this.roundFreq([40, 80])), 0, 10), Impulse.kr(2), 0.1, 0.1, 4).tanh },
-			{ LFSaw.ar(LFNoise0.ar(999).range(*this.roundFreq([40, 80])), 0, 10).softclip },
-			{ Decimator.ar(Impulse.ar(64, 10, 10).softclip, 48000, 24, 2) }, 
+			{|freq=32| LFTri.ar(freq, 0, LFNoise0.ar(freq*8).range(freq, freq*2)).clip(-0.9, 0.9).distort },
+			{|freq=12288| SinOsc.ar(freq) },
+			{|freq=16| Crackle.ar(1.6, 32).softclip },
+			{|freq=16384| Logistic.ar(VarSaw.kr(pi**2).range(3.57, 3.8), 2**14) },
+			{|freq=16| Osc.ar(LocalBuf.newFrom((32.fib.mirror2.normalizeSum - 0.1) * [-1, 1].lace(128)), IRand(freq, freq*2), 0, 5).softclip },
+			{|freq=32| Pluck.ar(SinOsc.ar(LFNoise0.ar(999).range(freq, freq * 2), 0, 10), Impulse.kr(2), 0.1, 0.1, 4).tanh },
+			{|freq=32| LFSaw.ar(LFNoise0.ar(freq**2).range(freq, freq*2), 0, 10).softclip },
+			{|freq=64| Decimator.ar(Impulse.ar(freq, 10, 10).softclip, 48000, 24, 2) }, 
 			
-			{ SineShaper.ar(SinOsc.ar(this.roundFreq(10), 0, 10), 0.9) },
-			{ SineShaper.ar(SinOsc.ar(this.roundFreq(20), 0, 10), 0.8) },
-			{ SineShaper.ar(SinOsc.ar(this.roundFreq(20), 0, IRand(*this.roundFreq([200, 300]))), 0.5) },
-			{ SineShaper.ar(SinOsc.ar(this.roundFreq(8), 0, IRand(*this.roundFreq([1000, 1500]))), 0.7) },
-			{ CrossoverDistortion.ar(SinOsc.ar(LFNoise2.ar(1000).range(*this.roundFreq([180, 200])).round(10), 0, 2).softclip, 0.4, 0.2) },
-			{ Disintegrator.ar(SinOsc.ar(LFSaw.ar(20).range(*this.roundFreq([50, 200])).round(10), 0, 2).clip, 0.5, 0.5) },
-			{ Gendy1.ar(2, 2, 1, 1, this.roundFreq(40), this.roundFreq(80)) },
-			{ Gendy1.ar(6, 6, 0.01, 0.01, this.roundFreq(40), this.roundFreq(160), 1, 1, 24, 24) },
+			{|freq=10| SineShaper.ar(SinOsc.ar(freq, 0, 10), 0.9) },
+			{|freq=20| SineShaper.ar(SinOsc.ar(freq, 0, 10), 0.8) },
+			{|freq=20| SineShaper.ar(SinOsc.ar(freq, 0, IRand(freq*10, freq*20)), 0.5) },
+			{|freq=8| SineShaper.ar(SinOsc.ar(freq, 0, IRand(freq**4, freq**4*2)), 0.7) },
+			{|freq=180| CrossoverDistortion.ar(SinOsc.ar(LFNoise2.ar(1000).range(freq, freq+20).round(10), 0, 2).softclip, 0.4, 0.2) },
+			{|freq=50| Disintegrator.ar(SinOsc.ar(LFSaw.ar(20).range(freq, freq*4).round(10), 0, 2).clip, 0.5, 0.5) },
+			{|freq=40| Gendy1.ar(2, 2, 1, 1, freq, freq*2) },
+			{|freq=16| Gendy1.ar(6, 6, 0.01, 0.01, freq, freq*4, 1, 1, 24, 24) },
 			
-			{ LFSaw.ar(LFSaw.ar(this.roundFreq(16)).range(*this.roundFreq([pi**pi, pi**pi*2])), LFSaw.ar(15).range(0, 2), LFPulse.ar(16).range(0.5, 1.0)) },
-			{ StkPluck.ar(this.roundFreq(pi**pi), 1.0, 10).clip(-0.9, 0.9) },
-			{ StkSaxofony.ar(this.roundFreq(pi**pi*2), 20, 40, XLine.kr(30, 10, 0.2), 10, 16, 10, 64, 1, 64).clip(-0.9, 0.9) },
-			{ Oregonator.ar(Impulse.kr(16), 4, 0.5).clip(-0.9, 0.9) },
-			{ Brusselator.ar(0, 0.5, 2.0).tanh },
-			{ SpruceBudworm.ar(0,0.1,25.45,1.5,0.5,5.0, initx:0.7, inity: 0.4).tanh },
-			{ Mix(MdaPiano.ar(this.roundFreq(16000),1,127,1,1,1,0,1,1,0.5,0.1,0.5,mul:20).softclip) },
-			{ (Perlin3.ar(LFSaw.kr(220), SinOsc.ar(440), LFTri.ar(500))*10).distort },
+			{|freq=16| LFSaw.ar(LFSaw.ar(freq).range(*this.roundFreq([pi**pi, pi**pi*2])), LFSaw.ar(15).range(0, 2), LFPulse.ar(16).range(0.5, 1.0)) },
+			{|freq=32| StkPluck.ar(freq, 1.0, 10).clip(-0.9, 0.9) },
+			{|freq=64| StkSaxofony.ar(freq, 20, 40, XLine.kr(30, 10, 0.2), 10, 16, 10, 64, 1, 64).clip(-0.9, 0.9) },
+			{|freq=16| Oregonator.ar(Impulse.kr(freq), 4, 0.5).clip(-0.9, 0.9) },
+			{|freq=16| Brusselator.ar(0, 0.5, 2.0).tanh },
+			{|freq=16| SpruceBudworm.ar(0,0.1,25.45,1.5,0.5,5.0, initx:0.7, inity: 0.4).tanh },
+			{|freq=16000| Mix(MdaPiano.ar(freq,1,127,1,1,1,0,1,1,0.5,0.1,0.5,mul:20).softclip) },
+			{|freq=440| (Perlin3.ar(LFSaw.kr(freq/2), SinOsc.ar(freq), LFTri.ar(freq+100))*10).distort },
 			
-			{ CA0.ar(11025, 32, 18, 0) },
-			{ CA0.ar(11025, 64, 22, 0) },
-			{ CA0x.ar(11025, 32, 26, 0) },
-			{ CA0x.ar(11025, 64, 30, 0) },
-			{ CA1.ar(4410, 32, 45, 0) },
-			{ CA1.ar(4410, 64, 73, 0) },
-			{ CA1x.ar(4410, 32, 89, 0) },
-			{ CA1x.ar(4410, 64, 105, 0) },
+			{|freq=16| CA0.ar(11025, 32, 18, 0) },
+			{|freq=16| CA0.ar(11025, 64, 22, 0) },
+			{|freq=16| CA0x.ar(11025, 32, 26, 0) },
+			{|freq=16| CA0x.ar(11025, 64, 30, 0) },
+			{|freq=16| CA1.ar(4410, 32, 45, 0) },
+			{|freq=16| CA1.ar(4410, 64, 73, 0) },
+			{|freq=16| CA1x.ar(4410, 32, 89, 0) },
+			{|freq=16| CA1x.ar(4410, 64, 105, 0) },
 			
-			{ Logist0.ar(1000 * IRand(1, 5), 1.8) },
-			{ CML0.ar(Select.kr(IRand(0, 4), Scale.jiao.ratios * 120), 1.2, 0.05, 1.0) },
-			{ GCM0.ar(Select.kr(IRand(0, 4), Scale.jiao.ratios * 880), 1.5, 0.01) },
-			{ HCM0.ar(Select.kr(IRand(0, 4), Scale.jiao.ratios * 256), 1.1, 0.3) },
-			{ Nagumo.ar(0.01, 0.01, LFPulse.ar(10).range(0, 1)) },
-			{ FIS.ar(LFSaw.ar(4).range(1,4),LFNoise0.ar(10).abs,SinOsc.ar(2**11).range(1,10).round(1)) },
-			{ CombN.ar(CA1.ar(800,20,SinOsc.kr(30, 0.5pi).range(30, 60).round(1)),0.2,0.125,0.25) },
-			{ Mix(GVerb.ar(LPF.ar(Impulse.ar(1),800,20),5)) },
+			{|freq=1000| Logist0.ar(freq * IRand(1, 5), 1.8) },
+			{|freq=120| CML0.ar(Select.kr(IRand(0, 4), Scale.jiao.ratios * freq), 1.2, 0.05, 1.0) },
+			{|freq=880| GCM0.ar(Select.kr(IRand(0, 4), Scale.jiao.ratios * freq), 1.5, 0.01) },
+			{|freq=256| HCM0.ar(Select.kr(IRand(0, 4), Scale.jiao.ratios * freq), 1.1, 0.3) },
+			{|freq=16| Nagumo.ar(0.01, 0.01, LFPulse.ar(10).range(0, 1)) },
+			{|freq=2048| FIS.ar(LFSaw.ar(4).range(1,4),LFNoise0.ar(10).abs,SinOsc.ar(freq).range(1,10).round(1)) },
+			{|freq=16| CombN.ar(CA1.ar(800,20,SinOsc.kr(30, 0.5pi).range(30, 60).round(1)),0.2,0.125,0.25) },
+			{|freq=800| Mix(GVerb.ar(LPF.ar(Impulse.ar(1),freq,20),5)) },
 			
-			{ Logist0.ar(50 * IRand(1, 5), 1.1) },
-			{ CML0.ar(Select.kr(IRand(0, 4), Scale.jiao.ratios * 880), 1.99, 0.01, 0.1) },
-			{ GCM3.ar(Select.kr(IRand(0, 4), Scale.jiao.ratios * 660), 1.7, 0.1) },
-			{ HCM3.ar(Select.kr(IRand(0, 4), Scale.jiao.ratios * 1024), 1.99, 0.8) },
-			{ Nagumo.ar(0.01, 0.001, LFPulse.ar(110).range(0, 1)) },
-			{ FIS.ar(LFSaw.ar(1).range(1,4),Crackle.ar(1.99).abs,LFSaw.ar(64).range(1,10).round(1)) },
-			{ Mix(DelayN.ar(CombN.ar(CA1.ar(440,200,165),0.2,0.01,0.2),0.05,(0.01,0.02..0.04))) },
-			{ Mix(GVerb.ar(HPF.ar(Impulse.ar(1),500,20),5)) }
-			
-		];
+			{|freq=50| Logist0.ar(freq * IRand(1, 5), 1.1) },
+			{|freq=16| CML0.ar(Select.kr(IRand(0, 4), Scale.jiao.ratios * 880), 1.99, 0.01, 0.1) },
+			{|freq=16| GCM3.ar(Select.kr(IRand(0, 4), Scale.jiao.ratios * 660), 1.7, 0.1) },
+			{|freq=16| HCM3.ar(Select.kr(IRand(0, 4), Scale.jiao.ratios * 1024), 1.99, 0.8) },
+			{|freq=16| Nagumo.ar(0.01, 0.001, LFPulse.ar(110).range(0, 1)) },
+			{|freq=16| FIS.ar(LFSaw.ar(1).range(1,4),Crackle.ar(1.99).abs,LFSaw.ar(64).range(1,10).round(1)) },
+			{|freq=16| Mix(DelayN.ar(CombN.ar(CA1.ar(440,200,165),0.2,0.01,0.2),0.05,(0.01,0.02..0.04))) },
+			{|freq=500| Mix(GVerb.ar(HPF.ar(Impulse.ar(1),freq,20),5)) }
+];
 		deffuncs.collect({|fnc, i|
 			this.makeDef(this.class.makeDefName(i, "d"), fnc)
 		});		
@@ -301,9 +304,9 @@ SparseMatrix{
 	}
 		
 	makeDef{|name, func|
-		SynthDef(name, {|out, efx, dur = 0.1, amp = 1.0, emp = 0.0, rotx = 0.0, roty = 0.0, rotz = 0.0| 
+		SynthDef(name, {|out, efx, dur = 0.1, amp = 1.0, freq = 32.0, emp = 0.0, rotx = 0.0, roty = 0.0, rotz = 0.0| 
 			var sig;
-			sig = SynthDef.wrap(func) 
+			sig = SynthDef.wrap(func, prependArgs: [freq] ) 
 				* EnvGen.kr(EnvControl.kr, timeScale: dur, doneAction: 2);
 			Out.ar(efx, sig * emp);
 			Out.ar(out, FoaTransform.ar(
@@ -351,6 +354,41 @@ SparseMatrix{
 	
 	addPatternCycleDef{|name, size, buffers, defname, prefix|
 		patterndefs[name] = SparseCyclePattern(name, size, buffers, defname, prefix, this)
+	}
+	
+	makeAmpPattern{|sourcename|
+		var arr, on = false;
+		this.class.sparsePatterns[sourcename].sum.do({|num|
+			if (num == 1) { on = on.not } ;
+			arr = arr.add(on.asInt)	
+		})
+		^arr
+	}
+	
+	addGepPatternDef{|name, sourcename, gepname, div=4, rotx=1, roty=1, rotz=1|
+		var player, ampPattern;
+		player = UGepPlayer(gepname);
+		ampPattern = this.makeAmpPattern(sourcename);
+		gepdefs[name] = Pdef(name, player.asPmono(group, 'addToHead', Pseq(ampPattern, inf), Pfunc({ this.beatdur / div }), 
+			decoder.bus, rotx, roty, rotz	
+		));
+	}
+	
+	playGepSynth{|name, gepname, amp=0, rotx=1, roty=1, rotz=1|
+		{
+			gepsynths[name] = UGepPlayer(gepname);
+			Server.default.sync;
+			gepsynths[name].play(group, 'addToHead', decoder.bus, amp, rotx, roty, rotz);
+		}.fork
+	}
+	
+	fadeGepSynth{|name, start=0, end=0, time=1, interval=0.1|
+		gepsynths[name].fade(start, end, time, interval)
+	}
+	
+	freeGepSynth{|name|
+		gepsynths[name].free;
+		gepsynths[name] = nil;
 	}
 	
 	defsAt{|name| ^patterndefs[name]  }
@@ -568,6 +606,8 @@ SparseMatrixPattern{
 
 SparseSynthPattern : SparseMatrixPattern{
 	
+	classvar <>scale;
+		
 	*new{|name, size, groupsize, div, sourcenames, subpatterns, prefix, matrix, protoname|
 		^super.new(name, size, groupsize, div, prefix, matrix).makePdef(sourcenames, subpatterns, protoname)
 	}
@@ -575,6 +615,7 @@ SparseSynthPattern : SparseMatrixPattern{
 	makePdef{|sourcenames, subpatterns, protoname|
 		var instr, argproto;
 		var combined = Array();
+		if (this.class.scale.isNil) { scale = Scale.jiao };
 		sourcenames.bubble.flat.do({|name|
 			var sub;
 			combined = combined ++ SparseMatrix.sparsePatterns[name];
@@ -611,8 +652,12 @@ SparseSynthPattern : SparseMatrixPattern{
 		
 		Pdef(name, Ppar(
 			args.collect({|args, key|  
+				var defindex, freq;
+				defindex = instr[key].asString.drop(1).asInteger;
+				freq = matrix.deffuncs[defindex].def.makeEnvirFromArgs[\freq];
+				freq = this.class.scale.performNearestInScale(freq.cpsmidi).midicps;
 				Pbind(\instrument, instr[key], \group, matrix.group, \addAction, \addToHead, \delta, Pfunc({ matrix.beatdur / div }), 
-					\amp, Pfunc({ ctrls[key].amp }), \out, matrix.decoder.bus,
+					\amp, Pfunc({ ctrls[key].amp }), \out, matrix.decoder.bus, \freq, freq,
 					\dur, Pfunc({ ctrls[key].dur }), \pat, matrix.makePattern(key, patterns[key].bubble),
 					\type, Pfunc({|ev| if (ctrls[key].active.booleanValue) { ev.pat } { \rest } }),
 					*args.asKeyValuePairs

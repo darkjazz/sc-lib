@@ -61,13 +61,15 @@ UGEP : GEP {
 		this.setTailSize;
 		chromosomes = Array.fill(populationSize, {
 			randInd = selection.size.rand;
-			ORF( selection.removeAt(randInd).code, terminals, numgenes, linker )
+			GEPChromosome( selection.removeAt(randInd).code, terminals, numgenes, linker )
 		});
 	}
 	
-	loadAllFromLibrary{|excludeUGenList|
-		var selection, data, randInd;
-		data = this.class.loadDataFromDir;
+	loadAllFromLibrary{|excludeUGenList, data|
+		var selection, randInd;
+		if (data.isNil) {
+			data = this.class.loadDataFromDir
+		};
 		selection = data.select({|data|
 			(data.header.headsize == headsize).and(data.header.numgenes == numgenes)
 		});
@@ -93,7 +95,7 @@ UGEP : GEP {
 		this.setTailSize;		
 		populationSize = selection.size;
 		chromosomes = Array.fill(populationSize, {|i|
-			ORF( selection[i].code, terminals, numgenes, linker )
+			GEPChromosome( selection[i].code, terminals, numgenes, linker )
 		});		
 	}
 	
@@ -115,7 +117,7 @@ UGEP : GEP {
 		terminals.sort;
 		this.setTailSize;		
 		chromosomes = list.collect({|code|
-			ORF(code, terminals, numgenes, linker)
+			GEPChromosome(code, terminals, numgenes, linker)
 		});
 	}
 	
@@ -148,7 +150,7 @@ UGEP : GEP {
 				terminals.choose
 			})
 		});
-		chrm = ORF(indv, terminals, numgenes, linker );
+		chrm = GEPChromosome(indv, terminals, numgenes, linker );
 		if (this.checkChromosome(chrm)) {
 			chromosomes = chromosomes.add(chrm);
 		};
@@ -217,8 +219,8 @@ UGenExpressionTree : ExpressionTree {
 	
 	unpack{
 		var code;
-		code = orf.code.clump((orf.code.size/orf.numGenes).asInt);
-		root = GepNode(\root, Array.fill(orf.numGenes, {|i|
+		code = chrom.code.clump((chrom.code.size/chrom.numGenes).asInt);
+		root = GepNode(\root, Array.fill(chrom.numGenes, {|i|
 			var argindex = 1, array;
 			gene = code.at(i);
 			array = gene.collect({|codon, i|
@@ -320,7 +322,7 @@ UGenExpressionTree : ExpressionTree {
 	
 	appendSynthDefTerminals{
 		var str = "|out=0,";
-		orf.terminals.do({|sym|
+		chrom.terminals.do({|sym|
 			str = str ++ sym.asString ++ ","
 		});
 		^(str.keep(str.size-1) ++ "| ")		
@@ -328,7 +330,7 @@ UGenExpressionTree : ExpressionTree {
 	
 	appendFoaSynthDefTerminals{
 		var str = "|out=0,amp=0,rotx=0,roty=0,rotz=0,";
-		orf.terminals.do({|sym|
+		chrom.terminals.do({|sym|
 			str = str ++ sym.asString ++ ","
 		});
 		^(str.keep(str.size-1) ++ "| ")		
@@ -343,7 +345,7 @@ UGenExpressionTree : ExpressionTree {
 			node.nodes.do({|subnode, i|
 				str = str ++ this.appendString(subnode);
 				if (i < node.nodes.lastIndex) { 
-					if (orf.isExceptionOp(node.value.name)) {
+					if (chrom.isExceptionOp(node.value.name)) {
 						str = str + node.value.name.asString ++ " " 
 					}
 					{
@@ -445,4 +447,97 @@ UGepNode : GepNode{
 		^super.new(value, nodes).range_(range)
 	}
 
+}
+
+UGepPlayer{
+	
+	var <defname, <defstr, headsize, numgenes, code, linker, methods, terminals, args, stats;
+	var argcode, chrom, et, isValid, <synth, <>amp = 0;
+	
+	*new{|defname|
+		^super.newCopyArgs(defname).init
+	}
+	
+	init{
+		var path, data, meta;
+		path = UGEP.archDir +/+ defname.asString ++ "." ++ UGEP.fileExt;
+		if (File.exists(path)) {
+			data = UGEP.loadData(path);
+			meta = UGenExpressionTree.loadMetadata(defname);
+			headsize = data.header.headsize;
+			numgenes = data.header.numgenes;
+			code = data.code;
+			linker = data.linker;
+			methods = data.methods;
+			terminals = data.terminals;
+			args = meta.args;
+			stats = meta.stats;
+			isValid = true;
+			this.makeDefString;
+		}
+		{
+			("Data file " ++ path ++ " not found").warn
+		}
+	}
+	
+	makeDefString{
+		chrom = GEPChromosome(code, terminals, numgenes, linker);
+		et = chrom.asUgenExpressionTree;
+		defstr = et.asFoaSynthDefString(defname, Normalizer, 
+			UGenExpressionTree.foaControls.keys.choose
+		);
+		{
+			defstr.interpret.add
+		}.try({ isValid = false });
+	}
+	
+	getArgs{
+		if (args.isKindOf(Event)) {
+			^args.args
+		}
+		{
+			^args
+		}
+	}
+	
+	play{|target=1, addAction='addToHead', out=0, amp=0, rotx=0, roty=0, rotz=0|
+		if (isValid) {
+			synth = Synth(defname, [\out, out, \amp, amp, \rotx, rotx, \roty, roty, \rotz, rotz] 
+				++ this.getArgs, target, addAction)
+		}
+		{
+			"SynthDef not valid".error
+		}
+	}
+	
+	fade{|start=0, end=0, time=1, interval=0.1|
+		var value, incr, numSteps;
+		numSteps = (time/interval).asInt;
+		incr = end - start / numSteps;
+		value = start;
+		Routine({
+			numSteps.do({
+				synth.set('amp', value);
+				value = value + incr;
+				interval.wait
+			});
+			synth.set('amp', end);
+			Post << "finished fade for " << defname << Char.nl;
+		}).play		
+	}
+	
+	set{|name, value| synth.set(name, value) }
+	
+	free{ synth.free }
+		
+	asPmono{|target=1, addAction='addToHead', ampPattern=1, deltaPattern=1, out=0, rotx=1, roty=1, rotz=1|
+		^Pmono(
+			defname, \group, target, \addAction, addAction,
+			\out, out, \rotx, rotx, \roty, roty, \rotz, rotz,
+			\ampvalue, ampPattern, \delta, deltaPattern,
+			\amp, Pfunc({|event| amp * event.ampvalue })
+			*this.getArgs
+		)
+	}
+	
 }

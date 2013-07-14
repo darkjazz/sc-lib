@@ -44,12 +44,12 @@ GEP{
 						terminals.choose
 					})
 				});
-				ORF(indv, terminals, numgenes, linker )
+				GEPChromosome(indv, terminals, numgenes, linker )
 			})
 		}
 	}
 	
-	add{|orf| chromosomes = chromosomes.add(orf) }
+	add{|chrom| chromosomes = chromosomes.add(chrom) }
 		
 	// one point recombination
 	recombineSingle{|codeA, codeB|		
@@ -189,10 +189,10 @@ GEP{
 		^newcode
 	}
 	
-	performRecombination{|orfA, orfB|
+	performRecombination{|chromA, chromB|
 		var codeA, codeB;
-		codeA = orfA.code;
-		codeB = orfB.code;
+		codeA = chromA.code;
+		codeB = chromB.code;
 		if (recombinationRate > 0.0) {
 			if (0.5.coin) {
 				#codeA, codeB = this.recombineSingle(codeA, codeB);
@@ -203,8 +203,8 @@ GEP{
 		if (geneRecombinationRate > 0.0) {
 			#codeA, codeB = this.recombineGene(codeA, codeB)
 		};
-		orfA.code = codeA;
-		orfB.code = codeB;
+		chromA.code = codeA;
+		chromB.code = codeB;
 	}
 	
 	nextGeneration{
@@ -220,45 +220,45 @@ GEP{
 		
 		// replication
 		newgen = Array.fill(populationSize, {
-			var orf, index;
+			var chrom, index;
 			index = weights.windex;
-			orf = ORF(chromosomes[index].code.copy, terminals, numgenes, linker);
-			orf.score = chromosomes[index].score;
+			chrom = GEPChromosome(chromosomes[index].code.copy, terminals, numgenes, linker);
+			chrom.score = chromosomes[index].score;
 			if (chromosomes.first.constants.notNil) {
-				orf.constants = chromosomes[index].constants.copy;
+				chrom.constants = chromosomes[index].constants.copy;
 			};
 			if (chromosomes.first.extraDomains.notNil) {
-				orf.extraDomains = chromosomes[index].extraDomains.copy;
+				chrom.extraDomains = chromosomes[index].extraDomains.copy;
 			};
-			orf
+			chrom
 		});
 		
 		// mutation
 		if (mutationRate > 0.0) {
-			newgen.do({|orf| this.mutate(orf.code) })
+			newgen.do({|chrom| this.mutate(chrom.code) })
 		};
 		
 		// insert sequence transposition
 		if (transpositionRate > 0.0) {
-			newgen.do({|orf| orf.code = this.transposeInsertSequence(orf.code) })
+			newgen.do({|chrom| chrom.code = this.transposeInsertSequence(chrom.code) })
 		};
 		
 		// root transposition
 		if (rootTranspositionRate > 0.0) {
-			newgen.do({|orf| orf.code = this.transposeRoot(orf.code) })
+			newgen.do({|chrom| chrom.code = this.transposeRoot(chrom.code) })
 		};
 		
 		// gene transposition
 		if (geneTranspositionRate > 0.0) {
-			newgen.do({|orf| orf.code = this.transposeGene(orf.code) })
+			newgen.do({|chrom| chrom.code = this.transposeGene(chrom.code) })
 		};
 		
 		// recombination
-		newgen.do({|orfA|
-			this.performRecombination(orfA, newgen.choose)
-//			var codeA, codeB, orfB = newgen.choose;
-//			codeA = orfA.code;
-//			codeB = orfB.code;
+		newgen.do({|chromA|
+			this.performRecombination(chromA, newgen.choose)
+//			var codeA, codeB, chromB = newgen.choose;
+//			codeA = chromA.code;
+//			codeB = chromB.code;
 //			if (recombinationRate > 0.0) {
 //				if (0.5.coin) {
 //					#codeA, codeB = this.recombineSingle(codeA, codeB);
@@ -269,8 +269,8 @@ GEP{
 //			if (geneRecombinationRate > 0.0) {
 //				#codeA, codeB = this.recombineGene(codeA, codeB)
 //			};
-//			orfA.code = codeA;
-//			orfB.code = codeB;
+//			chromA.code = codeA;
+//			chromB.code = codeB;
 		});
 		
 		chromosomes = newgen;
@@ -301,20 +301,19 @@ GEP{
 	
 	maxScore{ ^chromosomes.collect(_.score).maxItem }
 	
-	maxScoreORFs{ 
+	maxScoreGEPChromosomes{ 
 		var max = this.maxScore;
 		^chromosomes.select({|chr| chr.score == max  }) 
 	}
 	
 	// hack: use with caution
-	replacePopulation{|orfArray|
-		chromosomes = orfArray
+	replacePopulation{|chromArray|
+		chromosomes = chromArray
 	}
 				
 }
 
-// Open Reading Frame
-ORF{
+GEPChromosome{
 	var <>code, <terminals, <numGenes, <linker, <>score=0;
 	var <tree, <>extraDomains, <>constants, parents;
 	
@@ -366,20 +365,20 @@ ORF{
 }
 
 
-// Expression Tree: translates the ORF into a tree structure
+// Expression Tree: translates the GEPChromosome into a tree structure
 
 ExpressionTree{
-	var orf, includeObjects, gene;
+	var chrom, includeObjects, gene;
 	var <root;
 	
-	*new{|orf, includeObjects=true|
-		^super.newCopyArgs(orf, includeObjects).unpack
+	*new{|chrom, includeObjects=true|
+		^super.newCopyArgs(chrom, includeObjects).unpack
 	}
 	
 	unpack{
 		var code;
-		code = orf.code.clump((orf.code.size/orf.numGenes).asInt);
-		root = GepNode(\root, Array.fill(orf.numGenes, {|i|
+		code = chrom.code.clump((chrom.code.size/chrom.numGenes).asInt);
+		root = GepNode(\root, Array.fill(chrom.numGenes, {|i|
 			var argindex = 1, array;
 			gene = code.at(i);
 			array = gene.collect({|codon, i|
@@ -417,13 +416,13 @@ ExpressionTree{
 			string = string ++ "{" ++ this.appendTerminals;
 		};
 		
-		if (orf.isExceptionOp(orf.linker.name).not)
+		if (chrom.isExceptionOp(chrom.linker.name).not)
 		{
-			if (orf.isBooleanOp(orf.linker.name)) {
-				string = string ++ orf.linker.name.asString
+			if (chrom.isBooleanOp(chrom.linker.name)) {
+				string = string ++ chrom.linker.name.asString
 			}
 			{
-				string = string ++ orf.linker.ownerClass.asString.drop(5) ++ "." ++ orf.linker.name.asString
+				string = string ++ chrom.linker.ownerClass.asString.drop(5) ++ "." ++ chrom.linker.name.asString
 			}
 		};
 
@@ -432,8 +431,8 @@ ExpressionTree{
 		root.nodes.do({|node, i|
 			string = string ++ this.appendString(node);
 			if (i < root.nodes.lastIndex) {
-				if (orf.isExceptionOp(orf.linker.name)) {
-					string = string ++ ")" ++ orf.linker.name.asString ++ "(";
+				if (chrom.isExceptionOp(chrom.linker.name)) {
+					string = string ++ ")" ++ chrom.linker.name.asString ++ "(";
 				}
 				{
 					string = string ++ ", ";
@@ -454,7 +453,7 @@ ExpressionTree{
 				str = str + node.value.ownerClass.asString.drop(5) ++ "." 
 			};
 			
-			if (orf.isExceptionOp(node.value.name).not) {
+			if (chrom.isExceptionOp(node.value.name).not) {
 				str = str ++ node.value.name.asString 
 			};
 			
@@ -463,7 +462,7 @@ ExpressionTree{
 			node.nodes.do({|subnode, i|
 				str = str ++ this.appendString(subnode);
 				if (i < node.nodes.lastIndex) { 
-					if (orf.isExceptionOp(node.value.name)) {
+					if (chrom.isExceptionOp(node.value.name)) {
 						str = str + node.value.name.asString ++ " " 
 					}
 					{
@@ -482,7 +481,7 @@ ExpressionTree{
 	
 	appendTerminals{
 		var str = "|";
-		orf.terminals.do({|sym|
+		chrom.terminals.do({|sym|
 			str = str ++ sym.asString ++ ","
 		});
 		^(str.keep(str.size-1) ++ "| ")

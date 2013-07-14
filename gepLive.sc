@@ -4,12 +4,12 @@ LiveGenetic{
 	var statRoutine, <inputAnalyzer, <gepAnalyzer, <def, <defs, <args, <>fitnessFunc, <distances, <comaps;
 	var <group, <synths, <store, <codewindow, defStrings, <triggerSynth, <>triggerFunc;
 	
-	*new{|genetic, input, ncoef, rate, namespace, isLive=true, decoder, graphics, target, addAction|
+	*new{|genetic, input, ncoef, rate, namespace, isLive=true, decoder, graphics, target=1, addAction='addToHead'|
 		^super.newCopyArgs(genetic, input, ncoef, rate, namespace, isLive, decoder, graphics)
 			.init(target, addAction)
 	}
 	
-	init{|target=1, addAction='addToHead'|
+	init{|target, addAction|
 		cospecies = GEP(
 			genetic.populationSize, 
 			genetic.terminals.size, 
@@ -24,9 +24,9 @@ LiveGenetic{
 			ControlSpec.specs[name]
 		});
 
-		cospecies.chromosomes.do({|orf| 
-			orf.fillConstants(cospecies.terminals.size, { rrand(0.0, 1.0) }); 
-			orf.addExtraDomain(Array.with(comaps.choose))
+		cospecies.chromosomes.do({|chrom| 
+			chrom.fillConstants(cospecies.terminals.size, { rrand(0.0, 1.0) }); 
+			chrom.addExtraDomain(Array.with(comaps.choose))
 		});
 		
 		cospecies.mutationRate = genetic.mutationRate;
@@ -38,18 +38,18 @@ LiveGenetic{
 		
 		defStrings = Dictionary();
 		
-		defs = genetic.chromosomes.collect({|orf, i|
+		defs = genetic.chromosomes.collect({|chrom, i|
 			var defname, defstr;
 			defname = (namespace ++ genetic.generationCount.asString.padLeft(3, "0") 
 				++ "_" ++ i.asString.padLeft(3, "0")).asSymbol;
-//			defstr = orf.asUgenExpressionTree.asSynthDefString(defname, Pan2, Normalizer);
-			defstr = orf.asUgenExpressionTree.asFoaSynthDefString(defname, Normalizer, 
+//			defstr = chrom.asUgenExpressionTree.asSynthDefString(defname, Pan2, Normalizer);
+			defstr = chrom.asUgenExpressionTree.asFoaSynthDefString(defname, Normalizer, 
 				UGenExpressionTree.foaControls.keys.choose);
 			defStrings[defname.asSymbol] = defstr;
 			{
 				defstr.interpret.add
 			}.try({
-				orf.score = -1;
+				chrom.score = -1;
 				nil	
 			})
 		});
@@ -79,11 +79,11 @@ LiveGenetic{
 	}
 	
 	convertArgs{
-		args = cospecies.chromosomes.collect({|orf, i|
+		args = cospecies.chromosomes.collect({|chrom, i|
 			var spec;
-			spec = orf.extraDomains.first.first.asString.drop(2);
-			orf.asExpressionTree(false).asFunctionString
-				.replace("map", spec ++ ".map").interpret.value(*orf.constants)
+			spec = chrom.extraDomains.first.first.asString.drop(2);
+			chrom.asExpressionTree(false).asFunctionString
+				.replace("map", spec ++ ".map").interpret.value(*chrom.constants)
 		});		
 	}
 	
@@ -192,8 +192,8 @@ LiveGenetic{
 	
 	generateNewDefs{|indA, indB|
 		var newA, newB, defnameA, defstrA, defnameB, defstrB;
-		newA = ORF(indA.code.copy, genetic.terminals, genetic.numgenes, genetic.linker);
-		newB = ORF(indB.code.copy, genetic.terminals, genetic.numgenes, genetic.linker);
+		newA = GEPChromosome(indA.code.copy, genetic.terminals, genetic.numgenes, genetic.linker);
+		newB = GEPChromosome(indB.code.copy, genetic.terminals, genetic.numgenes, genetic.linker);
 
 		this.performGeneticOperations(genetic, newA);
 		this.performGeneticOperations(genetic, newB);
@@ -237,10 +237,10 @@ LiveGenetic{
 	
 	generateNewArgs{|indA, indB|
 		var newA, newB, spec;
-		newA = ORF(indA.code.copy, cospecies.terminals, cospecies.numgenes, cospecies.linker);
+		newA = GEPChromosome(indA.code.copy, cospecies.terminals, cospecies.numgenes, cospecies.linker);
 		newA.extraDomains = [[indA.extraDomains.first.first.copy]];
 		newA.constants = indA.constants.copy;
-		newB = ORF(indB.code.copy, cospecies.terminals, cospecies.numgenes, cospecies.linker);
+		newB = GEPChromosome(indB.code.copy, cospecies.terminals, cospecies.numgenes, cospecies.linker);
 		newB.extraDomains = [[indB.extraDomains.first.first.copy]];
 		newB.constants = indB.constants.copy;
 
@@ -315,7 +315,9 @@ LiveGenetic{
 
 	play{|name, rotx=0, roty=0, rotz=0|
 		defStrings[name.asSymbol].postln;
-		this.sendSynthDefString(defStrings[name.asSymbol]);
+		try {	
+			this.sendSynthDefString(defStrings[name.asSymbol])
+		};
 		synths[name] = Synth.head(group, name, [\out, decoder.bus, \amp, 0, 
 			\rotx, rotx, \roty, roty, \rotz, rotz] ++ this.getArgsForDef(name))
 	}

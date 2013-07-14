@@ -354,6 +354,10 @@ CinderApp{
 		this.sendMsg("livecode/codeline", line)
 	}
 	
+	sendCodeTitle{|title|
+		this.sendMsg("livecode/codetitle", title.asString)
+	}
+	
 	showCodePanel{ this.sendMsg("livecode/activate", 1) }
 
 	hideCodePanel{ this.sendMsg("livecode/activate", 0) }
@@ -398,10 +402,10 @@ Rotation{
 	}
 	
 	update{
-		rho = (rho + rhoRate).wrap(0, 2pi);
+		rho = (rho + rhoRate).wrap(-pi, pi);
 		spherical.rho = rhoMin+(sin(rho)*rhoRange);
-		spherical.theta = (spherical.theta+thetaRate).wrap(0, 2pi);
-		spherical.phi = (spherical.phi+phiRate).wrap(0, 2pi);
+		spherical.theta = (spherical.theta+thetaRate).wrap(-pi, pi);
+		spherical.phi = (spherical.phi+phiRate).wrap(-pi, pi);
 	}
 	
 	x{ ^spherical.x }	
