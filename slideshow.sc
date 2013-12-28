@@ -1,10 +1,10 @@
 SlideShow{
-	var paths, window, index = 0;
+	var paths, <window, index = 0;
 	*new{|paths|
 		^super.newCopyArgs(paths)
 	}
 		
-	makeWindow{
+	makeWindow{|func|
 		window = Window("granular synthesis", Rect(0, 0, 1440, 900), border: false).front.fullScreen;
 		window.view.backgroundImage_(Image(paths[index]), 10);
 		RoundButton(window, Rect(1400, 5, 40, 20))
@@ -18,7 +18,9 @@ SlideShow{
 				124, { this.next },
 				123, { this.prev }
 			)
-		});		
+		});
+		
+		func.(window)
 	}
 	
 	next{

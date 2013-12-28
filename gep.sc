@@ -1,14 +1,15 @@
 GEP{
-	var <populationSize, <numgenes, <headsize, <methods, <terminals, <linker, <tailsize, <chromosomes;
+	var <populationSize, <numgenes, <headsize, <methods, <terminals, <linker, <forceArgs, <tailsize, <chromosomes;
 	var <>mutationRate = 0.05, <>recombinationRate = 0.3, <>transpositionRate = 0.1, <>rootTranspositionRate = 0.1;
 	var <>geneRecombinationRate = 0.1, <>geneTranspositionRate = 0.1, fitnessFuncs;
 	var <generationCount = 0;
 	
-	*new{|populationSize, numgenes, headsize, methods, terminals, linker|
-		^super.newCopyArgs(populationSize, numgenes, headsize, methods, terminals, linker).init
+	*new{|populationSize, numgenes, headsize, methods, terminals, linker, forceArgs|
+		^super.newCopyArgs(populationSize, numgenes, headsize, methods, terminals, linker, forceArgs).init
 	}
 		
 	init{
+		forceArgs = forceArgs ? ();
 		tailsize = headsize * (this.maxNumberOfArgs - 1) + 1;
 		this.randInitChromosomes;
 		fitnessFuncs = Array();
@@ -44,7 +45,7 @@ GEP{
 						terminals.choose
 					})
 				});
-				GEPChromosome(indv, terminals, numgenes, linker )
+				GEPChromosome(indv, terminals, numgenes, linker, forceArgs )
 			})
 		}
 	}
@@ -222,7 +223,7 @@ GEP{
 		newgen = Array.fill(populationSize, {
 			var chrom, index;
 			index = weights.windex;
-			chrom = GEPChromosome(chromosomes[index].code.copy, terminals, numgenes, linker);
+			chrom = GEPChromosome(chromosomes[index].code.copy, terminals, numgenes, linker, forceArgs);
 			chrom.score = chromosomes[index].score;
 			if (chromosomes.first.constants.notNil) {
 				chrom.constants = chromosomes[index].constants.copy;
@@ -314,11 +315,11 @@ GEP{
 }
 
 GEPChromosome{
-	var <>code, <terminals, <numGenes, <linker, <>score=0;
+	var <>code, <terminals, <numGenes, <linker, <forceArgs, <>score=0;
 	var <tree, <>extraDomains, <>constants, parents;
 	
-	*new{|code, terminals, ngenes, linker|
-		^super.newCopyArgs(code, terminals, ngenes, linker)
+	*new{|code, terminals, ngenes, linker, forceArgs|
+		^super.newCopyArgs(code, terminals, ngenes, linker, forceArgs)
 	}
 	
 	asExpressionTree{|includeObjects=true|
@@ -372,10 +373,10 @@ ExpressionTree{
 	var <root;
 	
 	*new{|chrom, includeObjects=true|
-		^super.newCopyArgs(chrom, includeObjects).unpack
+		^super.newCopyArgs(chrom, includeObjects).decode
 	}
 	
-	unpack{
+	decode{
 		var code;
 		code = chrom.code.clump((chrom.code.size/chrom.numGenes).asInt);
 		root = GepNode(\root, Array.fill(chrom.numGenes, {|i|

@@ -1,14 +1,14 @@
 UGEP : GEP {
 	
-	classvar <archDir = "/Users/alo/Data/gep/data", <fileExt = "gepdata", <>ranges;
+	classvar <archDir = "/Users/alo/Data/gep/data", <fileExt = "gepdata";
 	classvar <fileNamePrefix = "gep";
 				
-	*new{|populationSize, numgenes, headsize, ugens, terminals, linker|
-		^super.new(populationSize, numgenes, headsize, ugens, terminals, linker).init
+	*new{|populationSize, numgenes, headsize, ugens, terminals, linker, forceArgs|
+		^super.new(populationSize, numgenes, headsize, ugens, terminals, linker, forceArgs).init
 	}
 	
-	*newValid{|populationSize, numgenes, headsize, ugens, terminals, linker|
-		^super.new(populationSize, numgenes, headsize, ugens, terminals, linker).initValid
+	*newValid{|populationSize, numgenes, headsize, ugens, terminals, linker, forceArgs|
+		^super.new(populationSize, numgenes, headsize, ugens, terminals, linker, forceArgs).initValid
 	}
 	
 	*newRandomFromLibrary{|populationSize, numgenes, headsize, linker, excludeUGenList|
@@ -32,6 +32,31 @@ UGEP : GEP {
 		this.setTailSize;
 		this.randInitValidChromosomes;
 	}
+	
+	randInitChromosomes{|forceInitFunc=true|
+		if (terminals.notNil.and(methods.notNil)) {
+			chromosomes = Array.fill(populationSize, {
+				var indv;
+				indv = Array();
+				numgenes.do({
+					if (forceInitFunc) {
+						indv = indv ++ Array.with(methods.choose) ++ Array.fill(headsize-1, {
+							[methods, terminals].choose.choose
+						})
+					}
+					{
+						indv = indv ++ Array.fill(headsize, {
+							[methods, terminals].choose.choose
+						})
+					};
+					indv = indv ++ Array.fill(tailsize, {
+						terminals.choose
+					})
+				});
+				GEPChromosome(indv, terminals, numgenes, linker, forceArgs )
+			})
+		}
+	}	
 	
 	initFromLibrary{|excludeUGenList|
 		var selection, data, randInd;
@@ -150,7 +175,7 @@ UGEP : GEP {
 				terminals.choose
 			})
 		});
-		chrm = GEPChromosome(indv, terminals, numgenes, linker );
+		chrm = GEPChromosome(indv, terminals, numgenes, linker, forceArgs );
 		if (this.checkChromosome(chrm)) {
 			chromosomes = chromosomes.add(chrm);
 		};
@@ -212,15 +237,16 @@ UGEP : GEP {
 	
 }
 
+
 UGenExpressionTree : ExpressionTree {
 	
 	classvar <defDir = "/Users/alo/Data/gep/synthdefs/", <metaDir = "/Users/alo/Data/gep/metadata/";
 	classvar <foaControls;
 	
-	unpack{
+	decode{
 		var code;
 		code = chrom.code.clump((chrom.code.size/chrom.numGenes).asInt);
-		root = GepNode(\root, Array.fill(chrom.numGenes, {|i|
+		root = UGepNode(\root, Array.fill(chrom.numGenes, {|i|
 			var argindex = 1, array;
 			gene = code.at(i);
 			array = gene.collect({|codon, i|
@@ -231,7 +257,6 @@ UGenExpressionTree : ExpressionTree {
 					indices = (argindex..argindex+argNames.size-1);
 					argindex = argindex + indices.size;
 					event[i] = indices;
-					
 				}				
 			}).select(_.notNil);
 						
@@ -241,15 +266,16 @@ UGenExpressionTree : ExpressionTree {
 	}
 	
 	appendArgs{|event, array|
-		var nodes;
+		var nodes, class;
 		nodes = event.values.pop.collect({|ind| 
 			if (gene[ind].isKindOf(Class)) {
 				this.appendArgs(array.select({|sev| sev.keys.pop == ind }).first, array ) 
 			} {
-				GepNode(gene[ind])
+				UGepNode(gene[ind])
 			}
 		}); 
-		^GepNode(gene[event.keys.pop], nodes)		
+		class = gene[event.keys.pop];
+		^UGepNode(class, nodes, this.getArgNames(class.class).select({|name| name != \this }))
 	}	
 	
 	getArgNames{|class|
@@ -266,7 +292,7 @@ UGenExpressionTree : ExpressionTree {
 	asSynthDefString{|defname, panner, limiter|
 		var string;
 		string = "SynthDef('" ++ defname ++ "', " 
-			++ "{" ++ this.appendSynthDefTerminals ++ " Out.ar(out, ";
+			++ "{" ++ this.appendSynthDefTerminals ++ " Out.ar(out,";
 		if (panner.notNil) {
 			string = string ++ panner.asString ++ ".ar("
 		};
@@ -274,11 +300,11 @@ UGenExpressionTree : ExpressionTree {
 			string = string ++ limiter.asString ++ ".ar("
 		};
 		string = string ++ this.asFunctionString(false); 
-		if (panner.notNil) {
-			string = string ++ ")"
-		};
 		if (limiter.notNil) {
 			string = string ++ ")"
+		};
+		if (panner.notNil) {
+			string = string ++ ",0,amp)"
 		};
 		string = string ++ ") })";
 		^string
@@ -321,7 +347,7 @@ UGenExpressionTree : ExpressionTree {
 	}
 	
 	appendSynthDefTerminals{
-		var str = "|out=0,";
+		var str = "|out=0,amp=0,";
 		chrom.terminals.do({|sym|
 			str = str ++ sym.asString ++ ","
 		});
@@ -338,12 +364,20 @@ UGenExpressionTree : ExpressionTree {
 
 	appendString{|node|
 		var str = "";
+						
 		if (node.isFunction) {
 			
 			str = str + node.value.asString ++ ".ar(";
 							
 			node.nodes.do({|subnode, i|
-				str = str ++ this.appendString(subnode);
+				var farg;
+				farg = chrom.forceArgs.select({|aval, aname| node.argNames[i] == aname });
+				if (farg.size == 1) {
+					str = str ++ farg.first.values.first
+				}
+				{
+					str = str ++ this.appendString(subnode);
+				};
 				if (i < node.nodes.lastIndex) { 
 					if (chrom.isExceptionOp(node.value.name)) {
 						str = str + node.value.name.asString ++ " " 
@@ -441,6 +475,19 @@ UGenExpressionTree : ExpressionTree {
 }
 
 UGepNode : GepNode{
+	
+	var <>argNames;
+	
+	*new{|value, nodes, argNames|
+		^super.new(value, nodes).init(argNames)
+	}
+	
+	init{|names| argNames = names }
+
+}
+
+/*
+UGepNode : GepNode{
 	var <value, <>nodes, <>range;
 	
 	*new{|value, nodes, range|
@@ -448,6 +495,7 @@ UGepNode : GepNode{
 	}
 
 }
+*/
 
 UGepPlayer{
 	

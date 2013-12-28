@@ -4,7 +4,8 @@ SparseMatrix{
 	
 	var <decoder, <graphics, <quant, <ncoef, <envs, <buffers, <group, <efxgroup, <nofxbus, <bpm, <bps, <beatdur;
 	var <rDB, <efx, <efxamps, <patterndefs, <argproto, <deffuncs, codewindow, <listener, <mfccresp;
-	var <skismDefs, skismSynths, grainEnvs, <gepdefs, <gepsynths;
+	var <skismDefs, skismSynths, grainEnvs, <gepdefs, <gepsynths, <>onsetFunc;
+	var <patternPlayers;
 	
 	var <>defpath = "/Users/alo/Development/lambda/supercollider/sparsematrix/sparsedefs.scd";
 	var <>skismDefPath = "/Users/alo/Development/lambda/supercollider/sparsematrix/skismdefs.scd";
@@ -20,7 +21,7 @@ SparseMatrix{
 			decoder = FoaDecoder()
 		};
 		if (graphics.isNil) {
-			graphics ? CinderApp()
+			graphics = CinderApp()
 		};
 		
 		this.loadBuffers;
@@ -210,6 +211,8 @@ SparseMatrix{
 		
 		skismSynths = ();
 		
+		patternPlayers = ();
+		
 		"sparsematrix performance ready...".postln;
 		
 		}.fork
@@ -219,8 +222,8 @@ SparseMatrix{
 	loadDefFuncs{
 		deffuncs = [			
 			{|freq=40| Mix(SinOsc.ar([freq, freq+11, freq+23], 0.5pi)) },
-			{|freq=1| Impulse.ar(1, 10, 10).clip(-0.9, 0.9) },
-			{|freq=8000| PinkNoise.ar.clip(-0.9, 0.9) * SinOsc.ar(freq) },
+			{|freq=1| Mix(DelayC.ar(Impulse.ar(1, 10, 10),0.05,[0, 0.05])).clip(-0.9, 0.9) },
+			{|freq=8000| PinkNoise.ar(10.0).clip(-0.9, 0.9) * SinOsc.ar(freq) },
 			{|freq=20| Mix(LFSaw.ar([freq, freq + 11] + LFSaw.ar([1, 8]).range(freq, freq*2))).clip(-0.9, 0.9) },
 			{|freq=320| RLPF.ar(BrownNoise.ar(10).softclip, freq, 0.5, 1) },
 			{|freq=60| VarSaw.ar(IRand(*[freq, freq+20]), 0.25, 0.01, 20).clip(-0.5, 0.5) },
@@ -240,7 +243,7 @@ SparseMatrix{
 			{|freq=12288| SinOsc.ar(freq) },
 			{|freq=16| Crackle.ar(1.6, 32).softclip },
 			{|freq=16384| Logistic.ar(VarSaw.kr(pi**2).range(3.57, 3.8), 2**14) },
-			{|freq=16| Osc.ar(LocalBuf.newFrom((32.fib.mirror2.normalizeSum - 0.1) * [-1, 1].lace(128)), IRand(freq, freq*2), 0, 5).softclip },
+			{|freq=16| Osc.ar(LocalBuf.newFrom((32.fib.mirror2.normalizeSum - 0.1) * [-1, 1].lace(128)), Rand(freq, freq*2).round(2**(1/5)), 0, 5).softclip },
 			{|freq=32| Pluck.ar(SinOsc.ar(LFNoise0.ar(999).range(freq, freq * 2), 0, 10), Impulse.kr(2), 0.1, 0.1, 4).tanh },
 			{|freq=32| LFSaw.ar(LFNoise0.ar(freq**2).range(freq, freq*2), 0, 10).softclip },
 			{|freq=64| Decimator.ar(Impulse.ar(freq, 10, 10).softclip, 48000, 24, 2) }, 
@@ -263,16 +266,16 @@ SparseMatrix{
 			{|freq=16000| Mix(MdaPiano.ar(freq,1,127,1,1,1,0,1,1,0.5,0.1,0.5,mul:20).softclip) },
 			{|freq=440| (Perlin3.ar(LFSaw.kr(freq/2), SinOsc.ar(freq), LFTri.ar(freq+100))*10).distort },
 			
-			{|freq=16| CA0.ar(11025, 32, 18, 0) },
+			{|freq=16| CA0.ar(5512, 32, 18, 0) },
 			{|freq=16| CA0.ar(11025, 64, 22, 0) },
 			{|freq=16| CA0x.ar(11025, 32, 26, 0) },
-			{|freq=16| CA0x.ar(11025, 64, 30, 0) },
-			{|freq=16| CA1.ar(4410, 32, 45, 0) },
+			{|freq=16| (CA0x.ar(11025, 64, 30, 0)*10).clip(-0.9, 0.9) },
+			{|freq=16| CA1.ar(44100/8, 32, 30, 0, 10).softclip },
 			{|freq=16| CA1.ar(4410, 64, 73, 0) },
-			{|freq=16| CA1x.ar(4410, 32, 89, 0) },
+			{|freq=16| CA1x.ar(2205, 32, 105, 0) },
 			{|freq=16| CA1x.ar(4410, 64, 105, 0) },
 			
-			{|freq=1000| Logist0.ar(freq * IRand(1, 5), 1.8) },
+			{|freq=440| Logist0.ar((freq * Rand(1, 5)).round(2**(1/12)), 1.8) },
 			{|freq=120| CML0.ar(Select.kr(IRand(0, 4), Scale.jiao.ratios * freq), 1.2, 0.05, 1.0) },
 			{|freq=880| GCM0.ar(Select.kr(IRand(0, 4), Scale.jiao.ratios * freq), 1.5, 0.01) },
 			{|freq=256| HCM0.ar(Select.kr(IRand(0, 4), Scale.jiao.ratios * freq), 1.1, 0.3) },
@@ -281,10 +284,10 @@ SparseMatrix{
 			{|freq=16| CombN.ar(CA1.ar(800,20,SinOsc.kr(30, 0.5pi).range(30, 60).round(1)),0.2,0.125,0.25) },
 			{|freq=800| Mix(GVerb.ar(LPF.ar(Impulse.ar(1),freq,20),5)) },
 			
-			{|freq=50| Logist0.ar(freq * IRand(1, 5), 1.1) },
-			{|freq=16| CML0.ar(Select.kr(IRand(0, 4), Scale.jiao.ratios * 880), 1.99, 0.01, 0.1) },
-			{|freq=16| GCM3.ar(Select.kr(IRand(0, 4), Scale.jiao.ratios * 660), 1.7, 0.1) },
-			{|freq=16| HCM3.ar(Select.kr(IRand(0, 4), Scale.jiao.ratios * 1024), 1.99, 0.8) },
+			{|freq=50| Logist0.ar(Select.kr(IRand(0, 4), Scale.jiao.ratios * freq), 1.1) },
+			{|freq=880| CML0.ar(Select.kr(IRand(0, 4), Scale.jiao.ratios * freq), 1.99, 0.01, 0.1) },
+			{|freq=660| GCM3.ar(Select.kr(IRand(0, 4), Scale.jiao.ratios * freq), 1.7, 0.1) },
+			{|freq=1760| HCM3.ar(Select.kr(IRand(0, 4), Scale.jiao.ratios * freq), 1.99, 0.8) },
 			{|freq=16| Nagumo.ar(0.01, 0.001, LFPulse.ar(110).range(0, 1)) },
 			{|freq=16| FIS.ar(LFSaw.ar(1).range(1,4),Crackle.ar(1.99).abs,LFSaw.ar(64).range(1,10).round(1)) },
 			{|freq=16| Mix(DelayN.ar(CombN.ar(CA1.ar(440,200,165),0.2,0.01,0.2),0.05,(0.01,0.02..0.04))) },
@@ -382,11 +385,27 @@ SparseMatrix{
 		}.fork
 	}
 	
+	setWithPattern{|name, pattern, dur|
+		if (patternPlayers[name].notNil) {
+			this.stopPattern(name)
+		};
+		patternPlayers[name] = Pbind(\type, \set, \id, gepsynths[name].synth.nodeID, 
+			\args, #[amp], \amp, pattern, \dur, dur).play;
+	}
+	
+	stopPattern{|name|
+		patternPlayers[name].stop;
+		patternPlayers[name] = nil;
+	}
+	
 	fadeGepSynth{|name, start=0, end=0, time=1, interval=0.1|
 		gepsynths[name].fade(start, end, time, interval)
 	}
 	
 	freeGepSynth{|name|
+		if (patternPlayers[name].notNil) {
+			this.stopPattern(name)
+		};
 		gepsynths[name].free;
 		gepsynths[name] = nil;
 	}
@@ -424,6 +443,7 @@ SparseMatrix{
 			listener = Synth.before(decoder.synth, \mfcc, [\in, decoder.bus, \th, -6.dbamp]);
 			mfccresp = OSCFunc({|ms|
 				graphics.sendSOMVector(ms[3..(ncoef+2)]);
+				onsetFunc.(ms[3..(ncoef+2)])
 			}, '/mfcc', Server.default.addr ).add;
 		}.fork
 	}
@@ -488,7 +508,7 @@ SparseMatrix{
 
 		this.addPatternSynthDef('r05', 64, 8, 8, ['basikolo', 'djakandi'], 2, "r5");
 
-		this.addPatternSynthDef('r06', 64, 8, 8, ['doudoumba'], 3, "r6");
+		this.addPatternSynthDef('r06', 64, 8, 8, ['doudoumba', 'mandiani'], 3, "r6");
 
 		this.addPatternBufferDef('b00',
 			size: 32, groupsize: 4, 

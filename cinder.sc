@@ -1,10 +1,10 @@
 CinderApp{
 		
 	var <screenX, <screenY, <fps, <scAddr, <ciAddr, <mode, <appPath;
-	var args, oscPrefix = "/lambda/", patternLib, boidPatternLib, settings, symmetry;
+	var args, oscPrefix = "/lambda/", <patternLib, <boidPatternLib, settings, symmetry;
 	var <queryFunc, <world;
 
-	*new{|screenX=800, screenY=600, fps=32, scAddr, ciAddr, mode=0, path, numPatterns=26, numBoidPatterns=6|
+	*new{|screenX=800, screenY=600, fps=32, scAddr, ciAddr, mode=0, path, numPatterns=36, numBoidPatterns=6|
 		^super.newCopyArgs(screenX, screenY, fps, scAddr, ciAddr, mode, path).init(numPatterns, numBoidPatterns);
 	}
 	

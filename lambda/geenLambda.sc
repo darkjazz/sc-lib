@@ -1,6 +1,6 @@
 GeenLambda{
 	
-	var mikro, decoder, dur, procs, composer, rotation, stats, isActive = false, <geen;
+	var mikro, decoder, dur, procs, <composer, rotation, stats, isActive = false, <geen;
 	var cameraActionParams, cameraWeights, cameraActions, patterns, activePatterns;
 
 	*new{|mikro, decoder, dur|
@@ -29,18 +29,22 @@ GeenLambda{
 	}
 	
 	prepare{
-		MikroData.loadPath = "/Users/alo/Data/mikro/lib001/";
-		Post << "Initialising MikroGeen.." << Char.nl;
-		geen = MikroGeen();
-		Post << "Updating clusters.." << Char.nl;
-//		geen.updateClusters;
-		geen.loadClusters("/Users/alo/Data/mikro/130214_194521.kmeans");
-		Post << "Loading event data.." << Char.nl;
-		geen.loadEventData(doneAction: { 
-			Post << "Training sets.." << Char.nl;
-//			geen.trainSets 
-			geen.loadSets
-		});
+		{
+			MikroData.loadPath = "/Users/alo/Data/mikro/lib001/";
+			Post << "Initialising MikroGeen.." << Char.nl;
+			geen = MikroGeen();
+			Post << "Updating clusters.." << Char.nl;
+	//		geen.updateClusters;
+			geen.loadClusters("/Users/alo/Data/mikro/130214_194521.kmeans");
+			Post << "Loading event data.." << Char.nl;
+			geen.loadEventData(doneAction: { 
+				Post << "Training sets.." << Char.nl;
+				geen.trainSets;
+//				geen.loadSets;
+				Post << "Training sets finished..." << Char.nl;
+				Post << "Setup complete, ready for launch..." << Char.nl;
+			});
+		}.fork
 	}
 
 	start{
@@ -48,40 +52,52 @@ GeenLambda{
 		mikro.input.mainamp_(-3.dbamp);
 		mikro.input.auxamp_(-6.dbamp);				
 
-		Tdef(\liveprocs, {
-			var names;
-			names = #[ fbgverb, cliq, grains, arhythmic, latch, fbgverb, streamverb ];
-			3.wait;
-			mikro.analyzer.addMFCCResponderFunction({|ti, re, ms, an|
-				var argstr = Pseq(ms[3..mikro.analyzer.numcoef+2].clip(0.0, 1.0), inf).asStream;
-				composer.activeSynths.do({|synth|
-					var args;
-					args = composer.descLib[synth.defName.asSymbol].metadata.specs
-						.collect(_.map(argstr.next));
-					synth.set(*args.asKeyValuePairs)
-				});
-				
-			});
-			names.do({|name|
-				var id;
-				id = composer.play(name, argstream: Pn(0.25, inf).asStream);
-				(mikro.analyzer.maxdur / names.size - 15).wait;
-				composer.releaseSynth(id, 15);
-			})
-		}).play;
+//		Tdef(\liveprocs, {
+//			var names;
+//			names = #[ fbgverb, cliq, grains, arhythmic, latch, fbgverb, streamverb ];
+//			3.wait;
+//			mikro.analyzer.addMFCCResponderFunction({|ti, re, ms, an|
+//				var argstr = Pseq(ms[3..mikro.analyzer.numcoef+2].clip(0.0, 1.0), inf).asStream;
+//				composer.activeSynths.do({|synth|
+//					var args;
+//					args = composer.descLib[synth.defName.asSymbol].metadata.specs
+//						.collect(_.map(argstr.next));
+//					synth.set(*args.asKeyValuePairs)
+//				});
+//				
+//			});
+//			names.do({|name|
+//				var id;
+//				id = composer.play(name, argstream: Pn(0.25, inf).asStream);
+//				(mikro.analyzer.maxdur / names.size - 15).wait;
+//				composer.releaseSynth(id, 15);
+//			})
+//		}).play;
+
+		#[xang,yang,zang].do({|name|
+			Tdef(name, {
+				var angle, time;
+				angle = Pbrown(-pi, pi, 64.reciprocal, inf).asStream;
+				time = Pbrown(0.01, 0.1, 0.01, inf).asStream;
+				loop({
+					mikro.input.synth.set(name, angle.next);
+					time.next.wait;
+				})
+			}).play
+		});				
 		
-		Tdef(\space, {
-			loop({
-				mikro.input.synth.set(\xang, rrand(-pi, pi), \yang, rrand(-pi, pi), \zang, rrand(-pi, pi));
-				rrand(0.5, 3.0).wait;
-			})
-		}).play;
+//		Tdef(\space, {
+//			loop({
+//				mikro.input.synth.set(\xang, rrand(-pi, pi), \yang, rrand(-pi, pi), \zang, rrand(-pi, pi));
+//				rrand(0.5, 3.0).wait;
+//			})
+//		}).play;
 
 		cameraActions = (
 			rotateCam: {|rhoRate, rhoMin, rhoRange, thetaRate, phiRate|
 				rotation = Rotation(rrand(rhoMin, rhoMin + rhoRange), rhoRate, rhoMin, rhoRange, 
 					2pi.rand, thetaRate, 2pi.rand, phiRate);
-				mikro.graphics.setCameraRotation(rotation, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0);
+				mikro.graphics.setCameraRotation(rotation, 20.0.rand, 20.0.rand, 20.0.rand, 0.0, 0.0, 0.0);
 				mikro.graphics.rotateCamera;
 			},
 			attachCam: {|lookAtCenter=true|
@@ -91,7 +107,7 @@ GeenLambda{
 				mikro.graphics.setBoidCam(false, false);
 				mikro.graphics.stopRotation;
 				mikro.graphics.stopMove;
-				mikro.graphics.setViewpoint(x, y, z, 200.0, 200.0, 200.0);
+				mikro.graphics.setViewpoint(x, y, z, 20.0.rand, 20.0.rand, 20.0.rand);
 			},
 			moveCam: {|startcoords, endcoords, time, rate, done|
 				mikro.graphics.moveCamera(startcoords, endcoords, time, rate, done)
@@ -113,15 +129,15 @@ GeenLambda{
 				stats.flats.mean.explin(0.001, 0.6, 0.0, 1/23)
 				]
 			},
-			attachCam: { [true] },
+			attachCam: { [false] },
 			stopCam: { 
 				var sp = Spherical(stats.amps.mean.explin(0.001, 1.0, 50.0, 200.0) + 200.0, 2pi.rand, 2pi.rand);
 				[sp.x, sp.y, sp.z]
 			},
 			moveCam: {  
 				[
-					[500.0.rand, 500.0.rand, 500.0.rand, 200.0, 200.0, 200.0], 
-					[400.0.rand, 400.0.rand, 400.0.rand, 200.0, 200.0, 200.0],
+					[200.0.rand, 200.0.rand, 200.0.rand, 0.0, 0.0, 0.0], 
+					[100.0.rand, 100.0.rand, 100.0.rand, 0.0, 0.0, 0.0],
 					rrand(10, 30),
 					10
 				]
@@ -130,10 +146,13 @@ GeenLambda{
 				
 		Tdef(\initGraphics, {
 			mikro.graphics.setFrameRate(16.0);
+			mikro.graphics.setBackground(0.1, 0.1, 0.1);
 			mikro.graphics.initWorld(20, 20, 20, mikro.analyzer.numcoef);
 			1.wait;
-			mikro.graphics.setViewpoint(500.0, 400.0, 600.0, 200.0, 200.0, 200.0);
+			mikro.graphics.initContinuous;
+			mikro.graphics.setViewpoint(200.0, 150.0, 180.0, 0.0, 0.0, 0.0);
 			1.wait;
+			mikro.graphics.setAdd(rrand(0.005, 0.01));
 			mikro.graphics.activateSwarm(16, 400.0, 400.0, 400.0, 0.9, 50.0, 8.0, 5.0, 100.0);
 			1.wait;
 			mikro.graphics.sendBoidPattern(2, 1, 0);
@@ -172,6 +191,7 @@ GeenLambda{
 					var action;
 					if (stats.amps.mean.coin) {
 						action = cameraWeights.values.wchoose(cameraWeights.keys(Array));
+						Post << "Camera: " << action << Char.nl;
 						if (action != 'stopCam') {  
 							mikro.graphics.setBoidCam(false, false);
 							mikro.graphics.stopRotation;
@@ -183,14 +203,19 @@ GeenLambda{
 					if (stats.amps.mean > 0.5) {
 						mikro.graphics.activateSwarm(rrand(16, 32), 400.0, 400.0, 400.0, 0.9, 50.0, 8.0, 5.0, 100.0);
 					};
-	
+					
+					mikro.graphics.setPattern(4, [0, 1].choose, 0.4.rand, 0, 0, 0.7, 0.7, 0.3);
+					mikro.graphics.setPattern(0, [0, 1].choose, 0.2.rand, 0, 0, rrand(0.3, 0.5), rrand(0.3, 0.5), rrand(0.1, 0.3));
+					mikro.graphics.setAdd(1.0.rand);
+					mikro.graphics.setBackground(0.1.rand, 0.1.rand, 0.1.rand);
+
 					if ((isActive.not) and: { mikro.analyzer.events.size > 4 }) {
 						isActive = true;
 						Post << "playing MikroGeen prepared sequence" << Char.nl;
 						
 						geen.playPreparedSequence( 
-							(4..8).wchoose([2, 0.5, 1.0, 0.3, 0.7].normalizeSum), 
-							[0.618, 1, 1.618].choose, 
+							(3..8).wchoose(Array.geom(6,16,0.8).normalizeSum), 
+							stats.amps.mean.explin(0.001, 1.0, 0.3, 4.0), 
 							mikro.analyzer.events.last, mikro.analyzer.eventIntervals.last, {
 								isActive = false
 							}
@@ -230,20 +255,23 @@ GeenLambda{
 			].choose;
 			activePatterns[params.first] = true;
 			Post << "activating BOID pattern " << params.first << Char.nl;
-			mikro.graphics.sendBoidPattern(*params)
+			mikro.graphics.sendBoidPattern(*params);
 		}
 		
 	}
 	
 	clear{
 		Post << "Clearing GeenLambda.." << Char.nl;
-		Tdef(\space).clear;
+//		Tdef(\space).clear;
+		#[xang,yang,zang].do({|name|
+			Tdef(name).clear
+		});
 		mikro.analyzer.onsetAction = nil;
 		mikro.analyzer.removeEventResponderFunction(\geenstats);
 		mikro.analyzer.removeMFCCResponderFunction;
 		geen.stop;
-		Tdef(\liveprocs).clear;
-		composer.releaseAllSynths(5);
+//		Tdef(\liveprocs).clear;
+//		composer.releaseAllSynths(5);
 		Tdef(\clearGraphics, {
 			6.do({|i|
 				mikro.graphics.sendBoidPattern(i, 0, 0);

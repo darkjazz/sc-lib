@@ -70,46 +70,51 @@ MikroAnalyzer{
 	prepareResponders{
 		eventResponder = OSCresponderNode(Server.default.addr, '/event', {|ti, re, ms|
 			elapsedTime = ti - startTime;
-			ms[2].switch(
-				0, {
-					this.addCurrentEvent;
-					addEventFunc.(events);
-					offAction.value(elapsedTime, re, this)
-				},
-				1, {
-					if (isMono.not) {
+			
+			try{	
+				
+				ms[2].switch(
+					0, {
 						this.addCurrentEvent;
 						addEventFunc.(events);
-					};
-					currentEvent = MikroEvent(elapsedTime);
-					onsetAction.value(elapsedTime, re, ms );
-				},
-				2, {
-					if (currentEvent.notNil)
-					{
-						currentEvent.addAmp([elapsedTime, ms[3]])
+						offAction.value(elapsedTime, re, this)
+					},
+					1, {
+						if (isMono.not) {
+							this.addCurrentEvent;
+							addEventFunc.(events);
+						};
+						currentEvent = MikroEvent(elapsedTime);
+						onsetAction.value(elapsedTime, re, ms );
+					},
+					2, {
+						if (currentEvent.notNil)
+						{
+							currentEvent.addAmp([elapsedTime, ms[3]])
+						}
+					},
+					3, {
+						if (currentEvent.notNil)
+						{
+							currentEvent.addMfc([elapsedTime, ms[3..numcoef+2]])
+						}
+					},
+					4, {
+						if (currentEvent.notNil)
+						{
+							currentEvent.addFlat([elapsedTime, ms[3]])
+						}
+					},
+					5, {
+						currentPitch = ms[3];
+						if (currentEvent.notNil)
+						{
+							currentEvent.addFreq([elapsedTime, ms[3]])
+						}
 					}
-				},
-				3, {
-					if (currentEvent.notNil)
-					{
-						currentEvent.addMfc([elapsedTime, ms[3..numcoef+2]])
-					}
-				},
-				4, {
-					if (currentEvent.notNil)
-					{
-						currentEvent.addFlat([elapsedTime, ms[3]])
-					}
-				},
-				5, {
-					currentPitch = ms[3];
-					if (currentEvent.notNil)
-					{
-						currentEvent.addFreq([elapsedTime, ms[3]])
-					}
-				}
-			);
+				);
+				
+			};	
 			
 			if (elapsedTime > maxdur) {
 				currentEvent = nil;

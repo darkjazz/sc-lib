@@ -12,7 +12,12 @@ PenDisplay{
 	
 	init{|background|
 		var font, items;
-		items = rule.family.rules.keys(Array).sort;
+		if (rule.family.notNil) {
+			items = rule.family.rules.keys(Array).sort
+		}
+		{
+			items = rule.bubble	
+		};
 		font = Font("Verdana", 10);
 		if (window.isNil, {
 		window = SCWindow(rule.family.asString, 
@@ -23,7 +28,6 @@ PenDisplay{
 		rules = SCPopUpMenu(window, Rect(10, 25, 90, 20))
 			.font_(font)
 			.items_(items)
-			.value_(items.indexOf(rule.name))
 			.action_({|me|
 				rule = rule.family.newPreset(name:me.items[me.value]);
 				rule.world_(world);
@@ -34,6 +38,9 @@ PenDisplay{
 					})
 				})
 			});
+		if (items.indexOf(rule.name).notNil) {
+			rules.value_(items.indexOf(rule.name))	
+		};
 		SCStaticText(window, Rect(10, 55, 55, 15))
 			.font_(font)
 			.string_("generation: ");

@@ -310,10 +310,8 @@ MikroFoaInput : MikroInput{
 		defs = Array.with(	
 		
 			SynthDef(\inputlive, {|main, aux, xamp, mamp, xang, yang, zang, maxdel|
-				var input, sig, bfrm, del, shift, fft;
-				input = SoundIn.ar(inputBus);
-				del = ArrayControl.kr(\delays, 4, 0);
-				shift = ArrayControl.kr(\shifts, 4, 1);	
+				var input, sig, bfrm, fft;
+				input = SoundIn.ar(inputBus);	
 				Out.ar(aux, input * xamp);
 				fft = FFT(LocalBuf(1024), input);
 				sig = Array.fill(4, { IFFT(PV_Diffuser(fft, Dust.kr(10))) });
@@ -322,10 +320,8 @@ MikroFoaInput : MikroInput{
 			}).add,		
 	
 			SynthDef(\inputbuf, {|main, aux, xamp, mamp, xang, yang, zang, maxdel, buf|
-				var input, sig, bfrm, del, shift, fft;
-				input = PlayBuf.ar(1, buf, doneAction: 2);
-				del = ArrayControl.kr(\delays, 4, 0);
-				shift = ArrayControl.kr(\shifts, 4, 1);	
+				var input, sig, bfrm, fft;
+				input = PlayBuf.ar(1, buf, BufRateScale.kr(buf), doneAction: 2);
 				Out.ar(aux, input * xamp);
 				fft = FFT(LocalBuf(1024), input);
 				sig = Array.fill(4, { IFFT(PV_Diffuser(fft, Dust.kr(10))) });

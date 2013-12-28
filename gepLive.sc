@@ -2,7 +2,7 @@ LiveGenetic{
 	
 	var <genetic, <input, <ncoef, <rate, namespace, isLive, <decoder, <graphics, <cospecies, <>resetInterval=10;
 	var statRoutine, <inputAnalyzer, <gepAnalyzer, <def, <defs, <args, <>fitnessFunc, <distances, <comaps;
-	var <group, <synths, <store, <codewindow, defStrings, <triggerSynth, <>triggerFunc;
+	var <group, <synths, <store, <codewindow, defStrings, <triggerSynth, <>triggerFunc, <nilIndices;
 	
 	*new{|genetic, input, ncoef, rate, namespace, isLive=true, decoder, graphics, target=1, addAction='addToHead'|
 		^super.newCopyArgs(genetic, input, ncoef, rate, namespace, isLive, decoder, graphics)
@@ -53,6 +53,11 @@ LiveGenetic{
 				nil	
 			})
 		});
+		
+		if (defs.includes(nil)) { 
+			nilIndices = defs.selectIndices(_.isNil);
+			defs = defs.select(_.notNil) 
+		};
 		
 		this.convertArgs;
 		
@@ -400,23 +405,233 @@ LiveGenetic{
 
 GepSynth{
 	
-	var defname, args, bus, source, proc;
+	var defname, defargs, ampargs, bus, source, proc, patternPlayer;
 	
-	*new{|defname, args, target|
-		^super.newCopyArgs(defname, args).init(target)
+	*new{|defname, defargs, target, ampargs|
+		^super.newCopyArgs(defname, defargs, ampargs).init(target)
 	}
 	
 	init{|target|
-		bus = Bus.audio(Server.default, 2);
-		source = Synth.head(target, defname, [\out, bus] ++ args);
-		proc = Synth.after(source, \procgen, [\in, bus, \amp, 0, \out, 0])
+		{
+			bus = Bus.audio(Server.default, 2);
+			source = Synth.head(target, defname, [\out, bus] ++ defargs);
+			Server.default.sync;
+			proc = Synth.after(source, \ampctr, [\in, bus] ++ ampargs)
+		}.fork
 	}
 	
 	free{
+		if (patternPlayer.notNil) {
+			this.stopPattern
+		};
 		bus.free;
 		source.free;
 		proc.free;
 	}
+		
+	set{|argname, value| proc.set(argname, value) }
 	
-	set{|value| proc.set(\amp, value) }
+	setWithPattern{|argname, pattern, dur|
+		var id;
+		if (patternPlayer.notNil) {
+			this.stopPattern
+		};
+		if (argname == 'amp') {
+			id = proc.nodeID
+		}
+		{
+			id = source.nodeID
+		};
+		patternPlayer = Pbind(\type, \set, \id, id, \args, [argname], 
+			argname, pattern, \dur, dur).play
+	}
+	
+	stopPattern{
+		patternPlayer.stop;
+		patternPlayer = nil;
+	}
+	
+	nodeID{ ^source.nodeID }
+}
+
+GepPlayer{
+	
+	var data, decoder, graphics, <synths, <defStrings, <group, foaSynths, foaBus;
+	var <codewindow, <>sendEnabled=false, <>playFunc, <>freeFunc;
+	
+	*new{|data, decoder, graphics|
+		^super.newCopyArgs(data, decoder, graphics).init
+	}
+	
+	init{
+		defStrings = ();
+		synths = ();
+		foaSynths = ();
+		foaBus = ();
+		group = Group.before(decoder.synth);
+		if (graphics.isNil) {
+			graphics = CinderApp()
+		};
+	}
+	
+	start{|kinds=#[zoom,focus]|
+		{
+			kinds.do({|kind|
+				var defname = ("foa"++kind.asString).asSymbol;
+				SynthDef(defname, {|out, in, amp=0, ar, tr, pr, xr, yr, zr|
+					var input, bf, tf;
+					input = In.ar(in, 2).dup(2).flat;
+					bf = FoaEncode.ar( 
+						Array.fill(4, { |i|
+							IFFT( PV_Diffuser( FFT( LocalBuf(1024), Limiter.ar(input[i])*amp))) 
+						}), FoaEncoderMatrix.newAtoB 
+					);
+					tf = FoaTransform.ar(bf, kind, 
+						LFNoise1.kr(ar).range(-pi/4, pi/4),
+						LFNoise1.kr(tr).range(-pi, pi),
+						LFNoise1.kr(pr).range(-pi, pi)
+					);
+					tf = FoaTransform.ar(tf, 'rtt', 
+						LFNoise1.kr(xr).range(-pi, pi),
+						LFNoise1.kr(yr).range(-pi, pi),
+						LFNoise1.kr(zr).range(-pi, pi)
+					);
+					Out.ar(out, tf)
+				}).add;
+				foaBus[defname] = Bus.audio(Server.default, 2);
+				Server.default.sync;
+				foaSynths[defname] = Synth.tail(group, defname, 
+					[\in, foaBus[defname], \out, decoder.bus, \amp, 0]
+					++ [#[ar,tr,pr,xr,yr,zr],Array.rand(6, 0.5, 8.0)].lace(12))
+			});
+			
+			SynthDef(\ampctr, {|in, out, amp|
+				Out.ar(out, In.ar(in, 2)*amp)
+			}).add;
+			
+		}.fork
+	}
+	
+	setFoa{|kind, value|
+		foaSynths[("foa"++kind.asString).asSymbol].set('amp', value)
+	}
+	
+	cplay{|index, foaKind='zoom'|
+		{
+			var name, args;
+			name = this.compilePanDefString(index);
+			this.addDef(name);
+			args = [\out, foaBus[("foa"++foaKind).asSymbol]] ++ data[index].args;
+			defStrings[name.asSymbol].postln;
+			Server.default.sync;
+			synths[index] = Synth.head(group, name, args)
+		}.fork;
+	}
+	
+	play{|index, amp, foaKind='zoom', section=0|
+		{
+			var name, defargs, ampargs;
+			name = data[index].defname;
+			defargs = data[index].args;
+			ampargs = [\out, foaBus[("foa"++foaKind).asSymbol], \amp, amp];
+			Server.default.loadSynthDef(name, dir: UGenExpressionTree.defDir);
+			Server.default.sync;
+			this.compilePanDefString(index);
+//			defStrings[name.asSymbol].postln;
+			if (sendEnabled) {
+				this.sendSynthDefString(defStrings[name.asSymbol])
+			};
+//			synths[index] = Synth.head(group, name, args);
+			synths[index] = GepSynth(name, defargs, group, ampargs);
+			playFunc.(index, section, synths[index])
+		}.fork
+	}
+		
+	set{|index, value|
+		synths[index].set('amp', value)
+	}
+	
+	setWithPattern{|index, pattern, dur|
+		synths[index].setWithPattern('amp', pattern, dur)
+	}
+	
+	stopPattern{|index| synths[index].stopPattern }
+	
+	prepareArgs{|index|
+		^[data[index].terminals, data[index].args].lace(data[index].terminals.size * 2)
+	}
+	
+	compileFoaDefString{|index|
+		var defname, defstr, chrom;
+		defname = data[index].defname;
+		chrom = GEPChromosome(data[index].code, data[index].terminals, 
+			data[index].header.numgenes, data[index].linker);
+		defstr = chrom.asUgenExpressionTree.asFoaSynthDefString(defname, Normalizer, 
+			UGenExpressionTree.foaControls.keys.choose);
+		defStrings[defname.asSymbol] = defstr;
+		^defname
+	}
+
+	compilePanDefString{|index|
+		var defname, defstr, chrom;
+		defname = data[index].defname;
+		chrom = GEPChromosome(data[index].code, data[index].terminals, 
+			data[index].header.numgenes, data[index].linker);
+		defstr = chrom.asUgenExpressionTree.asSynthDefString(defname, Pan2, Normalizer);
+		defStrings[defname.asSymbol] = defstr;
+		^defname
+	}
+	
+	addDef{|name|
+		{
+			defStrings[name.asSymbol].interpret.add
+		}.try		
+	}
+		
+	free{|index|
+		synths[index].free;
+		synths[index] = nil;
+		freeFunc.(index)
+	}
+
+	assignCodeWindow{|document,prompt="@ "|
+		var sendarray;
+		if (document.isKindOf(Document).not) {
+			codewindow = document ? Document("---live gep---")
+		}
+		{
+			codewindow = document
+		};
+		codewindow.keyDownAction = {|doc, char, mod, uni, key|
+			if ((uni == 3) and: { key == 76 })
+			{
+				sendarray = doc.selectedString.split(Char.nl);
+				sendarray[0] = prompt ++ sendarray[0];
+				sendarray.do({|str|  
+					graphics.sendCodeLine(str) 
+				})
+			}
+		}
+	}
+	
+	sendSynthDefString{|string, limit=72|
+		var str = string.replace(" ", "");
+		
+		forBy(63, str.lastIndex, limit, {|index|
+			var insert, paren;
+			paren = str.find("(", offset: index);
+			if (paren.isNil) {
+				paren = str.find(")", offset: index)
+			};
+			insert = min(str.find(",", offset: index), paren);
+			str = str.insert(insert+1, Char.nl)
+		});
+		
+		str.split(Char.nl).do({|line|
+			graphics.sendCodeLine(line)
+		})
+
+	}	
+	
+		
 }

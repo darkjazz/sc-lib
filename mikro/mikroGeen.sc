@@ -11,12 +11,57 @@ MikroGeen{
 		^super.newCopyArgs(nclusters, timeQuant).init(defdir)
 	}
 	
-	init{|defdir|
-		Server.default.loadDirectory(defdir ? UGenExpressionTree.defDir);
+	init{|defdir|	
+		
+//		Server.default.loadDirectory(defdir ? UGenExpressionTree.defDir);
 		metadata = UGenExpressionTree.loadMetadataFromDir.select({|data|
 			(data.stats.mfcc.size == datasize).and(data.stats.amp.mean <= 1.0)
 				.and(data.stats.mfcc.collect(_.mean).sum.isNaN.not)
 		});
+		
+		{
+			SynthDef(\dynamics, {|out, in, amp, ra, rt, er, tl|
+				var eq, input, sig, rev;
+				eq = (
+					ugen: [BLowShelf, (BPeakEQ ! 3), BHiShelf].flat,
+					freq: Array.geom(5, "c 3".notemidi.midicps, 3.6),
+					bw: [0.65, 1, 3.5, 1.5, 1],
+					db: [4, 0, -4, 2, 6]
+				);
+				input = Limiter.ar(In.ar(in, 4), -1.0.dbamp, 0.1);
+				sig = Mix.fill(5, {|i| eq.ugen[i].ar(input, eq.freq[i], eq.bw[i], eq.db[i]) });
+				rev = GVerb.ar(sig[0] * ra, 6, rt, drylevel: 0, earlyreflevel: er, 
+					taillevel: tl);
+				Out.ar(out, (sig.pow(0.2) + rev.dup.flat) * amp)
+			}).add;
+	
+			SynthDef(\procgen, {|out, in, dur, amp|
+				var env, input, sig, fft, bf, rot, til, tum, check;
+				env = EnvControl.kr(size: 16);
+				input = Mix(In.ar(in, 2)).tanh * 
+					EnvGen.kr(env, timeScale: dur, levelScale: amp, doneAction: 3);
+//				check = BinaryOpUGen('==', CheckBadValues.ar(input, 0, 0));
+//				input = input * check;
+				fft = FFT(LocalBuf(1024), input);
+				bf = FoaEncode.ar(Array.fill(4, {
+						IFFT(PV_Diffuser(fft, Dust.ar(10.0))) }), 
+					FoaEncoderMatrix.newAtoB 
+				);
+				rot = LFNoise2.kr(bf[0].explin(0.001, 1.0, 0.5, 20.0)).range(-pi, pi);
+				til = LFNoise2.kr(bf[1].explin(0.001, 1.0, 0.5, 20.0)).range(-pi, pi);
+				tum = LFNoise2.kr(bf[2].explin(0.001, 1.0, 0.5, 20.0)).range(-pi, pi);
+				bf = FoaTransform.ar(bf, 'rtt', rot, til, tum );
+				Out.ar(out, bf)
+			}).add;
+			
+			Server.default.sync;
+	
+			metadata.do({|data|
+				Server.default.loadSynthDef(data.defname, dir: defdir ? 
+					UGenExpressionTree.defDir )
+			});
+			
+		}.fork;
 
 		durSet = MarkovSet();
 		freqSet = MarkovSet();
@@ -28,34 +73,7 @@ MikroGeen{
 		timeQuant = timeQuant ? (2**6).reciprocal;
 		
 		nclusters = nclusters ? 64;
-		
-		SynthDef(\dynamics, {|out, in, amp, ra, rt, er, tl|
-			var eq, input, sig, rev;
-			eq = (
-				ugen: [BLowShelf, (BPeakEQ ! 3), BHiShelf].flat,
-				freq: Array.geom(5, "c 3".notemidi.midicps, 3.6),
-				bw: [0.65, 1, 3.5, 1.5, 1],
-				db: [4, 0, -4, 2, 6]
-			);
-			input = Limiter.ar(In.ar(in, 4), -1.0.dbamp, 0.1);
-			sig = Mix.fill(5, {|i| eq.ugen[i].ar(input, eq.freq[i], eq.bw[i], eq.db[i]) });
-			rev = GVerb.ar(sig[0] * ra, 6, rt, drylevel: 0, earlyreflevel: er, taillevel: tl);
-			Out.ar(out, (sig.pow(0.2) + rev.dup.flat) * amp)
-		}).add;
-
-		SynthDef(\procgen, {|out, in, dur, amp|
-			var env, input, sig, fft, bf, rot, til, tum;
-			env = EnvControl.kr(size: 16);
-			input = Mix(In.ar(in, 2)).tanh * EnvGen.kr(env, timeScale: dur, levelScale: amp, doneAction: 3);
-			fft = FFT(LocalBuf(1024), input);
-			bf = FoaEncode.ar(Array.fill(4, {IFFT(PV_Diffuser(fft, Dust.ar(10.0))) }), FoaEncoderMatrix.newAtoB );
-			rot = LFNoise2.kr(bf[0].explin(0.001, 1.0, 0.5, 20.0)).range(-pi, pi);
-			til = LFNoise2.kr(bf[1].explin(0.001, 1.0, 0.5, 20.0)).range(-pi, pi);
-			tum = LFNoise2.kr(bf[2].explin(0.001, 1.0, 0.5, 20.0)).range(-pi, pi);
-			bf = FoaTransform.ar(bf, 'rtt', rot, til, tum );
-			Out.ar(out, bf)
-		}).add;
-		
+				
 	}
 	
 	updateClusters{
@@ -79,12 +97,12 @@ MikroGeen{
 		clusters.loadData(path)
 	}
 	
-	roundFreq{|freq, octavediv=24, ref=440|
-		^(2**(round(log2(freq/ref)*octavediv)/octavediv)*ref)
+	roundFreq{|freq, octavediv=24, ref=440, round=0.00001|
+		^(2**(round(log2(freq/ref)*octavediv)/octavediv)*ref).round(round)
 	}
 	
 	loadEventData{|path, doneAction|
-		eventData = MikroData().loadPathMatch(path, doneAction)
+		eventData = MikroData().loadPathMatch(path, doneAction);
 	}
 	
 	trainSets{
@@ -137,7 +155,7 @@ MikroGeen{
 		clusterSet.dict.keys(Array).do({|num|
 			defclusters[num] = clusters.assignments.selectIndices({|ind| num == ind})
 		});
-		
+				
 	}
 	
 	nextEvent{
@@ -228,7 +246,11 @@ MikroGeen{
 			defclusters[event.cluster].choose
 		};
 		data = metadata[defindex];
-		args = data.args;
+		if (data.args.isKindOf(Event)) {
+			args = data.args.args
+		}{
+			args = data.args
+		};
 		args.selectIndices({|item| item > this.roundFreq("c 0".notemidi.midicps) }).do({|argindex|
 			args[argindex] = this.roundFreq(args[argindex], 24, currentEvent.freq)
 		});
@@ -410,6 +432,7 @@ MikroGeen{
 		intervalSet = MarkovSet.readArchive(path ++ "intervalSet");
 		clusterSet = MarkovSet.readArchive(path ++ "clusterSet");
 		envSet = MarkovSet.readArchive(path ++ "envSet");
+		allEvents = eventData.datalib.values.collect(_.events).flat;
 	}
 	
 	getArchivePath{

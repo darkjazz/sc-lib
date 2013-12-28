@@ -86,7 +86,7 @@ FixLeakDC{
 			fork({
 				buffer = Buffer.read(server, path);
 				server.sync;
-				copy = Buffer.alloc(server, buffer.numFrames);
+				copy = Buffer.alloc(server, buffer.numFrames, buffer.numChannels);
 				server.sync;
 				SynthDef(\leakdc, {
 					RecordBuf.ar(
