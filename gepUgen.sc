@@ -259,7 +259,6 @@ UGenExpressionTree : ExpressionTree {
 					event[i] = indices;
 				}				
 			}).select(_.notNil);
-						
 			this.appendArgs(array.first, array)
 
 		}));
@@ -267,6 +266,8 @@ UGenExpressionTree : ExpressionTree {
 	
 	appendArgs{|event, array|
 		var nodes, class;
+		depth = depth + 1;
+		if (depth > maxDepth) { maxDepth = depth };
 		nodes = event.values.pop.collect({|ind| 
 			if (gene[ind].isKindOf(Class)) {
 				this.appendArgs(array.select({|sev| sev.keys.pop == ind }).first, array ) 
@@ -275,6 +276,7 @@ UGenExpressionTree : ExpressionTree {
 			}
 		}); 
 		class = gene[event.keys.pop];
+		depth = depth - 1;
 		^UGepNode(class, nodes, this.getArgNames(class.class).select({|name| name != \this }))
 	}	
 	
@@ -289,7 +291,7 @@ UGenExpressionTree : ExpressionTree {
 		^ar
 	}
 	
-	asSynthDefString{|defname, panner, limiter|
+	asSynthDefString{|defname, panner, limiter, addEnv=false|
 		var string;
 		string = "SynthDef('" ++ defname ++ "', " 
 			++ "{" ++ this.appendSynthDefTerminals ++ " Out.ar(out,";
@@ -305,6 +307,10 @@ UGenExpressionTree : ExpressionTree {
 		};
 		if (panner.notNil) {
 			string = string ++ ",0,amp)"
+		};
+		if (addEnv) 
+		{
+			string = string ++ " * EnvGen.kr(EnvControl.kr,timeScale:dur,doneAction:2)"
 		};
 		string = string ++ ") })";
 		^string
@@ -347,7 +353,7 @@ UGenExpressionTree : ExpressionTree {
 	}
 	
 	appendSynthDefTerminals{
-		var str = "|out=0,amp=0,";
+		var str = "|out=0,amp=0,dur=1,";
 		chrom.terminals.do({|sym|
 			str = str ++ sym.asString ++ ","
 		});

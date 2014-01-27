@@ -114,66 +114,78 @@ SparseMatrix{
 		
 
 		efx = (
-			rev00: (room: Pn(200), rtime: Pbrown(4.0, 10.0, 0.5, inf), damp: Pn(0.5), bw: Pn(0.5), spr: Pn(20), 
-				dry: Pn(0), early: Pn(0.5), tail: Pn(1.0)
+			efx0: ( def: \rev00, args: (rtime: Pbrown(2.0, 3.0, 0.1,inf), hf: Pn(1.0))),
+			efx1: ( def: \rev00, args: (rtime: Pseq([Pshuf([0.2,0.4,0.6,0.8]), Pshuf([1.0,2.0,3.0,4.0])],inf), 
+				hf: Pbrown(0.0, 1.0, 0.1,inf))
 			),
-			rev01: (room: Pn(50), rtime: Pn(15), damp: Pn(0.5), bw: Pn(0.5), spr: Pn(10), dry: Pn(0), 
-				early: Pn(1.0), tail: Pn(0.5), wsz: Pn(0.05), pch: Prand([0.5, 0.25, 0.125], inf), 
-				pds: Pwrand([0.0, 0.05, 0.1, 0.2], [0.4, 0.3, 0.2, 0.1], inf), 
-				tds: Pwrand([0.0, 0.05, 0.1, 0.2], [0.3, 0.3, 0.2, 0.2], inf)
+//			efx2: ( def: \rev01, args: (room: Pseq([30, 40, 40, 40],inf), 
+//				rtime: Prand([1.0, 1.5, 2.0, 2.5, 3.0],inf), damp: Pn(0.5), bw: Pn(0.5), spr: Pn(20), 
+//				dry: Pn(0.0), early: Pseq([0.2, 0.3, 0.6, 1.0],inf), tail: Pseq([1.0, 0.6, 0.3, 0.2],inf)) 
+//			),
+			efx3: ( def: \rev02, args: (room: Prand((0.4,0.5..0.8),inf), damp: Pwhite(0.0, 1.0,inf), 
+				wsz: Prand([0.02,0.06,0.1,0.2],inf), pch:Prand(Array.geom(24,1.0,2**(1/24)).reverse.keep(10),inf), 
+				pds: Pwrand([0,Pwhite(0.1, 0.5, 1)],[0.7, 0.3],inf), 
+				tds: Pwrand([0,Pwhite(0.1, 0.5, 1)],[0.7, 0.3],inf) )
 			),
-			del00: (del: Pfunc({ bps / 4 }), dec: Pfunc({ beatdur }), rmp: Pn(0.5), rt: Pwhite(3.0, 10.0, inf)),
-			del01: (del: Pxrand([0.04, 0.02, 0.05, 0.08, 0.1], inf), grw: Pn(1.618), 
-				rmp: Pseq([0.05, 0.07, 0.09, 0.07], inf), rt: Prand([10, 5], inf)
+			efx4: (def: \del00, args: (del: Pfunc({ beatdur / 2 }), dec: Pfunc({ beatdur * 4 }), 
+				pch: Pwrand(Array.geom(24, 0.5, 2**(3/24))[(0..23).select(_.isPrime)], 
+					Array.geom(9, 1.0, 2**(1/9)).normalizeSum, inf ), 
+				wsz: Pwhite(0.05, 0.2, inf),   
+				pds: Pwrand([0,Pwhite(0.1, 0.5, 1)],[0.8, 0.2],inf), 
+				tds: Pwrand([0,Pwhite(0.1, 0.5, 1)],[0.8, 0.2],inf) )
+			),
+			efx5: (def: \del01, args: (del: Pfunc({ beatdur / 2 }), 
+				rmp: Prand(Array.geom(8, 0.05, 1.2), inf), 
+				rt: Pwhite(0.5, 3.0, inf) )
 			)
 		).keysValuesDo({|name, ev|
-			ev[\delta] = Pfunc({ beatdur });
-			ev[\in] = Bus.audio;
-			ev[\addAction] = \addToHead;
-			ev[\group] = efxgroup;
-			ev[\amp] = Pfunc({ efxamps[name] });
-			ev[\out] = decoder.bus;
+			ev[\args][\delta] = Pfunc({ beatdur });
+			ev[\args][\in] = Bus.audio;
+			ev[\args][\addAction] = \addToHead;
+			ev[\args][\group] = efxgroup;
+			ev[\args][\amp] = Pfunc({ efxamps[name] });
+			ev[\args][\out] = decoder.bus;
 		});
 		
 		efxamps = efx.collect({ 0.0 });	
 		
 		Pdef(\efx, Ppar(
-			efx.collect({|efx, name| Pmono(name, *efx.asKeyValuePairs) }).values
+			efx.collect({|efx| Pmono(efx[\def], *efx[\args].asKeyValuePairs) }).values
 		));
 		
 		argproto = ();
-		
+				
 		argproto['argproto'] = (
-			p00: (efx: nofxbus, emp: 0, rotx: rDB.r00, roty: rDB.r00, rotz: rDB.r00, env: envs.perc01),
-			p01: (efx: nofxbus, emp: 0, rotx: rDB.r06, roty: rDB.r05, rotz: rDB.r04, env: envs.perc01),
-			p02: (efx: nofxbus, emp: 0, rotx: rDB.r01, roty: rDB.r01, rotz: rDB.r01, env: envs.perc00),
-			p03: (efx: nofxbus, emp: 0, rotx: rDB.r02, roty: rDB.r02, rotz: rDB.r02, env: envs.step00 ),
-			p04: (efx: nofxbus, emp: 0, rotx: rDB.r03, roty: rDB.r03, rotz: rDB.r03, env: envs.perc00 ),
-			p05: (efx: efx.rev00.in, emp: 0.2, rotx: rDB.r04, roty: rDB.r04, rotz: rDB.r04, env: envs.perc02 ),
-			p06: (efx: efx.rev00.in, emp: 0.2, rotx: rDB.r04, roty: rDB.r04, rotz: rDB.r04, env: envs.perc02 ),
-			p07: (efx: nofxbus, emp: 0.2, rotx: rDB.r06, roty: rDB.r06, rotz: rDB.r06, env: envs.sine00 ),
-			p08: (efx: nofxbus, emp: 0, rotx: rDB.r05, roty: rDB.r05, rotz: rDB.r05, env: envs.perc00 ),
-			p09: (efx: efx.rev00.in, emp: 0.1, rotx: rDB.r04, roty: rDB.r04, rotz: rDB.r04, env: envs.perc02 ),
-			p10: (efx: efx.rev00.in, emp: 0.1, rotx: rDB.r04, roty: rDB.r04, rotz: rDB.r04, env: envs.perc02 ),
-			p11: (efx: efx.rev00.in, emp: 0.1, rotx: rDB.r04, roty: rDB.r04, rotz: rDB.r04, env: envs.perc02 ),
-			p13: (efx: efx.del00.in, emp: 0.3, rotx: rDB.r06, roty: rDB.r06, rotz: rDB.r06, env: envs.perc00 ),
-			p14: (efx: efx.del01.in, emp: 0.2, rotx: rDB.r02, roty: rDB.r06, rotz: rDB.r06, env: envs.perc00 ),
-			p15: (efx: efx.del00.in, emp: 0.2, rotx: 0, roty: rDB.r06, rotz: rDB.r06, env: envs.perc00 ),
-			p16: (efx: efx.rev01.in, emp: 0.1, rotx: rDB.r09, roty: rDB.r05, rotz: rDB.r03, env: envs.perc00 ),
-			p17: (efx: nofxbus, emp: 0, rotx: rDB.r07, roty: rDB.r07, rotz: rDB.r07, env: envs.perc00 ),
-			p18: (efx: nofxbus, emp: 0, rotx: rDB.r06, roty: rDB.r06, rotz: rDB.r06, env: envs.perc00 ),
-			p19: (efx: nofxbus, emp: 0, rotx: rDB.r03, roty: rDB.r03, rotz: rDB.r03, env: envs.perc00 ),
-			p20: (efx: nofxbus, emp: 0, rotx: rDB.r09, roty: rDB.r09, rotz: rDB.r09, env: envs.perc00  ),
-			p22: (efx: efx.del01.in, emp: 0.2, rotx: rDB.r10, roty: rDB.r10, rotz: rDB.r10, env: envs.perc00),
-			p24: (efx: nofxbus, emp: 0, rotx: rDB.r12, roty: rDB.r11, rotz: rDB.r12, env: envs.perc00 ),
-			p25: (efx: nofxbus, emp: 0, rotx: rDB.r13, roty: rDB.r12, rotz: rDB.r11, env: envs.perc00 ),
-			p26: (efx: nofxbus, emp: 0, rotx: rDB.r14, roty: rDB.r14, rotz: rDB.r14, env: envs.perc00 ),
-			p27: (efx: nofxbus, emp: 0, rotx: rDB.r15, roty: rDB.r15, rotz: rDB.r10, env: envs.perc00 ),
-			p28: (efx: efx.rev00.in, emp: 0.2, rotx: rDB.r06, roty: rDB.r06, rotz: rDB.r06, env: envs.perc00  ),
-			p29: (efx: efx.del01.in, emp: 0.2, rotx: rDB.r06, roty: rDB.r06, rotz: rDB.r06, env: envs.perc00  ),
-			p30: (efx: efx.rev01.in, emp: 0.2, rotx: rDB.r06, roty: rDB.r06, rotz: rDB.r06, env: envs.perc00  ),
-			p31: (efx: nofxbus, emp: 0, rotx: rDB.r06, roty: rDB.r07, rotz: rDB.r07, env: envs.perc00 ),
-			default: ( efx: nofxbus, emp: 0, rotx: rDB.r06, roty: rDB.r06, rotz: rDB.r06, env: envs[\default] )
+			p00: (efx: nofxbus, rotx: rDB.r00, roty: rDB.r00, rotz: rDB.r00, env: envs.perc01 ),
+			p01: (efx: nofxbus, rotx: rDB.r06, roty: rDB.r05, rotz: rDB.r04, env: envs.perc01 ),
+			p02: (efx: nofxbus, rotx: rDB.r01, roty: rDB.r01, rotz: rDB.r01, env: envs.perc00 ),
+			p03: (efx: nofxbus, rotx: rDB.r02, roty: rDB.r02, rotz: rDB.r02, env: envs.step00 ),
+			p04: (efx: nofxbus, rotx: rDB.r03, roty: rDB.r03, rotz: rDB.r03, env: envs.perc00 ),
+			p05: (efx: nofxbus, rotx: rDB.r04, roty: rDB.r04, rotz: rDB.r04, env: envs.perc02 ),
+			p06: (efx: nofxbus, rotx: rDB.r04, roty: rDB.r04, rotz: rDB.r04, env: envs.perc02 ),
+			p07: (efx: nofxbus, rotx: rDB.r06, roty: rDB.r06, rotz: rDB.r06, env: envs.sine00 ),
+			p08: (efx: nofxbus, rotx: rDB.r05, roty: rDB.r05, rotz: rDB.r05, env: envs.perc00 ),
+			p09: (efx: nofxbus, rotx: rDB.r04, roty: rDB.r04, rotz: rDB.r04, env: envs.perc02 ),
+			p10: (efx: nofxbus, rotx: rDB.r04, roty: rDB.r04, rotz: rDB.r04, env: envs.perc02 ),
+			p11: (efx: nofxbus, rotx: rDB.r04, roty: rDB.r04, rotz: rDB.r04, env: envs.perc02 ),
+			p13: (efx: nofxbus, rotx: rDB.r06, roty: rDB.r06, rotz: rDB.r06, env: envs.perc00 ),
+			p14: (efx: nofxbus, rotx: rDB.r02, roty: rDB.r06, rotz: rDB.r06, env: envs.perc00 ),
+			p15: (efx: nofxbus, rotx: rDB.r15, roty: rDB.r06, rotz: rDB.r06, env: envs.perc00 ),
+			p16: (efx: nofxbus, rotx: rDB.r09, roty: rDB.r05, rotz: rDB.r03, env: envs.perc00 ),
+			p17: (efx: nofxbus, rotx: rDB.r07, roty: rDB.r07, rotz: rDB.r07, env: envs.perc00 ),
+			p18: (efx: nofxbus, rotx: rDB.r06, roty: rDB.r06, rotz: rDB.r06, env: envs.perc00 ),
+			p19: (efx: nofxbus, rotx: rDB.r03, roty: rDB.r03, rotz: rDB.r03, env: envs.perc00 ),
+			p20: (efx: nofxbus, rotx: rDB.r09, roty: rDB.r09, rotz: rDB.r09, env: envs.perc00 ),
+			p22: (efx: nofxbus, rotx: rDB.r10, roty: rDB.r10, rotz: rDB.r10, env: envs.perc00 ),
+			p24: (efx: nofxbus, rotx: rDB.r12, roty: rDB.r11, rotz: rDB.r12, env: envs.perc00 ),
+			p25: (efx: nofxbus, rotx: rDB.r13, roty: rDB.r12, rotz: rDB.r11, env: envs.perc00 ),
+			p26: (efx: nofxbus, rotx: rDB.r14, roty: rDB.r14, rotz: rDB.r14, env: envs.perc00 ),
+			p27: (efx: nofxbus, rotx: rDB.r15, roty: rDB.r15, rotz: rDB.r10, env: envs.perc00 ),
+			p28: (efx: nofxbus, rotx: rDB.r06, roty: rDB.r06, rotz: rDB.r06, env: envs.perc00 ),
+			p29: (efx: nofxbus, rotx: rDB.r06, roty: rDB.r06, rotz: rDB.r06, env: envs.perc00 ),
+			p30: (efx: nofxbus, rotx: rDB.r06, roty: rDB.r06, rotz: rDB.r06, env: envs.perc00 ),
+			p31: (efx: nofxbus, rotx: rDB.r06, roty: rDB.r07, rotz: rDB.r07, env: envs.perc00 ),
+			default: ( efx: nofxbus, rotx: rDB.r06, roty: rDB.r06, rotz: rDB.r06, env: envs[\default] )
 		);
 		
 		argproto['fragproto'] = argproto['argproto'].collect({|args|
@@ -489,26 +501,45 @@ SparseMatrix{
 		skismSynths[name].free;
 		skismSynths[name] = nil;
 	}
+
+	makeEfxProto{
+		8.do({|x|
+			var proto, pname;
+			proto = ();
+			pname = "r0"++x.asString;
+			(0..63).do({|i|
+				var name = SparseMatrix.makeDefName(i);
+				proto[name] = (
+					efx: Pdefn((pname++"e"++i.asString).asSymbol, nofxbus), 
+					rotx: rDB.choose.(), roty: rDB.choose.(), rotz: rDB.choose.(), 
+					env: envs[['perc00','perc01','perc02','perc03'].choose]
+				)
+			});
+			argproto[pname.asSymbol] = proto;
+		});
+	}
 	
 	preparePatternDefs{
 		this.addPatternCycleDef('c00', 4, this.buffers.cycles[[1, 2, 7, 14]], 'frag05', "c0");
 
 		this.addPatternSynthDef('r00', 
-			sourcenames: ['kpanilogo', 'yole', 'diansa', 'sorsornet'], prefix: "r0");
+			sourcenames: ['kpanilogo', 'yole', 'diansa', 'sorsornet'], prefix: "r0", protoname: 'r00');
 		
 		this.addPatternSynthDef('r01', div: 4, 
-			sourcenames: ['diansa', 'liberte', 'macrou'], prefix: "r1");
+			sourcenames: ['diansa', 'liberte', 'macrou'], prefix: "r1", protoname: 'r01');
 		
 		this.addPatternSynthDef('r02', 
-			sourcenames: ['raboday'], subpatterns: 3, prefix: "r2");
+			sourcenames: ['raboday'], subpatterns: 3, prefix: "r2", protoname: 'r02');
 		
-		this.addPatternSynthDef('r03', 48, 8, 8, ['kpanilogo', 'yole'], 2, "r3");
+		this.addPatternSynthDef('r03', 48, 8, 8, ['kpanilogo', 'yole'], 2, "r3", protoname: 'r03');
 
-		this.addPatternSynthDef('r04', 64, 8, 8, ['tiriba', 'foret'], 2, "r4");
+		this.addPatternSynthDef('r04', 64, 8, 8, ['tiriba', 'foret'], 2, "r4", protoname: 'r04');
 
-		this.addPatternSynthDef('r05', 64, 8, 8, ['basikolo', 'djakandi'], 2, "r5");
+		this.addPatternSynthDef('r05', 64, 8, 8, ['basikolo', 'djakandi'], 2, "r5", protoname: 'r05');
 
-		this.addPatternSynthDef('r06', 64, 8, 8, ['doudoumba', 'mandiani'], 3, "r6");
+		this.addPatternSynthDef('r06', 64, 8, 8, ['doudoumba', 'mandiani'], 3, "r6", protoname: 'r06');
+
+		this.addPatternSynthDef('r07', 64, 8, 4, ['yole'], 3, "r7", protoname: 'r07');
 
 		this.addPatternBufferDef('b00',
 			size: 32, groupsize: 4, 
@@ -571,7 +602,7 @@ SparseMatrixPattern{
 		previousStates = Array.newClear(maxStateSize);
 	}
 	
-	setControls{|onFunc, ampFunc, durFunc, names|
+	setControls{|onFunc, ampFunc, durFunc, empFunc, names|
 		var coll;
 		
 		this.saveCurrentState;
@@ -587,19 +618,21 @@ SparseMatrixPattern{
 			ctr.active = onFunc.();
 			ctr.amp = ampFunc.();
 			ctr.dur = durFunc.();
+			ctr.emp = empFunc.();
 		})
 	}
 	
-	setActives{|ampFunc, durFunc|
+	setActives{|ampFunc, durFunc, empFunc|
 		this.saveCurrentState;
 		
 		ctrls.select({|ctr| ctr.active.booleanValue }).do({|ctr|
 			ctr.amp = ampFunc.();
 			ctr.dur = durFunc.();
+			ctr.emp = empFunc.();
 		})
 	}
 	
-	setGroups{|indices, onFunc, ampFunc, durFunc|
+	setGroups{|indices, onFunc, ampFunc, durFunc, empFunc|
 		
 		this.saveCurrentState;
 		
@@ -607,6 +640,7 @@ SparseMatrixPattern{
 			ctrls[name].active = onFunc.();
 			ctrls[name].amp = ampFunc.();
 			ctrls[name].dur = durFunc.();
+			ctrls[name].emp = empFunc.();
 		})
 	}
 	
@@ -616,10 +650,16 @@ SparseMatrixPattern{
 	}
 	
 	recall{|index|
-		
 		this.saveCurrentState;
-		
-		ctrls = previousStates[(index + 1).clip(1, maxStateSize-1)].collect({|ctr| ctr.collect(_.())  })		
+		ctrls = previousStates[(index + 1).clip(1, maxStateSize-1)].collect({|ctr| ctr.collect(_.())  })
+	}
+	
+	assignEfx{|assignments|
+		assignments.keysValuesDo({|efx, indices|
+			indices.do({|ind| 
+				Pdefn((name++"e"++ind.asString).asSymbol, matrix.efx[efx].args.in)
+			})
+		})
 	}
 	
 }
@@ -658,12 +698,12 @@ SparseSynthPattern : SparseMatrixPattern{
 		
 		groups = groups.clump(groupsize);
 		
-		ctrls = patterns.collect({  (active: 0, amp: 0, dur: rrand(0.01, 0.1)) });
+		ctrls = patterns.collect({  (active: 0, amp: 0, emp: 0, dur: rrand(0.01, 0.1)) });
 		
 		argproto = ();
 		
-		matrix.argproto[protoname].keysValuesDo({|key, val|
-			argproto[key.asString.replace("p", prefix).asSymbol] = val
+		matrix.argproto[protoname].keys(Array).sort.do({|key|
+			argproto[key.asString.replace("p", prefix).asSymbol] = matrix.argproto[protoname][key]
 		});
 		
 		args = patterns.collect({|pat, key| argproto[key] ? argproto[\default]; });
@@ -677,7 +717,7 @@ SparseSynthPattern : SparseMatrixPattern{
 				freq = matrix.deffuncs[defindex].def.makeEnvirFromArgs[\freq];
 				freq = this.class.scale.performNearestInScale(freq.cpsmidi).midicps;
 				Pbind(\instrument, instr[key], \group, matrix.group, \addAction, \addToHead, \delta, Pfunc({ matrix.beatdur / div }), 
-					\amp, Pfunc({ ctrls[key].amp }), \out, matrix.decoder.bus, \freq, freq,
+					\amp, Pfunc({ ctrls[key].amp }), \emp, Pfunc({ ctrls[key].emp }), \out, matrix.decoder.bus, \freq, freq,
 					\dur, Pfunc({ ctrls[key].dur }), \pat, matrix.makePattern(key, patterns[key].bubble),
 					\type, Pfunc({|ev| if (ctrls[key].active.booleanValue) { ev.pat } { \rest } }),
 					*args.asKeyValuePairs
@@ -752,7 +792,7 @@ SparseBufferPattern : SparseMatrixPattern{
 		
 		groups = groups.clump(groupsize);
 		
-		ctrls = patterns.collect({  (active: 0, amp: 0, dur: rrand(0.01, 0.1)) });
+		ctrls = patterns.collect({  (active: 0, amp: 0, emp: 0, dur: rrand(0.01, 0.1)) });
 		
 		argproto = ();
 		
@@ -765,7 +805,7 @@ SparseBufferPattern : SparseMatrixPattern{
 		Pdef(name, Ppar(
 			args.collect({|args, key|  
 				Pbind(\instrument, defname, \group, matrix.group, \addAction, \addToHead, 
-					\delta, Pfunc({ matrix.beatdur / div }), 
+					\delta, Pfunc({ matrix.beatdur / div }), \emp, Pfunc({ ctrls[key].emp }),
 					\amp, Pfunc({ ctrls[key].amp }), \out, matrix.decoder.bus, \buf, buffers[key],
 					\dur, Pfunc({ ctrls[key].dur }), \pat, matrix.makePattern(key, patterns[key].bubble),
 					\type, Pfunc({|ev| if (ctrls[key].active.booleanValue) { ev.pat } { \rest } }),
@@ -823,10 +863,11 @@ SparseCyclePattern : SparseMatrixPattern{
 		Pdef(name, Ppar(
 			buffers.collect({|buf, i|
 				var key = SparseMatrix.makeDefName(i, prefix);
-				ctrls[key] = ( active: 0, amp: 0, buf: buf );
+				ctrls[key] = ( active: 0, amp: 0, emp: 0, buf: buf );
 				Pbind(
 					\instrument, defname, \group, matrix.group, \addAction, \addToHead,
 					\buf, Pfunc({ ctrls[key].buf }), \amp, Pfunc({ ctrls[key].amp }),
+					\emp, Pfunc({ ctrls[key].emp }),
 					\dur, Pfunc({|ev| ev.buf.duration.round(matrix.beatdur) }),
 					\out, matrix.decoder.bus, \env, matrix.envs.sine01,
 					\rate, Pfunc({|ev| ev.buf.duration / ev.buf.duration.round(matrix.beatdur) }),

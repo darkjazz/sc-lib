@@ -370,7 +370,7 @@ GEPChromosome{
 
 ExpressionTree{
 	var chrom, includeObjects, gene;
-	var <root;
+	var <root, depth=0, <maxDepth=0;
 	
 	*new{|chrom, includeObjects=true|
 		^super.newCopyArgs(chrom, includeObjects).decode
@@ -393,7 +393,6 @@ ExpressionTree{
 					
 				}				
 			}).select(_.notNil);
-			
 			this.appendArgs(array.first, array)
 
 		}));
@@ -401,6 +400,8 @@ ExpressionTree{
 	
 	appendArgs{|event, array|
 		var nodes;
+		depth = depth + 1;
+		if (depth > maxDepth) { maxDepth = depth };
 		nodes = event.values.pop.collect({|ind| 
 			if (gene[ind].isKindOf(Method)) {
 				this.appendArgs(array.select({|sev| sev.keys.pop == ind }).first, array ) 
@@ -408,6 +409,7 @@ ExpressionTree{
 				GepNode(gene[ind])
 			}
 		}); 
+		depth = depth - 1;
 		^GepNode(gene[event.keys.pop], nodes)		
 	}
 		

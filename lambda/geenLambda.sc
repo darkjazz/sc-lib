@@ -30,12 +30,13 @@ GeenLambda{
 	
 	prepare{
 		{
-			MikroData.loadPath = "/Users/alo/Data/mikro/lib001/";
+			MikroData.loadPath = "/Users/alo/Data/mikro/lib000/";
+//			MikroData.loadPath = "/Users/alo/Data/mikro/lib001/";
 			Post << "Initialising MikroGeen.." << Char.nl;
 			geen = MikroGeen();
 			Post << "Updating clusters.." << Char.nl;
-	//		geen.updateClusters;
-			geen.loadClusters("/Users/alo/Data/mikro/130214_194521.kmeans");
+			geen.updateClusters;
+//			geen.loadClusters("/Users/alo/Data/mikro/130214_194521.kmeans");
 			Post << "Loading event data.." << Char.nl;
 			geen.loadEventData(doneAction: { 
 				Post << "Training sets.." << Char.nl;

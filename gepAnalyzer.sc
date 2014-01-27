@@ -7,8 +7,6 @@ UGepAnalyzer{
 	}
 	
 	init{
-
-		var saddr = Server.default.addr;
 		
 		if (defs.isKindOf(SynthDef)) {
 			defs = Array.with(defs)
@@ -52,6 +50,13 @@ UGepAnalyzer{
 				
 		bus = Bus.audio;
 
+		this.addOSCFuncs;
+ 		
+	}
+	
+	addOSCFuncs{
+		var saddr = Server.default.addr;
+
 		oscfncs = [
 			OSCFunc({|msg|
 				//msg.postln;
@@ -85,7 +90,6 @@ UGepAnalyzer{
 				mostRecent[currentDef][\err] = msg[3];
 			}, '/err', saddr)	
 		];		
- 			
 	}
 	
 	run{|analysisFunc, rate=10, target=1, addAction='addToHead'|
