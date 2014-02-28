@@ -301,7 +301,9 @@ UGenExpressionTree : ExpressionTree {
 		if (limiter.notNil) {
 			string = string ++ limiter.asString ++ ".ar("
 		};
+		string = string ++ "LeakDC.ar(";
 		string = string ++ this.asFunctionString(false); 
+		string = string ++ ")";
 		if (limiter.notNil) {
 			string = string ++ ")"
 		};

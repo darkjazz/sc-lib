@@ -199,6 +199,10 @@ SparseMatrix{
 				).asKeyValuePairs
 			)
 		});
+
+		argproto['fragproto00'] = argproto['argproto'].collect({|args|
+			args.collect(_.()).putPairs((rate: 1).asKeyValuePairs)
+		});
 		
 		argproto['fragproto01'] = argproto['argproto'].collect({|args|
 			args.collect(_.()).putPairs(
@@ -212,7 +216,7 @@ SparseMatrix{
 				).asKeyValuePairs
 			)
 		});
-		
+				
 		patterndefs = ();	
 		
 		gepdefs = ();
@@ -330,6 +334,18 @@ SparseMatrix{
 		}).add;
 	}
 	
+	makeGepDef{|name, func, nargs = 8|
+		SynthDef(name, {|out, efx, dur = 0.1, amp = 1.0, emp = 0.0, rotx = 0.0, roty = 0.0, rotz = 0.0| 
+			var sig;
+			sig = tanh(LeakDC.ar(SynthDef.wrap(func, prependArgs: ArrayControl.kr('gepargs', nargs, 0.0) ) ) ) * 0.9
+				* EnvGen.kr(EnvControl.kr, timeScale: dur, doneAction: 2);
+			Out.ar(efx, sig * emp);
+			Out.ar(out, FoaTransform.ar(
+				FoaEncode.ar(sig * amp, FoaEncoderMatrix.newDirection), 'rtt', rotx, roty, rotz)
+			)
+		}).add;
+	}
+
 	testDef{|index|
 		Pdef(\testDef, Pbind(\instrument, this.class.makeDefName(index, "d"), \group, group, \addAction, \addToHead, 
 			\delta, 1, \amp, 0.7, \out, decoder.bus, \dur, 0.3, \pat, Pseq([1,0], inf), \efx, 511, \emp, 0, 
@@ -369,6 +385,10 @@ SparseMatrix{
 	
 	addPatternCycleDef{|name, size, buffers, defname, prefix|
 		patterndefs[name] = SparseCyclePattern(name, size, buffers, defname, prefix, this)
+	}
+	
+	addPatternGepDef{|name, data, groupsize=4, div=8, sourcenames, subpatterns=0, prefix, protoname|
+		patterndefs[name] = SparseGepPattern(name, data, groupsize, div, sourcenames, subpatterns, prefix, this, protoname ? 'argproto')
 	}
 	
 	makeAmpPattern{|sourcename|
@@ -519,7 +539,7 @@ SparseMatrix{
 		});
 	}
 	
-	preparePatternDefs{
+	preparePatternDefs{|data|
 		this.addPatternCycleDef('c00', 4, this.buffers.cycles[[1, 2, 7, 14]], 'frag05', "c0");
 
 		this.addPatternSynthDef('r00', 
@@ -540,12 +560,20 @@ SparseMatrix{
 		this.addPatternSynthDef('r06', 64, 8, 8, ['doudoumba', 'mandiani'], 3, "r6", protoname: 'r06');
 
 		this.addPatternSynthDef('r07', 64, 8, 4, ['yole'], 3, "r7", protoname: 'r07');
+		
+		if (data.notNil) 
+		{
+			this.addPatternGepDef('g00', data.keep(64), 8, 8, ['basikolo', 'diansa'], 3, "g00", 'r00' );
+			this.addPatternGepDef('g01', data[(64..127)], 8, 8, ['kokou', 'macrou'], 3, "g01", 'r01' );
+			this.addPatternGepDef('g02', data[(128..191)], 8, 8, ['mandiani', 'djakandi'], 3, "g02", 'r02' );
+			this.addPatternGepDef('g03', data.drop(192), 8, 8, ['yole', 'tiriba'], 3, "g03", 'r03' );
+		};
 
 		this.addPatternBufferDef('b00',
-			size: 32, groupsize: 4, 
+			size: 32, groupsize: 4, div: 1,
 			sourcenames: ['kokou', 'soli', 'macrou'],
-			prefix: "b0", protoname: 'fragproto',
-			buffers: this.buffers.frags, defname: 'frag02'
+			prefix: "b0", protoname: 'fragproto00',
+			buffers: this.buffers.frags, defname: 'frag04'
 		);
 		
 		this.addPatternBufferDef('b01',
@@ -890,4 +918,89 @@ SparseCyclePattern : SparseMatrixPattern{
 		)
 	}
 	
+}
+
+SparseGepPattern : SparseMatrixPattern {
+	
+	var gepdata;
+	
+	*new{|name, gepdata, groupsize, div, sourcenames, subpatterns, prefix, matrix, protoname|
+		^super.new(name, gepdata.size, groupsize, div, prefix, matrix).makePdef(sourcenames, subpatterns,  protoname, gepdata)
+	}
+		
+	makePdef{|sourcenames, subpatterns, protoname, data|
+		var instr, argproto, gepargs;
+		var combined = Array();
+		gepdata = data;
+		sourcenames.bubble.flat.do({|name|
+			var sub;
+			combined = combined ++ SparseMatrix.sparsePatterns[name];
+			if (subpatterns > 0) {
+				sub = SparseMatrix.sparseObjects[name].makeSubPatterns(subpatterns).subpatterns;
+				sub.do({|subpat|
+					combined = combined ++ subpat
+				})
+			}
+		});
+		patterns = ();
+		groups = Array();
+		
+		combined.keep(size).do({|seq, i|
+			var key;
+			key = SparseMatrix.makeDefName(i, prefix);
+			patterns[key] = seq;
+			groups = groups.add(key);
+		});
+		
+		groups = groups.clump(groupsize);
+		
+		ctrls = patterns.collect({  (active: 0, amp: 0, emp: 0, dur: rrand(0.01, 0.1)) });
+		
+		argproto = ();
+		
+		matrix.argproto[protoname].keys(Array).sort.do({|key|
+			argproto[key.asString.replace("p", prefix).asSymbol] = matrix.argproto[protoname][key]
+		});
+		
+		args = patterns.collect({|pat, key| argproto[key] ? argproto[\default]; });
+		
+		instr = ();
+		gepargs = ();
+		
+		gepdata.do({|gepitem, i|
+			var key = SparseMatrix.makeDefName(i, prefix);
+			instr[key] = gepitem.defname;
+			gepargs[key] = gepitem.args.args.bubble;
+			this.addGepSynthDef(gepitem.defname, gepitem.data);
+		});
+		
+		Pdef(name, Ppar(
+			args.collect({|args, key|  
+				var defindex, freq;
+				defindex = instr[key].asString.drop(1).asInteger;
+				Pbind(
+					\instrument, instr[key], \group, matrix.group, \addAction, \addToHead, 
+					\delta, Pfunc({ matrix.beatdur / div }), 
+					\amp, Pfunc({ ctrls[key].amp }), \emp, Pfunc({ ctrls[key].emp }), \out, matrix.decoder.bus,
+					\dur, Pfunc({ ctrls[key].dur }), \pat, matrix.makePattern(key, patterns[key].bubble),
+					\type, Pfunc({|ev| if (ctrls[key].active.booleanValue) { ev.pat } { \rest } }), 
+					\gepargs, gepargs[key], *args.asKeyValuePairs
+				)
+			}).values
+		)).quant(64);		
+
+	}
+	
+	addGepSynthDef{|name, dataitem|
+		var fnc, chrom, str;
+		chrom = GEPChromosome(dataitem.code, dataitem.terminals, dataitem.header.numgenes, dataitem.linker);
+		str = chrom.asUgenExpressionTree.asFunctionString;
+		fnc = str.interpret;
+		{
+			matrix.makeGepDef(name, fnc, dataitem.terminals.size);
+		}.try({
+			Post << "ERROR: " << str << Char.nl;
+		})
+		
+	}
 }
