@@ -106,17 +106,27 @@ UGepTimeAnalyzer{
 	currentCoefficients{ ^mostRecent[currentDef].mfcc }
 	
 	calculateDistances{
-		var distances, targetSize, max, normalized, currentStats;
+		var distances, minSize, max, normalized, currentStats, targetStats;
 		currentStats = stats[currentDef];
-		targetSize = target.size;
+		targetStats = target;
+		minSize = min(target.size, currentStats.size);
+		if (targetStats.size < currentStats.size)
+		{
+			currentStats = currentStats.keep(targetStats.size)
+		};
+		if (targetStats.size > currentStats.size)
+		{
+			targetStats = targetStats.keep(currentStats.size)
+		};
+		
 		distances = (
-			'mfcc': Array.newClear(targetSize),
-			'flat': Array.newClear(targetSize),
-			'cent': Array.newClear(targetSize),
-			'amp': Array.newClear(targetSize)
+			'mfcc': Array.newClear(minSize),
+			'flat': Array.newClear(minSize),
+			'cent': Array.newClear(minSize),
+			'amp': Array.newClear(minSize)
 		);
 		
-		target.do({|targetEvent, i|
+		targetStats.do({|targetEvent, i|
 			distances.mfcc[i] = (targetEvent[1].keep(20) - currentStats[i][1].keep(20)).abs;
 			distances.flat[i] = (targetEvent[1][20] - currentStats[i][1][20]).abs;
 			distances.cent[i] = (targetEvent[1][21] - currentStats[i][1][21]).abs;
