@@ -1,51 +1,42 @@
 Paths{
 	*prefix{
-
-		if (thisProcess.platform.isKindOf(LinuxPlatform))
+		if (thisProcess.platform.name == 'linux')
 		{
 			^"/home/alo"
 		}
 		{
 			^"/Users/alo"
 		}
-
 	}
 
-	*gepdefs{
-
-		if (thisProcess.platform.isKindOf(LinuxPlatform))
+	*gepdir{
+		if (thisProcess.platform.name == 'linux')
 		{
-			^(Paths.prefix ++ "/data/gepdefs/")
+			^(Paths.prefix ++ "/data/gepdefs")
 		}
 		{
-			^(Paths.prefix ++ "/Data/gep/")
+			^(Paths.prefix ++ "/Data/gep")
 		}
-
 	}
 
 	*matrixdefs{
-
-		if (thisProcess.platform.isKindOf(LinuxPlatform))
+		if (thisProcess.platform.name == 'linux')
 		{
-			^(Paths.prefix ++ "/development/lambda/supercollider/sparsematrix/linux/sparsedefs.scd")
+			^(Paths.prefix ++ "/development/lambda/supercollider/sparsematrix/Unix/sparsedefs.scd")
 		}
 		{
 			^(Paths.prefix ++ "/Development/lambda/supercollider/sparsematrix/sparsedefs.scd")
 		}
-
-
 	}
 
 	*skismdefs{
-
-		if (thisProcess.platform.isKindOf(LinuxPlatform))
+		if (thisProcess.platform.name == 'linux')
 		{
 			^(Paths.prefix ++ "/development/lambda/supercollider/sparsematrix/skismdefs.scd")
 		}
 		{
 			^(Paths.prefix ++ "/Development/lambda/supercollider/sparsematrix/skismdefs.scd")
 		}
-
 	}
 
 	*matrixbufs{
@@ -53,16 +44,16 @@ Paths{
 	}
 
 	*gepArchDir{
-		^(Paths.gepdefs ++ "/data/")
+		^(Paths.gepdir ++ "/data/")
 
 	}
 
 	*gepDefDir{
-		^(Paths.gepdefs ++ "/synthdefs/")
+		^(Paths.gepdir ++ "/synthdefs/")
 	}
 
 	*gepMetaDir{
-		^(Paths.gepdefs ++ "/metadata/")
+		^(Paths.gepdir ++ "/metadata/")
 	}
 
 }

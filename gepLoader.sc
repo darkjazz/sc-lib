@@ -1,6 +1,6 @@
 UGepLoader{
 
-	classvar <>path, <>synthdefdir="synthdefs/";
+	classvar <>synthdefdir="synthdefs/";
 	classvar <>metadir = "metadata/", <>datadir="data/";
 
 	var headsize, numgenes, <data;
@@ -13,8 +13,6 @@ UGepLoader{
 		^this.class.new(headsize, numgenes).load
 	}
 
-	*initClass{ path = Paths.prefix + "data/gepdefs/" }
-
 	load{
 		var meta;
 		meta = UGenExpressionTree.loadMetadataFromDir.select({|data|
@@ -23,7 +21,7 @@ UGepLoader{
 
 		data = meta.select({|meta|
 			var data, include, path;
-			path = UGEP.archDir +/+ meta.defname.asString ++ "." ++ UGEP.fileExt;
+			path = Paths.gepArchDir +/+ meta.defname.asString ++ "." ++ UGEP.fileExt;
 			if (File.exists(path)) {
 				data = UGEP.loadData(path)
 			};

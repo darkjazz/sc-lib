@@ -539,7 +539,7 @@ GepPlayer{
 			name = data[index].defname;
 			defargs = data[index].args;
 			ampargs = [\out, foaBus[("foa"++foaKind).asSymbol], \amp, amp];
-			Server.default.loadSynthDef(name, dir: UGenExpressionTree.defDir);
+			Server.default.loadSynthDef(name, dir: Paths.gepDefDir);
 			Server.default.sync;
 			this.compilePanDefString(index);
 //			defStrings[name.asSymbol].postln;
