@@ -6,16 +6,17 @@ SparseMatrix{
 	var <rDB, <efx, <efxamps, <patterndefs, <argproto, <deffuncs, codewindow, <listener, <mfccresp;
 	var <skismDefs, skismSynths, grainEnvs, <gepdefs, <gepsynths, <>onsetFunc;
 	var <patternPlayers;
-	
-	var <>defpath = "/Users/alo/Development/lambda/supercollider/sparsematrix/sparsedefs.scd";
-	var <>skismDefPath = "/Users/alo/Development/lambda/supercollider/sparsematrix/skismdefs.scd";
 
-	
+	var <>defpath, <>skismDefPath, <>bufferPath;
+
 	*new{|decoder, graphics, quant=2, ncoef=8|
 		^super.newCopyArgs(decoder, graphics, quant, ncoef).init
 	}
 	
 	init{
+		defpath = Paths.matrixdefs;
+		skismDefPath = Paths.skismdefs;
+		bufferPath = Paths.matrixbufs;
 		{
 		if (decoder.isNil) {
 			decoder = FoaDecoder()
@@ -242,14 +243,14 @@ SparseMatrix{
 			{|freq=8000| PinkNoise.ar(10.0).clip(-0.9, 0.9) * SinOsc.ar(freq) },
 			{|freq=20| Mix(LFSaw.ar([freq, freq + 11] + LFSaw.ar([1, 8]).range(freq, freq*2))).clip(-0.9, 0.9) },
 			{|freq=320| RLPF.ar(BrownNoise.ar(10).softclip, freq, 0.5, 1) },
-			{|freq=60| VarSaw.ar(IRand(*[freq, freq+20]).round(1**(1/24)), 0.25, 0.01, 20).clip(-0.5, 0.5) },
+			{|freq=60| VarSaw.ar(IRand(*[freq, freq+20]), 0.25, 0.01, 20).clip(-0.5, 0.5) },
 			{|freq=20| LFPulse.ar(freq + LFPulse.ar(freq/2)).distort },
 			{|freq=1000| Dust2.ar(freq, 2, SinOsc.ar(Rand(freq*8, freq*16).round(2**(1/5)))) },
 			
 			{|freq=44| LFGauss.ar(1/freq, XLine.kr(0.1, 0.01, 0.2)) },
 			{|freq=1000| LFNoise0.ar(freq + LFNoise0.ar(freq*2, 10).range(*[freq/20, freq/5]), freq/5).tanh * 0.8 },
 			{|freq=20| Mix(SinOsc.ar([freq,freq+5,freq+10,freq+15], 0.5pi)) },
-			{|freq=30| Mix(SinOsc.ar(SinOsc.ar([freq, freq/10]).range(*[freq*2, freq*20]), 0.5pi)) },
+			{|freq=1000| Mix(SinOsc.ar(SinOsc.ar([freq, freq/10]).range(*[freq*2, freq*20]), 0.5pi)) },
 			{|freq=50| Mix(SinOsc.ar(SinOsc.ar([freq, freq+1]).range(*[freq/2, freq*2]), 0.5pi)) },
 			{|freq=10000| Impulse.ar(1, 100, 10).clip(-0.9, 0.9) + Dust2.ar(freq, 2).tanh },
 			{|freq=32| LFSaw.ar(freq, 0.5, LFNoise0.ar(10000).range(10, 100)).distort },
@@ -262,7 +263,7 @@ SparseMatrix{
 			{|freq=200| PMOsc.ar(SinOsc.kr(16).range(freq, freq*2), SinOsc.kr(12).range(freq*8,freq*2)) },
 			{|freq=32| Pluck.ar(SinOsc.ar(LFNoise0.ar(999).range(freq, freq * 2), 0, 10), Impulse.kr(2), 0.1, 0.1, 4).tanh },
 			{|freq=32| LFSaw.ar(LFNoise0.ar(freq**2).range(freq, freq*2), 0, 10).softclip },
-			{|freq=64| Decimator.ar(Impulse.ar(freq, 10, 10).softclip, 48000, 24, 4) }, 
+			{|freq=64| Decimator.ar(Impulse.ar(freq, 10, 10).softclip, 48000, 24, 2) }, 
 			
 			{|freq=10| SineShaper.ar(SinOsc.ar(freq, 0, 10), 0.9) },
 			{|freq=20| SineShaper.ar(SinOsc.ar(freq, 0, 10), 0.8) },
@@ -551,7 +552,7 @@ SparseMatrix{
 		this.addPatternSynthDef('r02', 
 			sourcenames: ['raboday'], subpatterns: 3, prefix: "r2", protoname: 'r02');
 		
-		this.addPatternSynthDef('r03', 48, 8, 8, ['kpanilogo', 'doudoumba'], 2, "r3", protoname: 'r03');
+		this.addPatternSynthDef('r03', 48, 8, 8, ['kpanilogo', 'yole'], 2, "r3", protoname: 'r03');
 
 		this.addPatternSynthDef('r04', 64, 8, 8, ['tiriba', 'foret'], 2, "r4", protoname: 'r04');
 
@@ -559,7 +560,7 @@ SparseMatrix{
 
 		this.addPatternSynthDef('r06', 64, 8, 8, ['doudoumba', 'mandiani'], 3, "r6", protoname: 'r06');
 
-		this.addPatternSynthDef('r07', 64, 8, 4, ['diansa', 'sokou'], 3, "r7", protoname: 'r07');
+		this.addPatternSynthDef('r07', 64, 8, 4, ['yole'], 3, "r7", protoname: 'r07');
 		
 		if (data.notNil) 
 		{
@@ -570,7 +571,7 @@ SparseMatrix{
 		};
 
 		this.addPatternBufferDef('b00',
-			size: 32, groupsize: 4, div: 4,
+			size: 32, groupsize: 4, div: 1,
 			sourcenames: ['kokou', 'soli', 'macrou'],
 			prefix: "b0", protoname: 'fragproto00',
 			buffers: this.buffers.frags, defname: 'frag04'
@@ -622,8 +623,8 @@ SparseMatrixPattern{
 	var <name, <size, <groupsize, div, prefix, matrix, sourcenames, subpatterns, protoname, <patterns, <args, <groups, <ctrls;
 	var <previousStates, maxStateSize = 4;
 	
-	*new{|name, size, groupsize, div, prefix, matrix, sourcenames, subpatterns, protoName|
-		^super.newCopyArgs(name, size, groupsize, div, prefix, matrix, sourcenames, subpatterns, protoName).init
+	*new{|name, size, groupsize, div, prefix, matrix|
+		^super.newCopyArgs(name, size, groupsize, div, prefix, matrix).init
 	}
 	
 	init{
@@ -643,10 +644,10 @@ SparseMatrixPattern{
 		};
 		
 		coll.do({|ctr|
-			ctr.active = onFunc.() ? ctr.active;
-			ctr.amp = ampFunc.() ? ctr.amp;
-			ctr.dur = durFunc.() ? ctr.dur;
-			ctr.emp = empFunc.() ? ctr.emp;
+			ctr.active = onFunc.();
+			ctr.amp = ampFunc.();
+			ctr.dur = durFunc.();
+			ctr.emp = empFunc.();
 		})
 	}
 	
@@ -657,13 +658,6 @@ SparseMatrixPattern{
 			ctr.amp = ampFunc.();
 			ctr.dur = durFunc.();
 			ctr.emp = empFunc.();
-		})
-	}
-	
-	changeDurations{|pcnt|
-		this.saveCurrentState;
-		ctrls.do({|ctr|
-			ctr.dur = ctr.dur * pcnt
 		})
 	}
 	
@@ -769,7 +763,7 @@ SparseSynthPattern : SparseMatrixPattern{
 	classvar <>scale;
 		
 	*new{|name, size, groupsize, div, sourcenames, subpatterns, prefix, matrix, protoname|
-		^super.new(name, size, groupsize, div, prefix, matrix, sourcenames, subpatterns, protoname).makePdef
+		^super.new(name, size, groupsize, div, prefix, matrix).makePdef(sourcenames, subpatterns, protoname)
 	}
 	
 	makePdef{
@@ -863,7 +857,7 @@ SparseBufferPattern : SparseMatrixPattern{
 	var <buffers;
 	
 	*new{|name, size, groupsize, div, sourcenames, subpatterns, prefix, matrix, protoname, buffers, defname|
-		^super.new(name, size, groupsize, div, prefix, matrix, sourcenames, subpatterns, protoname).makePdef( buffers, defname )
+		^super.new(name, size, groupsize, div, prefix, matrix).makePdef(sourcenames, subpatterns, buffers, defname, protoname)
 	}
 	
 	makePdef{|bufs, defname|
@@ -997,7 +991,7 @@ SparseGepPattern : SparseMatrixPattern {
 	var gepdata;
 	
 	*new{|name, gepdata, groupsize, div, sourcenames, subpatterns, prefix, matrix, protoname|
-		^super.new(name, gepdata.size, groupsize, div, prefix, matrix, sourcenames, subpatterns,  protoname).makePdef(gepdata)
+		^super.new(name, gepdata.size, groupsize, div, prefix, matrix).makePdef(sourcenames, subpatterns,  protoname, gepdata)
 	}
 		
 	makePdef{|data|

@@ -1,28 +1,28 @@
 UGEP : GEP {
-	
-	classvar <archDir = "/Users/alo/Data/gep/data", <fileExt = "gepdata";
+
+	classvar <fileExt = "gepdata";
 	classvar <fileNamePrefix = "gep";
-				
-	*new{|populationSize, numgenes, headsize, ugens, terminals, linker, forceArgs, methodRatio=0.5|
-		^super.new(populationSize, numgenes, headsize, ugens, terminals, linker, forceArgs, methodRatio).init
+
+	*new{|populationSize, numgenes, headsize, ugens, terminals, linker, forceArgs|
+		^super.new(populationSize, numgenes, headsize, ugens, terminals, linker, forceArgs).init
 	}
-	
-	*newValid{|populationSize, numgenes, headsize, ugens, terminals, linker, forceArgs, methodRatio=0.5|
-		^super.new(populationSize, numgenes, headsize, ugens, terminals, linker, forceArgs, methodRatio).initValid
+
+	*newValid{|populationSize, numgenes, headsize, ugens, terminals, linker, forceArgs|
+		^super.new(populationSize, numgenes, headsize, ugens, terminals, linker, forceArgs).initValid
 	}
-	
+
 	*newRandomFromLibrary{|populationSize, numgenes, headsize, linker, excludeUGenList|
 		^super.new(populationSize, numgenes, headsize, nil, nil, linker).initFromLibrary(excludeUGenList)
 	}
-	
+
 	*newFromLibrary{|numgenes, headsize, linker, excludeUGenList|
 		^super.new(1, numgenes, headsize, nil, nil, linker).loadAllFromLibrary(excludeUGenList)
 	}
-	
+
 	*newFromList{|list, numgenes, headsize, linker|
 		^super.new(list.size, numgenes, headsize, nil, nil, linker).fillFromList(list)
 	}
-	
+
 	init{
 		this.setTailSize;
 		this.randInitChromosomes;
@@ -41,12 +41,12 @@ UGEP : GEP {
 				numgenes.do({
 					if (forceInitFunc) {
 						indv = indv ++ Array.with(methods.choose) ++ Array.fill(headsize-1, {
-							[methods, terminals].wchoose([methodRatio, 1.0-methodRatio].normalizeSum).choose
+							[methods, terminals].choose.choose
 						})
 					}
 					{
 						indv = indv ++ Array.fill(headsize, {
-							[methods, terminals].wchoose([methodRatio, 1.0-methodRatio].normalizeSum).choose
+							[methods, terminals].choose.choose
 						})
 					};
 					indv = indv ++ Array.fill(tailsize, {
@@ -56,8 +56,8 @@ UGEP : GEP {
 				GEPChromosome(indv, terminals, numgenes, linker, forceArgs )
 			})
 		}
-	}	
-	
+	}
+
 	initFromLibrary{|excludeUGenList|
 		var selection, data, randInd;
 		data = this.class.loadDataFromDir;
@@ -169,7 +169,7 @@ UGEP : GEP {
 		indv = Array();
 		numgenes.do({
 			indv = indv ++ Array.with(methods.choose) ++ Array.fill(headsize-1, {
-				[methods, terminals].wchoose([methodRatio, 1.0-methodRatio].normalizeSum).choose
+				[methods, terminals].choose.choose
 			});
 			indv = indv ++ Array.fill(tailsize, {
 				terminals.choose
@@ -231,7 +231,7 @@ UGEP : GEP {
 	}
 	
 	*loadDataFromDir{|path|
-		path = path ? this.archDir;
+		path = path ? Paths.gepArchDir;
 		^(path+/+"*").pathMatch.collect({|name| this.loadData(name) })
 	}
 	
@@ -239,8 +239,7 @@ UGEP : GEP {
 
 
 UGenExpressionTree : ExpressionTree {
-	
-	classvar <defDir = "/Users/alo/Data/gep/synthdefs/", <metaDir = "/Users/alo/Data/gep/metadata/";
+
 	classvar <foaControls;
 	
 	decode{
@@ -278,8 +277,8 @@ UGenExpressionTree : ExpressionTree {
 		class = gene[event.keys.pop];
 		depth = depth - 1;
 		^UGepNode(class, nodes, this.getArgNames(class.class).select({|name| name != \this }))
-	}	
-	
+	}
+
 	getArgNames{|class|
 		var ar;
 		if (class.methods.notNil) {
@@ -407,9 +406,9 @@ UGenExpressionTree : ExpressionTree {
 	saveAsSynthDef{|name, panner, limiter, args, stats|
 		var def, arch, meta;
 		def = this.asSynthDefString(name, panner, limiter).interpret;
-		def.writeDefFile(this.class.defDir);
-		Post << "Wrote SynthDef " << name << " to " << this.class.defDir << Char.nl; 
-		arch = ZArchive.write(this.class.metaDir ++ name ++ ".gepmeta");
+		def.writeDefFile(Paths.gepDefDir);
+		Post << "Wrote SynthDef " << name << " to " << Paths.gepDefDir << Char.nl;
+		arch = ZArchive.write(Paths.gepMetaDir ++ name ++ ".gepmeta");
 		meta = (args: args, stats: stats);
 		arch.writeItem(meta);
 		arch.writeClose;
@@ -419,7 +418,7 @@ UGenExpressionTree : ExpressionTree {
 		
 	*loadMetadata{|defname, path|
 		var meta, arch;
-		path = path ? this.metaDir;
+		path = path ? Paths.gepMetaDir;
 		arch = ZArchive.read(path ++ defname.asString ++ ".gepmeta");
 		meta = arch.readItem;
 		arch.close;
@@ -428,7 +427,7 @@ UGenExpressionTree : ExpressionTree {
 	}
 	
 	*loadMetadataFromDir{|path|
-		path = path ? this.metaDir;
+		path = path ? Paths.gepMetaDir;
 		^(path++"*").pathMatch.collect(_.basename).collect(_.split($.)).collect(_.first).collect({|name|
 			var data = this.loadMetadata(name, path);
 			data.defname = name;
@@ -516,7 +515,7 @@ UGepPlayer{
 	
 	init{
 		var path, data, meta;
-		path = UGEP.archDir +/+ defname.asString ++ "." ++ UGEP.fileExt;
+		path = Paths.gepArchDir +/+ defname.asString ++ "." ++ UGEP.fileExt;
 		if (File.exists(path)) {
 			data = UGEP.loadData(path);
 			meta = UGenExpressionTree.loadMetadata(defname);
