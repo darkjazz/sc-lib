@@ -416,7 +416,7 @@ GepSynth{
 			bus = Bus.audio(Server.default, 2);
 			source = Synth.head(target, defname, [\out, bus] ++ defargs);
 			Server.default.sync;
-			proc = Synth.after(source, \ampctr, [\in, bus] ++ ampargs)
+			proc = Synth.after(source, \ampctr, [\in, bus, \id, source] ++ ampargs)
 		}.fork
 	}
 	
@@ -505,8 +505,13 @@ GepPlayer{
 					++ [#[ar,tr,pr,xr,yr,zr],Array.rand(6, 0.5, 8.0)].lace(12))
 			});
 			
-			SynthDef(\ampctr, {|in, out, amp|
-				Out.ar(out, In.ar(in, 2)*amp)
+			SynthDef(\ampctr, {|in, out, amp, id|
+				var input, freeTrig;
+				input = In.ar(in, 2);
+				freeTrig = CheckBadValues.kr(input, 0, 0);
+				Free.kr(freeTrig, id);
+				FreeSelf.kr(freeTrig);
+				Out.ar(out, input * amp)
 			}).add;
 			
 		}.fork
@@ -551,6 +556,20 @@ GepPlayer{
 		synths[index].set('amp', value)
 	}
 	
+	fade{|index, start, end, time|
+		var interval = 0.1;
+		Routine({
+			var steps, incr, value = start;
+			steps = time / interval;
+			incr = (end - start) / steps;
+			steps.do({
+				value = value + incr;
+				synths[index].set('amp', value);
+				interval.wait;
+			});
+		}).play
+	}
+	
 	setWithPattern{|index, pattern, dur|
 		synths[index].setWithPattern('amp', pattern, dur)
 	}
@@ -592,6 +611,13 @@ GepPlayer{
 		synths[index].free;
 		synths[index] = nil;
 		freeFunc.(index)
+	}
+	
+	stop{
+		foaSynths.do(_.free);
+		foaSynths = nil;
+		foaBus.do(_.free);
+		foaBus = nil;
 	}
 
 	assignCodeWindow{|document,prompt="@ "|

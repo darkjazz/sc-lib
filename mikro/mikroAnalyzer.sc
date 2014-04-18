@@ -7,7 +7,7 @@ MikroAnalyzer{
 	var <>onsetAction, <>offAction, timeStamp, <>runningOnsetAction;
 	var <clusters, <clusterBoundaries, <eventdiff, <>addEventFunc;
 	
-	var savePath = "/Users/alo/Data/mikro/lib000/";
+	var <>savePath = "/Users/alo/Data/mikro/lib000/";
 	
 	*new{|maxdur=60, numcoef=8, recordInput=true, isMono=true, clusterThreshold=0.4|
 		^super.newCopyArgs(maxdur, numcoef, recordInput, isMono, clusterThreshold).init
@@ -28,6 +28,8 @@ MikroAnalyzer{
 			};			
 			
 			this.sendSynthDef;
+			
+			Server.default.sync;
 						
 			this.prepareResponders;						
 		}

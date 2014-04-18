@@ -1,11 +1,12 @@
 GEP{
-	var <populationSize, <numgenes, <headsize, <methods, <terminals, <linker, <forceArgs, <tailsize, <chromosomes;
+	var <populationSize, <numgenes, <headsize, <methods, <terminals, <linker, <forceArgs, <>methodRatio; 
+	var <tailsize, <chromosomes;
 	var <>mutationRate = 0.05, <>recombinationRate = 0.3, <>transpositionRate = 0.1, <>rootTranspositionRate = 0.1;
 	var <>geneRecombinationRate = 0.1, <>geneTranspositionRate = 0.1, fitnessFuncs;
 	var <generationCount = 0;
 	
-	*new{|populationSize, numgenes, headsize, methods, terminals, linker, forceArgs|
-		^super.newCopyArgs(populationSize, numgenes, headsize, methods, terminals, linker, forceArgs).init
+	*new{|populationSize, numgenes, headsize, methods, terminals, linker, forceArgs, methodRatio=0.5|
+		^super.newCopyArgs(populationSize, numgenes, headsize, methods, terminals, linker, forceArgs, methodRatio).init
 	}
 		
 	init{
@@ -33,12 +34,12 @@ GEP{
 				numgenes.do({
 					if (forceInitFunc) {
 						indv = indv ++ Array.with(methods.choose) ++ Array.fill(headsize-1, {
-							[methods, terminals].choose.choose
+							[methods, terminals].wchoose([methodRatio, 1.0-methodRatio].normalizeSum).choose
 						})
 					}
 					{
 						indv = indv ++ Array.fill(headsize, {
-							[methods, terminals].choose.choose
+							[methods, terminals].wchoose([methodRatio, 1.0-methodRatio].normalizeSum).choose
 						})
 					};
 					indv = indv ++ Array.fill(tailsize, {
@@ -250,7 +251,7 @@ GEP{
 		};
 		
 		// gene transposition
-		if (geneTranspositionRate > 0.0) {
+		if ((geneTranspositionRate > 0.0).and(numgenes > 1)  ) {
 			newgen.do({|chrom| chrom.code = this.transposeGene(chrom.code) })
 		};
 		

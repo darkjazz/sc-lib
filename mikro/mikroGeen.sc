@@ -14,7 +14,11 @@ MikroGeen{
 	init{|defdir|	
 		
 //		Server.default.loadDirectory(defdir ? UGenExpressionTree.defDir);
-		metadata = UGenExpressionTree.loadMetadataFromDir.select({|data|
+		/* data.stats can either be an Event or as of 2014 an Array */
+
+		metadata = UGenExpressionTree.loadMetadataFromDir.select({|data| 
+			data.stats.isKindOf(Event)
+		}).select({|data| 
 			(data.stats.mfcc.size == datasize).and(data.stats.amp.mean <= 1.0)
 				.and(data.stats.mfcc.collect(_.mean).sum.isNaN.not)
 		});

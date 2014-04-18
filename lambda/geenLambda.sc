@@ -1,10 +1,11 @@
 GeenLambda{
 	
-	var mikro, decoder, dur, procs, <composer, rotation, stats, isActive = false, <geen;
+	var mikro, decoder, dur, <geen, libname, procs, <composer, rotation;
+	var stats, isActive = false;
 	var cameraActionParams, cameraWeights, cameraActions, patterns, activePatterns;
 
-	*new{|mikro, decoder, dur|
-		^super.newCopyArgs(mikro, decoder, dur).init
+	*new{|mikro, decoder, dur, geen, libname|
+		^super.newCopyArgs(mikro, decoder, dur, geen, libname).init
 	}	
 	
 	init{
@@ -30,18 +31,20 @@ GeenLambda{
 	
 	prepare{
 		{
-			MikroData.loadPath = "/Users/alo/Data/mikro/lib000/";
-//			MikroData.loadPath = "/Users/alo/Data/mikro/lib001/";
+			MikroData.loadPath = "/Users/alo/Data/mikro/" ++ libname ++ "/";
 			Post << "Initialising MikroGeen.." << Char.nl;
-			geen = MikroGeen();
+			if (geen.isNil)
+			{
+				geen = MikroGeen();
+			};	
 			Post << "Updating clusters.." << Char.nl;
-			geen.updateClusters;
-//			geen.loadClusters("/Users/alo/Data/mikro/130214_194521.kmeans");
+//			geen.updateClusters;
+			geen.loadClusters("/Users/alo/Data/mikro/130214_194521.kmeans");
 			Post << "Loading event data.." << Char.nl;
 			geen.loadEventData(doneAction: { 
 				Post << "Training sets.." << Char.nl;
-				geen.trainSets;
-//				geen.loadSets;
+//				geen.trainSets;
+				geen.loadSets;
 				Post << "Training sets finished..." << Char.nl;
 				Post << "Setup complete, ready for launch..." << Char.nl;
 			});
@@ -52,28 +55,6 @@ GeenLambda{
 		mikro.start(-60.dbamp, 0.05, 30);
 		mikro.input.mainamp_(-3.dbamp);
 		mikro.input.auxamp_(-6.dbamp);				
-
-//		Tdef(\liveprocs, {
-//			var names;
-//			names = #[ fbgverb, cliq, grains, arhythmic, latch, fbgverb, streamverb ];
-//			3.wait;
-//			mikro.analyzer.addMFCCResponderFunction({|ti, re, ms, an|
-//				var argstr = Pseq(ms[3..mikro.analyzer.numcoef+2].clip(0.0, 1.0), inf).asStream;
-//				composer.activeSynths.do({|synth|
-//					var args;
-//					args = composer.descLib[synth.defName.asSymbol].metadata.specs
-//						.collect(_.map(argstr.next));
-//					synth.set(*args.asKeyValuePairs)
-//				});
-//				
-//			});
-//			names.do({|name|
-//				var id;
-//				id = composer.play(name, argstream: Pn(0.25, inf).asStream);
-//				(mikro.analyzer.maxdur / names.size - 15).wait;
-//				composer.releaseSynth(id, 15);
-//			})
-//		}).play;
 
 		#[xang,yang,zang].do({|name|
 			Tdef(name, {
@@ -160,6 +141,29 @@ GeenLambda{
 		}).play;
 		
 		SystemClock.sched(10, {
+
+			Tdef(\liveprocs, {
+				var names;
+	//			names = #[ fbgverb, cliq, grains, arhythmic, latch, fbgverb, streamverb ];
+				names = #[ fbgverb, grains, fbgverb, streamverb ];
+				3.wait;
+				mikro.analyzer.addMFCCResponderFunction({|ti, re, ms, an|
+					var argstr = Pseq(ms[3..mikro.analyzer.numcoef+2].clip(0.0, 1.0), inf).asStream;
+					composer.activeSynths.do({|synth|
+						var args;
+						args = composer.descLib[synth.defName.asSymbol].metadata.specs
+							.collect(_.map(argstr.next));
+						synth.set(*args.asKeyValuePairs)
+					});
+					
+				});
+				names.do({|name|
+					var id;
+					id = composer.play(name, argstream: Pn(0.25, inf).asStream);
+					(mikro.analyzer.maxdur / names.size - 15).wait;
+					composer.releaseSynth(id, 15);
+				})
+			}).play;			
 			
 			mikro.analyzer.addMFCCResponderFunction({|ti, re, ms, an|
 				stats.mfc = ms[3..mikro.analyzer.numcoef+2];
@@ -205,23 +209,24 @@ GeenLambda{
 						mikro.graphics.activateSwarm(rrand(16, 32), 400.0, 400.0, 400.0, 0.9, 50.0, 8.0, 5.0, 100.0);
 					};
 					
-					mikro.graphics.setPattern(4, [0, 1].choose, 0.4.rand, 0, 0, 0.7, 0.7, 0.3);
-					mikro.graphics.setPattern(0, [0, 1].choose, 0.2.rand, 0, 0, rrand(0.3, 0.5), rrand(0.3, 0.5), rrand(0.1, 0.3));
-					mikro.graphics.setAdd(1.0.rand);
-					mikro.graphics.setBackground(0.1.rand, 0.1.rand, 0.1.rand);
+//					mikro.graphics.setPattern(32, [0, 1].wchoose([0.7, 0.3]), 0.4.rand, 1, 1, rrand(0.1, 0.4), rrand(0.1, 0.4), rrand(0.1, 0.4));
+//					mikro.graphics.setPattern(33, [0, 1].wchoose([0.7, 0.3]), 0.2.rand, 1, 1, rrand(0.3, 0.5), rrand(0.3, 0.5), rrand(0.1, 0.3));
+//					mikro.graphics.setPattern(34, [0, 1].wchoose([0.7, 0.3]), 0.2.rand, 1, 1, rrand(0.3, 0.5), rrand(0.3, 0.5), rrand(0.1, 0.3));
+//					mikro.graphics.setAdd([rrand(0.01, 0.1), rrand(0.9, 0.99)].choose);
+//					mikro.graphics.setBackground(0.1.rand, 0.1.rand, 0.1.rand);
 
-					if ((isActive.not) and: { mikro.analyzer.events.size > 4 }) {
-						isActive = true;
-						Post << "playing MikroGeen prepared sequence" << Char.nl;
-						
-						geen.playPreparedSequence( 
-							(3..8).wchoose(Array.geom(6,16,0.8).normalizeSum), 
-							stats.amps.mean.explin(0.001, 1.0, 0.3, 4.0), 
-							mikro.analyzer.events.last, mikro.analyzer.eventIntervals.last, {
-								isActive = false
-							}
-						);
-					};
+//					if ((isActive.not) and: { mikro.analyzer.events.size > 4 }) {
+//						isActive = true;
+//						Post << "playing MikroGeen prepared sequence" << Char.nl;
+//						
+//						geen.playPreparedSequence( 
+//							(3..8).wchoose(Array.geom(6,16,0.8).normalizeSum), 
+//							stats.amps.mean.explin(0.001, 1.0, 0.3, 4.0), 
+//							mikro.analyzer.events.last, mikro.analyzer.eventIntervals.last, {
+//								isActive = false
+//							}
+//						);
+//					};
 					this.changePattern
 				};
 				

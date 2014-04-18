@@ -366,6 +366,10 @@ CinderApp{
 
 	unmapCodePanel{ this.sendMsg("livecode/map", 0) }
 	
+	setCodePanelFade{|value|
+		this.sendMsg("livecode/fadeTime", value.asInt)
+	}
+	
 	setSymmetry{|sym|
 		this.sendMsg("world/symmetry", sym.asInt ? 0)
 	}

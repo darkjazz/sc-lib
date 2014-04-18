@@ -3,12 +3,12 @@ UGEP : GEP {
 	classvar <archDir = "/Users/alo/Data/gep/data", <fileExt = "gepdata";
 	classvar <fileNamePrefix = "gep";
 				
-	*new{|populationSize, numgenes, headsize, ugens, terminals, linker, forceArgs|
-		^super.new(populationSize, numgenes, headsize, ugens, terminals, linker, forceArgs).init
+	*new{|populationSize, numgenes, headsize, ugens, terminals, linker, forceArgs, methodRatio=0.5|
+		^super.new(populationSize, numgenes, headsize, ugens, terminals, linker, forceArgs, methodRatio).init
 	}
 	
-	*newValid{|populationSize, numgenes, headsize, ugens, terminals, linker, forceArgs|
-		^super.new(populationSize, numgenes, headsize, ugens, terminals, linker, forceArgs).initValid
+	*newValid{|populationSize, numgenes, headsize, ugens, terminals, linker, forceArgs, methodRatio=0.5|
+		^super.new(populationSize, numgenes, headsize, ugens, terminals, linker, forceArgs, methodRatio).initValid
 	}
 	
 	*newRandomFromLibrary{|populationSize, numgenes, headsize, linker, excludeUGenList|
@@ -41,12 +41,12 @@ UGEP : GEP {
 				numgenes.do({
 					if (forceInitFunc) {
 						indv = indv ++ Array.with(methods.choose) ++ Array.fill(headsize-1, {
-							[methods, terminals].choose.choose
+							[methods, terminals].wchoose([methodRatio, 1.0-methodRatio].normalizeSum).choose
 						})
 					}
 					{
 						indv = indv ++ Array.fill(headsize, {
-							[methods, terminals].choose.choose
+							[methods, terminals].wchoose([methodRatio, 1.0-methodRatio].normalizeSum).choose
 						})
 					};
 					indv = indv ++ Array.fill(tailsize, {
@@ -169,7 +169,7 @@ UGEP : GEP {
 		indv = Array();
 		numgenes.do({
 			indv = indv ++ Array.with(methods.choose) ++ Array.fill(headsize-1, {
-				[methods, terminals].choose.choose
+				[methods, terminals].wchoose([methodRatio, 1.0-methodRatio].normalizeSum).choose
 			});
 			indv = indv ++ Array.fill(tailsize, {
 				terminals.choose
