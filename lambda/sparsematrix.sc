@@ -7,15 +7,16 @@ SparseMatrix{
 	var <skismDefs, skismSynths, grainEnvs, <gepdefs, <gepsynths, <>onsetFunc;
 	var <patternPlayers;
 
-	var <>defpath = "/home/alo/development/lambda/supercollider/sparsematrix/linux/sparsedefs.scd";
-	var <>skismDefPath = "/home/alo/development/lambda/supercollider/sparsematrix/skismdefs.scd";
-	var <>bufferPath = "/home/alo/sounds/sparsematrix/";
+	var <>defpath, <>skismDefPath, <>bufferPath;
 
 	*new{|decoder, graphics, quant=2, ncoef=8|
 		^super.newCopyArgs(decoder, graphics, quant, ncoef).init
 	}
 
 	init{
+		defpath = Paths.matrixdefs;
+		skismDefPath = Paths.skismdefs;
+		bufferPath = Paths.matrixbufs;
 		{
 		if (decoder.isNil) {
 			decoder = FoaDecoder()

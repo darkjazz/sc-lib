@@ -1,6 +1,6 @@
 UGepLoader{
 
-	classvar <>path = "/Users/alo/Data/gep/", <>synthdefdir="synthdefs/";
+	classvar <>path, <>synthdefdir="synthdefs/";
 	classvar <>metadir = "metadata/", <>datadir="data/";
 
 	var headsize, numgenes, <data;
@@ -12,6 +12,8 @@ UGepLoader{
 	*load{|headsize, numgenes|
 		^this.class.new(headsize, numgenes).load
 	}
+
+	*initClass{ path = Paths.prefix + "data/gepdefs/" }
 
 	load{
 		var meta;
