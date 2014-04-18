@@ -62,7 +62,7 @@ Paths{
 	}
 
 	*gepMetaDir{
-		^(Paths.gepdefs ++ "/synthdefs/")
+		^(Paths.gepdefs ++ "/metadata/")
 	}
 
 }

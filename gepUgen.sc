@@ -240,7 +240,6 @@ UGEP : GEP {
 
 UGenExpressionTree : ExpressionTree {
 
-	classvar <defDir = "/home/alo/data/gepdefs/synthdefs/", <metaDir = "/home/alo/data/gepdefs/metadata/";
 	classvar <foaControls;
 
 	decode{
@@ -407,19 +406,19 @@ UGenExpressionTree : ExpressionTree {
 	saveAsSynthDef{|name, panner, limiter, args, stats|
 		var def, arch, meta;
 		def = this.asSynthDefString(name, panner, limiter).interpret;
-		def.writeDefFile(this.class.defDir);
-		Post << "Wrote SynthDef " << name << " to " << this.class.defDir << Char.nl;
-		arch = ZArchive.write(this.class.metaDir ++ name ++ ".gepmeta");
+		def.writeDefFile(Paths.gepDefDir);
+		Post << "Wrote SynthDef " << name << " to " << Paths.gepDefDir << Char.nl;
+		arch = ZArchive.write(Paths.gepMetaDir ++ name ++ ".gepmeta");
 		meta = (args: args, stats: stats);
 		arch.writeItem(meta);
 		arch.writeClose;
 		arch = nil;
-		Post << "Wrote metadata for " << name << " to " << this.class.metaDir << Char.nl;
+		Post << "Wrote metadata for " << name << " to " << Paths.gepMetaDir << Char.nl;
 	}
 
 	*loadMetadata{|defname, path|
 		var meta, arch;
-		path = path ? this.metaDir;
+		path = path ? Paths.gepMetaDir;
 		arch = ZArchive.read(path ++ defname.asString ++ ".gepmeta");
 		meta = arch.readItem;
 		arch.close;
@@ -428,7 +427,7 @@ UGenExpressionTree : ExpressionTree {
 	}
 
 	*loadMetadataFromDir{|path|
-		path = path ? this.metaDir;
+		path = path ? Paths.gepMetaDir;
 		^(path++"*").pathMatch.collect(_.basename).collect(_.split($.)).collect(_.first).collect({|name|
 			var data = this.loadMetadata(name, path);
 			data.defname = name;
