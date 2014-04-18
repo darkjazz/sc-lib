@@ -623,8 +623,8 @@ SparseMatrixPattern{
 	var <name, <size, <groupsize, div, prefix, matrix, sourcenames, subpatterns, protoname, <patterns, <args, <groups, <ctrls;
 	var <previousStates, maxStateSize = 4;
 	
-	*new{|name, size, groupsize, div, prefix, matrix|
-		^super.newCopyArgs(name, size, groupsize, div, prefix, matrix).init
+	*new{|name, size, groupsize, div, prefix, matrix, sourcenames, subpatterns, protoname|
+		^super.newCopyArgs(name, size, groupsize, div, prefix, matrix, sourcenames, subpatterns, protoname).init
 	}
 	
 	init{
@@ -763,7 +763,7 @@ SparseSynthPattern : SparseMatrixPattern{
 	classvar <>scale;
 		
 	*new{|name, size, groupsize, div, sourcenames, subpatterns, prefix, matrix, protoname|
-		^super.new(name, size, groupsize, div, prefix, matrix).makePdef(sourcenames, subpatterns, protoname)
+		^super.new(name, size, groupsize, div, prefix, matrix, sourcenames, subpatterns, protoname).makePdef
 	}
 	
 	makePdef{
@@ -857,7 +857,7 @@ SparseBufferPattern : SparseMatrixPattern{
 	var <buffers;
 	
 	*new{|name, size, groupsize, div, sourcenames, subpatterns, prefix, matrix, protoname, buffers, defname|
-		^super.new(name, size, groupsize, div, prefix, matrix).makePdef(sourcenames, subpatterns, buffers, defname, protoname)
+		^super.new(name, size, groupsize, div, prefix, matrix, sourcenames, subpatterns, protoname).makePdef(buffers, defname)
 	}
 	
 	makePdef{|bufs, defname|
@@ -991,7 +991,7 @@ SparseGepPattern : SparseMatrixPattern {
 	var gepdata;
 	
 	*new{|name, gepdata, groupsize, div, sourcenames, subpatterns, prefix, matrix, protoname|
-		^super.new(name, gepdata.size, groupsize, div, prefix, matrix).makePdef(sourcenames, subpatterns,  protoname, gepdata)
+		^super.new(name, gepdata.size, groupsize, div, prefix, matrix, sourcenames, subpatterns,  protoname ).makePdef(gepdata)
 	}
 		
 	makePdef{|data|
