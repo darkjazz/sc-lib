@@ -1020,7 +1020,7 @@ SparseGepPattern : SparseMatrixPattern {
 			gepdata.do({|gepitem, i|
 				var key = SparseMatrix.makeDefName(i, prefix);
 				instr[key] = gepitem.defname;
-				gepargs[key] = gepitem.args.bubble;
+				gepargs[key] = gepitem.args.select(_.isKindOf(Number)).bubble;
 				this.addGepSynthDef(gepitem);
 			});
 			

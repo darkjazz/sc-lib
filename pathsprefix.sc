@@ -18,6 +18,16 @@ Paths{
 			^(Paths.prefix ++ "/Data/gep")
 		}
 	}
+	
+	*devdir{
+		if (thisProcess.platform.name == 'linux')
+		{
+			^(Paths.prefix ++ "/development")
+		}
+		{
+			^(Paths.prefix ++ "/Development")
+		}		
+	}
 
 	*matrixdefs{
 		if (thisProcess.platform.name == 'linux')
