@@ -22,7 +22,7 @@ Paths{
 	*matrixdefs{
 		if (thisProcess.platform.name == 'linux')
 		{
-			^(Paths.prefix ++ "/development/lambda/supercollider/sparsematrix/Unix/sparsedefs.scd")
+			^(Paths.prefix ++ "/development/lambda/supercollider/sparsematrix/linux/sparsedefs.scd")
 		}
 		{
 			^(Paths.prefix ++ "/Development/lambda/supercollider/sparsematrix/sparsedefs.scd")
@@ -44,16 +44,20 @@ Paths{
 	}
 
 	*gepArchDir{
-		^(Paths.gepdir ++ "/data/")
+		^(Paths.gepdir +/+ "data/")
 
 	}
 
 	*gepDefDir{
-		^(Paths.gepdir ++ "/synthdefs/")
+		^(Paths.gepdir +/+ "synthdefs/")
 	}
 
 	*gepMetaDir{
-		^(Paths.gepdir ++ "/metadata/")
+		^(Paths.gepdir +/+ "metadata/")
+	}
+
+	*eventLibDir{
+		^(Paths.prefix +/+ "data/mikro/data")
 	}
 
 }
