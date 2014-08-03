@@ -202,7 +202,7 @@ UGEP : GEP {
 		var filename, archive, header;
 		filename = name ? this.makeDefName(index);
 		header =  (run: run, generation: generationCount, headsize: headsize, numgenes: numgenes);
-		archive = ZArchive.write(this.class.archDir +/+ filename ++ "." ++ this.class.fileExt);
+		archive = ZArchive.write(Paths.gepArchDir +/+ filename ++ "." ++ this.class.fileExt);
 		archive.writeItem(header);
 		archive.writeItem(methods);
 		archive.writeItem(terminals);
@@ -437,7 +437,7 @@ UGenExpressionTree : ExpressionTree {
 		arch.writeItem(meta);
 		arch.writeClose;
 		arch = nil;
-		Post << "Wrote metadata for " << name << " to " << this.class.metaDir << Char.nl;
+		Post << "Wrote metadata for " << name << " to " << Paths.gepMetaDir << Char.nl;
 	}
 
 	*loadMetadata{|defname, path|

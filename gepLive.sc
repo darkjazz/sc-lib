@@ -456,8 +456,8 @@ GepSynth{
 
 GepPlayer{
 
-	var data, decoder, graphics, <synths, <defStrings, <group, foaSynths, foaBus;
-	var <codewindow, <>sendEnabled=false, <>playFunc, <>freeFunc;
+	var <data, <decoder, <graphics, <synths, <defStrings, <group, foaSynths, foaBus, <>syncDurs = true;
+	var <codewindow, <>sendEnabled=false, <>playFunc, <>freeFunc, <routines, <bpm, <bps, <beatdur;
 
 	*new{|data, decoder, graphics|
 		^super.newCopyArgs(data, decoder, graphics).init
@@ -466,12 +466,20 @@ GepPlayer{
 	init{
 		defStrings = ();
 		synths = ();
+		routines = ();
 		foaSynths = ();
 		foaBus = ();
 		group = Group.before(decoder.synth);
 		if (graphics.isNil) {
 			graphics = CinderApp()
 		};
+		this.setBPM(120);
+	}
+
+	setBPM{|value|
+		bpm = value;
+		bps = bpm/60;
+		beatdur = bps.reciprocal;
 	}
 
 	start{|kinds=#[zoom,focus]|
@@ -621,21 +629,27 @@ GepPlayer{
 	}
 
 	assignCodeWindow{|document,prompt="@ "|
-		var sendarray;
 		if (document.isKindOf(Document).not) {
 			codewindow = document ? Document("---live gep---")
 		}
 		{
 			codewindow = document
 		};
-		codewindow.keyDownAction = {|doc, char, mod, uni, key|
-			if ((uni == 3) and: { key == 76 })
-			{
-				sendarray = doc.selectedString.split(Char.nl);
-				sendarray[0] = prompt ++ sendarray[0];
-				sendarray.do({|str|
-					graphics.sendCodeLine(str)
-				})
+		if (thisProcess.platform.name == 'linux')
+		{
+
+		}
+		{
+			codewindow.keyDownAction = {|doc, char, mod, uni, key|
+				var sendarray;
+				if ((uni == 3) and: { key == 76 })
+				{
+					sendarray = doc.getSelectedLines.split(Char.nl);
+					sendarray[0] = prompt ++ sendarray[0];
+					sendarray.do({|str|
+						graphics.sendCodeLine(str)
+					})
+				}
 			}
 		}
 	}
@@ -659,5 +673,52 @@ GepPlayer{
 
 	}
 
+	playRoutine{|index, amps, durs, foaKind|
+		if (routines[index].notNil) {
+			this.stopRoutine(index);
+		};
+		{
+			var name, defargs, ampargs, pbind, sum, mul;
+			name = data[index].defname;
+			defargs = data[index].args.args;
+			ampargs = [\out, foaBus[("foa"++foaKind).asSymbol]];
+			Server.default.loadSynthDef(name, dir: Paths.gepDefDir);
+			Server.default.sync;
+			this.compilePanDefString(index);
+			if (sendEnabled) {
+				this.sendSynthDefString(defStrings[name.asSymbol])
+			};
+			sum = durs.list.sum;
+			mul = (beatdur*(sum/beatdur).round(1))/sum;
+			durs.list = durs.list * mul;
+			routines[index] = Routine({
+				var ampstr, durstr;
+				ampstr = amps.asStream;
+				durstr = durs.asStream;
+				loop({
+					var synth, dur, amp;
+					amp = ampstr.next;
+					dur = durstr.next;
+					if (amp.isNil.or(dur.isNil)) { this.stopRoutine(index) };
+					if (amp > 0) {
+						synth = GepSynth(name, defargs, group, ampargs ++ [\amp, amp])
+					}
+					{
+						synth = nil;
+					};
+					if (synth.isNil.not) {
+						SystemClock.sched(dur, { synth.free; nil });
+					};
+					dur.wait;
+				})
+			}).play
+		}.fork
+
+	}
+
+	stopRoutine{|index|
+		routines[index].stop;
+		routines[index] = nil;
+	}
 
 }

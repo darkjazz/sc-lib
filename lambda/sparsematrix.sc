@@ -5,11 +5,11 @@ SparseMatrix{
 	var <decoder, <graphics, <quant, <ncoef, <envs, <buffers, <group, <efxgroup, <nofxbus, <bpm, <bps, <beatdur;
 	var <rDB, <efx, <efxamps, <patterndefs, <argproto, <deffuncs, codewindow, <listener, <mfccresp;
 	var <skismDefs, skismSynths, grainEnvs, <gepdefs, <gepsynths, <>onsetFunc;
-	var <patternPlayers;
+	var <patternPlayers, <ampctrls;
 
 	var <>defpath, <>skismDefPath, <>bufferPath;
 
-	var <>eventLibName = "lib003", eventData, freqSet, durSet, ampSet;
+	var <>eventLibName = "lib003", eventData, <freqSet, <durSet, <ampSet;
 
 	*new{|decoder, graphics, quant=2, ncoef=8|
 		^super.newCopyArgs(decoder, graphics, quant, ncoef).init
@@ -232,6 +232,8 @@ SparseMatrix{
 		skismSynths = ();
 
 		patternPlayers = ();
+
+		ampctrls = ();
 
 		"sparsematrix performance ready...".postln;
 
@@ -498,7 +500,7 @@ SparseMatrix{
 	activateSkismSynth{|name|
 		var def, args, ctrbus;
 		Post << "activating " << name << Char.nl;
-		def = skismDefs.select({|sdf| sdf.name == name.asString }).first;
+		def = skismDefs.select({|sdf| sdf.name.asString == name.asString }).first;
 		args = ();
 		def.metadata.specs.keysValuesDo({|argname, argvalue|
 			args[argname] = argvalue.default
@@ -544,7 +546,7 @@ SparseMatrix{
 		});
 	}
 
-	preparePatternDefs{|data|
+	preparePatternDefs{
 		this.addPatternCycleDef('c00', 4, this.buffers.cycles[[1, 2, 7, 14]], 'frag05', "c0");
 
 		this.addPatternSynthDef('r00',
@@ -601,17 +603,21 @@ SparseMatrix{
 			prefix: "b4", buffers: this.buffers.bits.drop(32), defname: 'bit00'
 		);
 
+	}
 
+	prepareGepDefs{|data|
 		if (data.notNil)
 		{
 			this.addPatternGepDef('g00', data.keep(64), 8, 8, ['mandiani', 'diansa'], 3, "g00", 'r00' );
 			this.addPatternGepDef('g01', data[(64..127)], 8, 8, ['kokou', 'macrou'], 3, "g01", 'r01' );
-			this.addPatternGepDef('g02', data[(128..191)], 8, 8, ['mandiani', 'djakandi'], 3, "g02", 'r02' );
-			this.addPatternGepDef('g03', data[(192..255)], 8, 8, ['yole', 'tiriba'], 3, "g03", 'r03' );
-			this.addPatternGepDef('g04', data[(256..319)], 8, 8, ['soli', 'raboday'], 3, "g04", 'r04' );
-			this.addPatternGepDef('g05', data[(320..383)], 8, 8, ['kpanilogo', 'kakilambe'], 3, "g05", 'r05' );
+			// this.addPatternGepDef('g02', data[(128..191)], 8, 8, ['mandiani', 'djakandi'], 3, "g02", 'r02' );
+			// this.addPatternGepDef('g03', data[(192..255)], 8, 8, ['yole', 'tiriba'], 3, "g03", 'r03' );
+			// this.addPatternGepDef('g04', data[(256..319)], 8, 8, ['soli', 'raboday'], 3, "g04", 'r04' );
+			// this.addPatternGepDef('g05', data[(320..383)], 8, 8, ['kpanilogo', 'kakilambe'], 3, "g05", 'r05' );
+		}
+		{
+			Post << "No data provided for gepdefs!!" << Char.nl;
 		};
-
 
 	}
 
@@ -648,14 +654,21 @@ SparseMatrix{
 				durSet.read(durA, durB)
 			});
 
+			eventData.datalib.collect({arg set;
+				set.events.collect(_.peakAmp)
+			}).values.asArray.flat.slide(ampSet.order+1, 1).clump(ampSet.order+1).do({arg amps;
+				ampSet.read(amps.keep(ampSet.order).round(0.01), amps.last.round(0.01))
+			});
+
 		};
 
 		if (eventData.isNil)
 		{
-			MikroData.loadPath = Paths.eventLibDir +/+ eventLibName;
+			MikroData.loadPath = Paths.eventLibDir +/+ eventLibName +/+ "";
 			eventData = MikroData().loadPathMatch(doneAction: doneFunc);
 			freqSet = MarkovSetN(order: 2);
 			durSet = MarkovSetN(order: 1);
+			ampSet = MarkovSetN(order: 2);
 		}
 	}
 
@@ -671,21 +684,25 @@ SparseMatrix{
 			frq
 		});
 
+		freqs.postln;
+
 		^freqs
 	}
 
-	makeDurSet{|size=64|
+	makeDurSeq{|size=64|
 		var durs, key = durSet.dict.keys(Array).choose;
 
 		durs = Array.fill(size, {
 			key = durSet.next(key);
 		});
 
+		durs.postln;
+
 		^durs
 
 	}
 
-	makeAmpSet{|size=64|
+	makeAmpSeq{|size=64|
 		var amps, key = ampSet.dict.keys(Array).choose;
 
 		amps = Array.fill(size, {
@@ -695,20 +712,29 @@ SparseMatrix{
 			arr = arr.add(amp);
 			key = arr.asSymbol;
 			amp
-		})
+		});
+
+		amps.postln;
 
 		^amps
 	}
 
-	makeMelody{|name, defname, size, efxname|
+	makeMelody{|name, defname, size, efxname, noteweight=1.0|
+
+		if (ampctrls.includesKey(name).not)
+		{
+			ampctrls[name] = 0.0
+		};
 
 		Pdef(name,
-			Pbind(\instrument, defname, \out, decoder.bus, \efx, efx[efxname].in,
-				\amp, Pseq(this.makeAmpSet(size), inf), \emp, Pkey(\amp), \dur, Pseq(this.makeDurSet(size), inf),
-				\freq, Pseq(this.makeFreqSeq(size), inf), \freqs, (1..4).bubble, \bw, (1 ! 4).bubble,
-				\amps, (Array.geom(4, 1.0, 0.9)).bubble, \rotx, rDB[rDB.keys(Array).choose].(),
-				\roty, rDB[rDB.keys(Array).choose].(), \rotz, rDB[rDB.keys(Array).choose].(),
-				\envindex, Pseq(['perc00', 'perc04', 'sine00', 'lin00', 'lin01'], inf),
+			Pbind(\instrument, defname, \out, decoder.bus, \efx, efx[efxname].args.in, \group, group, \addAction, \addToHead,
+				\amp, Pseq((this.makeAmpSeq(size) ** 0.5) * 2, inf) * Pfunc({ ampctrls[name] }), \emp, Pkey(\amp),
+				\dur, Pseq(this.makeDurSeq(size) * 2, inf),
+				\freq, Pseq(this.makeFreqSeq(size).clump(8).collect({|freqs| Pseq(freqs, 4) }), inf),
+				\freqs, (1..4).bubble, \bw, (1 ! 4).bubble, \amps, (Array.geom(4, 1.0, 0.9)).bubble,
+				\rotx, rDB[rDB.keys(Array).choose].(), \roty, rDB[rDB.keys(Array).choose].(),
+				\rotz, rDB[rDB.keys(Array).choose].(), \type, Pwrand([\note, \rest], [noteweight, 1.0-noteweight], inf),
+				\envindex, Pstutter(Pseq([2, 4], inf), Pseq(['perc00', 'perc04', 'sine00', 'lin00'], inf)),
 				\env, Pfunc({|ev| envs.at(ev['envindex']) })
 			)
 		)
@@ -1118,8 +1144,8 @@ SparseGepPattern : SparseMatrixPattern {
 			gepdata.do({|gepitem, i|
 				var key = SparseMatrix.makeDefName(i, prefix);
 				instr[key] = gepitem.defname;
-				gepargs[key] = gepitem.args.select(_.isKindOf(Number)).bubble;
-				this.addGepSynthDef(gepitem);
+				gepargs[key] = gepitem.args.args.select(_.isKindOf(Number)).bubble;
+				this.addGepSynthDef(gepitem.data, gepitem.defname);
 				Server.default.sync;
 			});
 
@@ -1143,13 +1169,13 @@ SparseGepPattern : SparseMatrixPattern {
 		}).play
 	}
 
-	addGepSynthDef{|dataitem|
+	addGepSynthDef{|data, defname|
 		var fnc, chrom, str;
-		chrom = GEPChromosome(dataitem.code, dataitem.terminals, dataitem.header.numgenes, dataitem.linker);
+		chrom = GEPChromosome(data.code, data.terminals, data.header.numgenes, data.linker);
 		str = chrom.asUgenExpressionTree.asSynthDefWrapString(Normalizer);
 		fnc = str.interpret;
 		{
-			matrix.makeGepDef(dataitem.defname, fnc, dataitem.terminals.size);
+			matrix.makeGepDef(defname, fnc, data.terminals.size);
 		}.try({
 			Post << "ERROR: " << str << Char.nl;
 		})

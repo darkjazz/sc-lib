@@ -18,7 +18,7 @@ Paths{
 			^(Paths.prefix ++ "/Data/gep")
 		}
 	}
-	
+
 	*devdir{
 		if (thisProcess.platform.name == 'linux')
 		{
@@ -26,7 +26,7 @@ Paths{
 		}
 		{
 			^(Paths.prefix ++ "/Development")
-		}		
+		}
 	}
 
 	*matrixdefs{
@@ -68,6 +68,10 @@ Paths{
 
 	*eventLibDir{
 		^(Paths.prefix +/+ "data/mikro/data")
+	}
+
+	*soundDir{
+		^(Paths.prefix +/+ "sounds")
 	}
 
 }

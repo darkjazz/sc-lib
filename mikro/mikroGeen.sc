@@ -1,28 +1,28 @@
 MikroGeen{
-	
+
 	classvar <>archPath = "/Users/alo/Data/mikro/sets/";
-	
+
 	var nclusters, timeQuant, <metadata, datasize = 20, <clusters;
 	var <durSet, <freqSet, <ampSet, <intervalSet, <clusterSet, <envSet;
 	var <eventData, <allEvents, <currentEvent, <defclusters, <group;
 	var player, <globalbus, <dynsynth, <currentSequence, <currentSource;
-	
+
 	*new{|nclusters, timeQuant, defdir|
 		^super.newCopyArgs(nclusters, timeQuant).init(defdir)
 	}
-	
-	init{|defdir|	
-		
+
+	init{|defdir|
+
 //		Server.default.loadDirectory(defdir ? UGenExpressionTree.defDir);
 		/* data.stats can either be an Event or as of 2014 an Array */
 
-		metadata = UGenExpressionTree.loadMetadataFromDir.select({|data| 
+		metadata = UGenExpressionTree.loadMetadataFromDir.select({|data|
 			data.stats.isKindOf(Event)
-		}).select({|data| 
+		}).select({|data|
 			(data.stats.mfcc.size == datasize).and(data.stats.amp.mean <= 1.0)
 				.and(data.stats.mfcc.collect(_.mean).sum.isNaN.not)
 		});
-		
+
 		{
 			SynthDef(\dynamics, {|out, in, amp, ra, rt, er, tl|
 				var eq, input, sig, rev;
@@ -34,22 +34,22 @@ MikroGeen{
 				);
 				input = Limiter.ar(In.ar(in, 4), -1.0.dbamp, 0.1);
 				sig = Mix.fill(5, {|i| eq.ugen[i].ar(input, eq.freq[i], eq.bw[i], eq.db[i]) });
-				rev = GVerb.ar(sig[0] * ra, 6, rt, drylevel: 0, earlyreflevel: er, 
+				rev = GVerb.ar(sig[0] * ra, 6, rt, drylevel: 0, earlyreflevel: er,
 					taillevel: tl);
 				Out.ar(out, (sig.pow(0.2) + rev.dup.flat) * amp)
 			}).add;
-	
+
 			SynthDef(\procgen, {|out, in, dur, amp|
 				var env, input, sig, fft, bf, rot, til, tum, check;
 				env = EnvControl.kr(size: 16);
-				input = Mix(In.ar(in, 2)).tanh * 
+				input = Mix(In.ar(in, 2)).tanh *
 					EnvGen.kr(env, timeScale: dur, levelScale: amp, doneAction: 3);
 //				check = BinaryOpUGen('==', CheckBadValues.ar(input, 0, 0));
 //				input = input * check;
 				fft = FFT(LocalBuf(1024), input);
 				bf = FoaEncode.ar(Array.fill(4, {
-						IFFT(PV_Diffuser(fft, Dust.ar(10.0))) }), 
-					FoaEncoderMatrix.newAtoB 
+						IFFT(PV_Diffuser(fft, Dust.ar(10.0))) }),
+					FoaEncoderMatrix.newAtoB
 				);
 				rot = LFNoise2.kr(bf[0].explin(0.001, 1.0, 0.5, 20.0)).range(-pi, pi);
 				til = LFNoise2.kr(bf[1].explin(0.001, 1.0, 0.5, 20.0)).range(-pi, pi);
@@ -57,14 +57,14 @@ MikroGeen{
 				bf = FoaTransform.ar(bf, 'rtt', rot, til, tum );
 				Out.ar(out, bf)
 			}).add;
-			
+
 			Server.default.sync;
-	
+
 			metadata.do({|data|
-				Server.default.loadSynthDef(data.defname, dir: defdir ? 
+				Server.default.loadSynthDef(data.defname, dir: defdir ?
 					UGenExpressionTree.defDir )
 			});
-			
+
 		}.fork;
 
 		durSet = MarkovSet();
@@ -73,13 +73,12 @@ MikroGeen{
 		intervalSet = MarkovSet();
 		clusterSet = MarkovSet();
 		envSet = FuzzySet();
-		
+
 		timeQuant = timeQuant ? (2**6).reciprocal;
-		
+
 		nclusters = nclusters ? 64;
-				
 	}
-	
+
 	updateClusters{
 //		clusters = KMeans(nclusters);
 		clusters = MikroMeans(nclusters);
@@ -88,27 +87,27 @@ MikroGeen{
 		});
 		clusters.update
 	}
-	
+
 	saveClusters{ clusters.saveData }
-	
-	loadClusters{|path| 
+
+	loadClusters{|path|
 		if (clusters.isNil) {
 			clusters = MikroMeans(nclusters);
 			metadata.do({|data|
 				clusters.add(data.stats.mfcc.collect(_.mean))
-			});		
+			});
 		};
 		clusters.loadData(path)
 	}
-	
+
 	roundFreq{|freq, octavediv=24, ref=440, round=0.00001|
 		^(2**(round(log2(freq/ref)*octavediv)/octavediv)*ref).round(round)
 	}
-	
+
 	loadEventData{|path, doneAction|
 		eventData = MikroData().loadPathMatch(path, doneAction);
 	}
-	
+
 	trainSets{
 		if (eventData.notNil) {
 			eventData.datalib.keysValuesDo({|key, data|
@@ -121,12 +120,12 @@ MikroGeen{
 					clusterSet.read( clusters.classify(evA.meanMFCC), clusters.classify(evB.meanMFCC) );
 					intervals = intervals.add(min(evB.start - evA.start, 4.0));
 				});
-				envSet.put(data.events.last.duration.round(timeQuant), 
+				envSet.put(data.events.last.duration.round(timeQuant),
 					data.events.last.ampsToEnv(8, 'sine', true, true, true));
 				intervals.doAdjacentPairs({|intA, intB| intervalSet.read(*[intA, intB].round(timeQuant))  });
-				
+
 			});
-			
+
 			allEvents = eventData.datalib.values.collect(_.events).flat;
 			"Training completed...".postln;
 		}
@@ -134,7 +133,7 @@ MikroGeen{
 			"No training data loaded. Execute loadEventData first.".warn
 		}
 	}
-	
+
 	initializeChain{|source, firstInterval|
 		if (source.isNil) {
 			source = allEvents.choose
@@ -146,26 +145,26 @@ MikroGeen{
 			firstInterval = intervalSet.dict.choose[0]
 		};
 		currentEvent = (
-			dur: source.duration.round(timeQuant), 
+			dur: source.duration.round(timeQuant),
 			freq: this.roundFreq(source.meanFreq),
 			amp: source.peakAmp.round(timeQuant),
 			env: envSet[source.duration.round(timeQuant)],
 			cluster: clusters.classify(source.meanMFCC),
 			int: firstInterval
 		);
-		
+
 		defclusters = ();
-		
+
 		clusterSet.dict.keys(Array).do({|num|
 			defclusters[num] = clusters.assignments.selectIndices({|ind| num == ind})
 		});
-				
+
 	}
-	
+
 	nextEvent{
 		var dur, frq, amp, int;
-		dur = durSet.next(currentEvent.dur); 
-		if (dur.isNil) { 
+		dur = durSet.next(currentEvent.dur);
+		if (dur.isNil) {
 			dur = this.getNearestMatch(durSet, currentEvent.dur)
 		};
 		frq = freqSet.next(currentEvent.freq);
@@ -173,7 +172,7 @@ MikroGeen{
 			frq = this.getNearestMatch(freqSet, currentEvent.freq)
 		};
 		amp = ampSet.next(currentEvent.amp);
-		if (amp.isNil) { 
+		if (amp.isNil) {
 			amp = this.getNearestMatch(ampSet, currentEvent.amp)
 		};
 		int = intervalSet.next(currentEvent.int);
@@ -181,15 +180,15 @@ MikroGeen{
 			int = this.getNearestMatch(intervalSet, currentEvent.int)
 		};
 		currentEvent = (
-			dur: dur, 
+			dur: dur,
 			freq: frq,
 			amp: amp,
 			env: envSet[dur],
 			cluster: clusterSet.next(currentEvent.cluster),
 			int: int
-		)		
+		)
 	}
-	
+
 	getNearestMatch{|set, value|
 		var index, keys, diff;
 		keys = set.dict.keys(Array);
@@ -197,7 +196,7 @@ MikroGeen{
 		index = diff.indexOf(diff.minItem);
 		^set.next(keys[index])
 	}
-	
+
 	findNearestInCluster{|cluster|
 		var clusterData, closest = inf, selectedIndex = 0;
 		if (currentSource.notNil) {
@@ -218,7 +217,7 @@ MikroGeen{
 		}
 	}
 
-	
+
 	playCurrentEvent{|target, addAction, timeScale=1|
 		var synth, defindex, data, bus, args, env;
 		bus = Bus.audio(Server.default, 2);
@@ -229,24 +228,24 @@ MikroGeen{
 			args[argindex] = this.roundFreq(args[argindex], 24, currentEvent.freq)
 		});
 		if (currentEvent.env.notNil) {
-			if (currentEvent.env.levels.size > 16) 
-				{ env = Env([0.001, 1.0, 1.0, 0.001], [0.3, 0.4, 0.3], \sine) } 
+			if (currentEvent.env.levels.size > 16)
+				{ env = Env([0.001, 1.0, 1.0, 0.001], [0.3, 0.4, 0.3], \sine) }
 				{ env = currentEvent.env }
 		} {
 			 env = Env([0.001, 1.0, 1.0, 0.001], [0.3, 0.4, 0.3], \sine)
 		};
 		synth = Synth(data.defname, [\out, bus] ++ args, target, addAction);
-		Synth.after(synth, \procgen, [\out, globalbus, \in, bus, \dur, currentEvent.dur * timeScale, 
+		Synth.after(synth, \procgen, [\out, globalbus, \in, bus, \dur, currentEvent.dur * timeScale,
 			\amp, currentEvent.amp])
 			.setn(\env, env);
 		SystemClock.sched(currentEvent.dur * timeScale, { bus.free; bus = nil; });
 	}
-	
+
 	playEvent{|event, target, addAction, timeScale=1|
 		var synth, defindex, data, bus, args, env, amp;
 		bus = Bus.audio(Server.default, 2);
 		defindex = this.findNearestInCluster(event.cluster);
-		if (defindex.isNil) { 
+		if (defindex.isNil) {
 			defclusters[event.cluster].choose
 		};
 		data = metadata[defindex];
@@ -259,8 +258,8 @@ MikroGeen{
 			args[argindex] = this.roundFreq(args[argindex], 24, currentEvent.freq)
 		});
 //		if (event.env.notNil) {
-//			if (event.env.levels.size > 16) 
-//				{ env = Env([0.001, 1.0, 1.0, 0.001], [0.3, 0.4, 0.3], \sine) } 
+//			if (event.env.levels.size > 16)
+//				{ env = Env([0.001, 1.0, 1.0, 0.001], [0.3, 0.4, 0.3], \sine) }
 //				{ env = event.env }
 //		} {
 //			 env = Env([0.001, 1.0, 1.0, 0.001], [0.3, 0.4, 0.3], \sine)
@@ -276,12 +275,12 @@ MikroGeen{
 			amp = -6.dbamp
 		};
 		synth = Synth(data.defname, [\out, bus] ++ args, target, addAction);
-		Synth.after(synth, \procgen, [\out, globalbus, \in, bus, \dur, event.dur * timeScale, 
+		Synth.after(synth, \procgen, [\out, globalbus, \in, bus, \dur, event.dur * timeScale,
 			\amp, event.amp * amp ])
 			.setn(\env, env);
-		SystemClock.sched(event.dur * timeScale, { bus.free; bus = nil; });		
+		SystemClock.sched(event.dur * timeScale, { bus.free; bus = nil; });
 	}
-		
+
 	playSequence{|size=4, target, addAction, timeScale=1, source, doneAction|
 		var seq;
 		Routine({
@@ -296,14 +295,14 @@ MikroGeen{
 			doneAction.(this)
 		}).play
 	}
-	
+
 	playPreparedSequence{|size=4, timeScale=1, source, firstInterval, doneAction|
 		var seqdur;
 		"---".postln;
 		(\dur: source.duration.round(timeQuant), \intr: firstInterval.round(timeQuant)).postln;
 		currentSource = source;
 		this.prepareSequence(size, source, firstInterval);
-		seqdur = ([0.0] ++ currentSequence.keep(size-1).collect(_.int)).integrate + 
+		seqdur = ([0.0] ++ currentSequence.keep(size-1).collect(_.int)).integrate +
 			currentSequence.collect(_.dur);
 		seqdur = seqdur.maxItem;
 		Post << "Sequence started with total duration: " << seqdur << Char.nl;
@@ -349,7 +348,7 @@ MikroGeen{
 			doneAction.()
 		}).play
 	}
-	
+
 	prepareSequence{|size=4, source, firstInterval|
 		this.initializeChain(source, firstInterval);
 		currentSequence = Array();
@@ -358,7 +357,7 @@ MikroGeen{
 			this.nextEvent;
 		})
 	}
-	
+
 	prepareForPlay{|record=false, timeScale=1, decoderbus, doneFunc, amp=1|
 		Routine({
 			globalbus = Bus.audio(Server.default, 4);
@@ -369,13 +368,13 @@ MikroGeen{
 			if (record) { Server.default.record };
 //			CmdPeriod.add({ this.stop });
 			Server.default.sync;
-			if (currentEvent.isNil) { 
+			if (currentEvent.isNil) {
 				this.initializeChain
 			};
 			doneFunc.();
 		}).play
 	}
-	
+
 	play{|record=false, timeScale=1, bus, amp = 1|
 		this.prepareForPlay(record, timeScale, bus, {
 			player = Routine({
@@ -387,23 +386,23 @@ MikroGeen{
 			}).play
 		}, amp);
 	}
-	
+
 	stop{
-		if (Server.default.recordNode.notNil) { Server.default.stopRecording }; 
+		if (Server.default.recordNode.notNil) { Server.default.stopRecording };
 		player.stop;
 		SystemClock.sched(currentEvent.dur, {
 			dynsynth.free;
-			group.free; 
+			group.free;
 			globalbus.free;
 			nil
 		});
 	}
-	
+
 	getDefArgs{|name|
 		var ev = metadata.select({|data| data.defname == name.asString }).first;
 		if (ev.notNil) { ^ev.args } { ^nil }
 	}
-	
+
 	playGEPSynth{|name|
 		var args, ev;
 		ev = metadata.select({|data| data.defname == name }).first;
@@ -415,7 +414,7 @@ MikroGeen{
 			^nil
 		}
 	}
-	
+
 	archiveSets{
 		var path;
 		path = this.getArchivePath;
@@ -426,9 +425,9 @@ MikroGeen{
 		clusterSet.writeArchive(path ++ "clusterSet");
 		envSet.writeArchive(path ++ "envSet");
 	}
-	
+
 	loadSets{
-		var path; 
+		var path;
 		path = this.getArchivePath;
 		durSet = MarkovSet.readArchive(path ++ "durSet");
 		freqSet = MarkovSet.readArchive(path ++ "freqSet");
@@ -438,7 +437,7 @@ MikroGeen{
 		envSet = MarkovSet.readArchive(path ++ "envSet");
 		allEvents = eventData.datalib.values.collect(_.events).flat;
 	}
-	
+
 	getArchivePath{
 		var path, dir, temp;
 		temp = MikroData.loadPath.split($/);
@@ -448,13 +447,13 @@ MikroGeen{
 		if (File.exists(path).not) {
 			File.mkdir(path)
 		};
-		^path;	
+		^path;
 	}
-		
+
 }
 
 LiveGeen : MikroGeen{
-	
+
 	activate{|decoderbus, amp|
 		Routine({
 			globalbus = Bus.audio(Server.default, 4);
@@ -462,7 +461,7 @@ LiveGeen : MikroGeen{
 			Server.default.sync;
 			dynsynth = Synth.tail(group, \dynamics, [\out, decoderbus, \in, globalbus, \amp, amp,
 				\ra, 0.06, \rt, 3, \er, 0.7, \tl, 0.7]);
-		}).play		
+		}).play
 	}
-	
+
 }

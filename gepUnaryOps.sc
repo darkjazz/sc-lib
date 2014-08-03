@@ -1,7 +1,7 @@
 Sqrt{ *ar{|input| ^sqrt(input) } }
 Squared{ *ar{|input| ^squared(input) }	}
 Cubed{ *ar{|input| ^cubed(input) }	}
-Distort{	*ar{|input| ^distort(input) }	}
+Distort{ *ar{|input| ^distort(input) }	}
 Softclip{ *ar{|input| ^softclip(input) } }
 Neg{ *ar{|input| ^neg(input) } }
 Floor{ *ar{|input| ^floor(input) }	}
