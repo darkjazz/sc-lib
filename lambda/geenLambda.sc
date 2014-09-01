@@ -10,6 +10,8 @@ GeenLambda{
 	
 	init{
 		
+		libname = libname ? "lib001";
+		
 		if (decoder.isNil) {
 			decoder = FoaDecoder();
 		};

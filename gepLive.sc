@@ -537,16 +537,15 @@ GepPlayer{
 		{
 			var name, defargs, ampargs;
 			name = data[index].defname;
-			defargs = data[index].args;
+			defargs = data[index].args.args;
 			ampargs = [\out, foaBus[("foa"++foaKind).asSymbol], \amp, amp];
 			Server.default.loadSynthDef(name, dir: Paths.gepDefDir);
 			Server.default.sync;
 			this.compilePanDefString(index);
-//			defStrings[name.asSymbol].postln;
+			defStrings[name.asSymbol].postln;
 			if (sendEnabled) {
 				this.sendSynthDefString(defStrings[name.asSymbol])
 			};
-//			synths[index] = Synth.head(group, name, args);
 			synths[index] = GepSynth(name, defargs, group, ampargs);
 			playFunc.(index, section, synths[index])
 		}.fork
@@ -583,8 +582,8 @@ GepPlayer{
 	compileFoaDefString{|index|
 		var defname, defstr, chrom;
 		defname = data[index].defname;
-		chrom = GEPChromosome(data[index].code, data[index].terminals, 
-			data[index].header.numgenes, data[index].linker);
+		chrom = GEPChromosome(data[index].data.code, data[index].data.terminals, 
+			data[index].data.header.numgenes, data[index].data.linker);
 		defstr = chrom.asUgenExpressionTree.asFoaSynthDefString(defname, Normalizer, 
 			UGenExpressionTree.foaControls.keys.choose);
 		defStrings[defname.asSymbol] = defstr;
@@ -594,8 +593,8 @@ GepPlayer{
 	compilePanDefString{|index|
 		var defname, defstr, chrom;
 		defname = data[index].defname;
-		chrom = GEPChromosome(data[index].code, data[index].terminals, 
-			data[index].header.numgenes, data[index].linker);
+		chrom = GEPChromosome(data[index].data.code, data[index].data.terminals, 
+			data[index].data.header.numgenes, data[index].data.linker);
 		defstr = chrom.asUgenExpressionTree.asSynthDefString(defname, Pan2, Normalizer);
 		defStrings[defname.asSymbol] = defstr;
 		^defname
