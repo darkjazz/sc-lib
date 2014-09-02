@@ -27,12 +27,12 @@ UGEP : GEP {
 		this.setTailSize;
 		this.randInitChromosomes;
 	}
-	
+
 	initValid{
 		this.setTailSize;
 		this.randInitValidChromosomes;
 	}
-	
+
 	randInitChromosomes{|forceInitFunc=true|
 		if (terminals.notNil.and(methods.notNil)) {
 			chromosomes = Array.fill(populationSize, {
@@ -79,7 +79,7 @@ UGEP : GEP {
 			data.code.select(_.isKindOf(Symbol)).do({|term|
 				if (terminals.includes(term).not) {
 					terminals = terminals.add(term)
-				}				
+				}
 			})
 		});
 		terminals.sort;
@@ -89,7 +89,7 @@ UGEP : GEP {
 			GEPChromosome( selection.removeAt(randInd).code, terminals, numgenes, linker )
 		});
 	}
-	
+
 	loadAllFromLibrary{|excludeUGenList, data|
 		var selection, randInd;
 		if (data.isNil) {
@@ -113,20 +113,20 @@ UGEP : GEP {
 			data.code.select(_.isKindOf(Symbol)).do({|term|
 				if (terminals.includes(term).not) {
 					terminals = terminals.add(term)
-				}				
+				}
 			})
 		});
 		terminals.sort;
-		this.setTailSize;		
+		this.setTailSize;
 		populationSize = selection.size;
 		chromosomes = Array.fill(populationSize, {|i|
 			GEPChromosome( selection[i].code, terminals, numgenes, linker )
-		});		
+		});
 	}
-	
+
 	fillFromList{|list|
 		methods = [];
-		terminals = [];		
+		terminals = [];
 		list.do({|code|
 			code.select(_.isKindOf(Class)).do({|meth|
 				if (methods.includes(meth).not) {
@@ -136,25 +136,25 @@ UGEP : GEP {
 			code.select(_.isKindOf(Symbol)).do({|term|
 				if (terminals.includes(term).not) {
 					terminals = terminals.add(term)
-				}				
+				}
 			})
 		});
 		terminals.sort;
-		this.setTailSize;		
+		this.setTailSize;
 		chromosomes = list.collect({|code|
 			GEPChromosome(code, terminals, numgenes, linker)
 		});
 	}
-	
+
 	setTailSize{
 		tailsize = headsize * (this.maxNumberOfArgs - 1) + 1;
 	}
-	
+
 	randInitValidChromosomes{
 		chromosomes = Array();
 		this.addChromosome;
 	}
-	
+
 	checkChromosome{|chrm|
 		var isValid = false;
 		try{
@@ -163,7 +163,7 @@ UGEP : GEP {
 		};
 		^isValid
 	}
-	
+
 	addChromosome{
 		var indv, chrm;
 		indv = Array();
@@ -182,9 +182,9 @@ UGEP : GEP {
 		if (chromosomes.size < populationSize) {
 			this.addChromosome
 		}
-		
+
 	}
-	
+
 	maxNumberOfArgs{
 		var max;
 		max = (methods.collect({|ugen|
@@ -197,12 +197,12 @@ UGEP : GEP {
 		}) ? [0]).maxItem;
 		^max
 	}
-	
+
 	saveData{|index, name, run = 0|
 		var filename, archive, header;
 		filename = name ? this.makeDefName(index);
 		header =  (run: run, generation: generationCount, headsize: headsize, numgenes: numgenes);
-		archive = ZArchive.write(this.class.archDir +/+ filename ++ "." ++ this.class.fileExt);
+		archive = ZArchive.write(Paths.gepArchDir +/+ filename ++ "." ++ this.class.fileExt);
 		archive.writeItem(header);
 		archive.writeItem(methods);
 		archive.writeItem(terminals);
@@ -210,13 +210,13 @@ UGEP : GEP {
 		archive.writeItem(this.at(index).code);
 		archive.writeClose;
 	}
-	
+
 	makeDefName{|index|
-		^(this.class.fileNamePrefix ++ "_gen" ++ generationCount.asString.padLeft(3, "0") ++ "_" 
+		^(this.class.fileNamePrefix ++ "_gen" ++ generationCount.asString.padLeft(3, "0") ++ "_"
 			++ index.asString.padLeft(3, "0") ++ "_" ++ Date.getDate.stamp
 		).asSymbol
 	}
-	
+
 	*loadData{|path|
 		var archive, data;
 		data = ();
@@ -229,19 +229,19 @@ UGEP : GEP {
 		archive.close;
 		^data
 	}
-	
+
 	*loadDataFromDir{|path|
 		path = path ? Paths.gepArchDir;
 		^(path+/+"*").pathMatch.collect({|name| this.loadData(name) })
 	}
-	
+
 }
 
 
 UGenExpressionTree : ExpressionTree {
 
 	classvar <foaControls;
-	
+
 	decode{
 		var code;
 		code = chrom.code.clump((chrom.code.size/chrom.numGenes).asInt);
@@ -256,24 +256,24 @@ UGenExpressionTree : ExpressionTree {
 					indices = (argindex..argindex+argNames.size-1);
 					argindex = argindex + indices.size;
 					event[i] = indices;
-				}				
+				}
 			}).select(_.notNil);
 			this.appendArgs(array.first, array)
 
 		}));
 	}
-	
+
 	appendArgs{|event, array|
 		var nodes, class;
 		depth = depth + 1;
 		if (depth > maxDepth) { maxDepth = depth };
-		nodes = event.values.pop.collect({|ind| 
+		nodes = event.values.pop.collect({|ind|
 			if (gene[ind].isKindOf(Class)) {
-				this.appendArgs(array.select({|sev| sev.keys.pop == ind }).first, array ) 
+				this.appendArgs(array.select({|sev| sev.keys.pop == ind }).first, array )
 			} {
 				UGepNode(gene[ind])
 			}
-		}); 
+		});
 		class = gene[event.keys.pop];
 		depth = depth - 1;
 		^UGepNode(class, nodes, this.getArgNames(class.class).select({|name| name != \this }))
@@ -289,10 +289,10 @@ UGenExpressionTree : ExpressionTree {
 		}
 		^ar
 	}
-	
+
 	asSynthDefString{|defname, panner, limiter, addEnv=false|
 		var string;
-		string = "SynthDef('" ++ defname ++ "', " 
+		string = "SynthDef('" ++ defname ++ "', "
 			++ "{" ++ this.appendSynthDefTerminals ++ " Out.ar(out,";
 		if (panner.notNil) {
 			string = string ++ panner.asString ++ ".ar("
@@ -301,7 +301,7 @@ UGenExpressionTree : ExpressionTree {
 			string = string ++ limiter.asString ++ ".ar("
 		};
 		string = string ++ "LeakDC.ar(";
-		string = string ++ this.asFunctionString(false); 
+		string = string ++ this.asFunctionString(false);
 		string = string ++ ")";
 		if (limiter.notNil) {
 			string = string ++ ")"
@@ -309,17 +309,33 @@ UGenExpressionTree : ExpressionTree {
 		if (panner.notNil) {
 			string = string ++ ",0,amp)"
 		};
-		if (addEnv) 
+		if (addEnv)
 		{
 			string = string ++ " * EnvGen.kr(EnvControl.kr,timeScale:dur,doneAction:2)"
 		};
 		string = string ++ ") })";
 		^string
 	}
-	
+
+	asSynthDefWrapString{|limiter|
+		var string;
+		string = "{" ++ this.appendSynthDefWrapTerminals;
+		if (limiter.notNil) {
+			string = string ++ limiter.asString ++ ".ar("
+		};
+		string = string ++ "LeakDC.ar(";
+		string = string ++ this.asFunctionString(false);
+		string = string ++ ")";
+		if (limiter.notNil) {
+			string = string ++ ")"
+		};
+		string = string ++ "}";
+		^string
+	}
+
 	asFoaSynthDefString{|defname, limiter, rotX, rotY, rotZ|
 		var string;
-		string = "SynthDef('" ++ defname ++ "', " 
+		string = "SynthDef('" ++ defname ++ "', "
 			++ "{" ++ this.appendFoaSynthDefTerminals ++ " Out.ar(out, ";
 		string = string ++ this.openFoaString;
 		if (limiter.notNil) {
@@ -338,44 +354,52 @@ UGenExpressionTree : ExpressionTree {
 		};
 		string = string ++ ") })";
 		^string
-		
+
 	}
-	
+
 	asFoaNdefString{|defname, limiter, rotX, rotY, rotZ|
 		^this.asFoaSynthDefString(defname, limiter, rotX, rotY, rotZ).replace("SynthDef", "Ndef")
 	}
-	
+
 	openFoaString{
 		^"FoaTransform.ar( FoaEncode.ar( Array.fill(4, { IFFT( PV_Diffuser( FFT( LocalBuf(1024), Limiter.ar("
 	}
-	
+
 	closeFoaString{|rotX, rotY, rotZ|
 		^(")*amp))) }), FoaEncoderMatrix.newAtoB ), 'rtt', " ++ rotX ++ ", " ++ rotY ++ ", " ++ rotZ ++ ")")
 	}
-	
+
 	appendSynthDefTerminals{
 		var str = "|out=0,amp=0,dur=1,";
 		chrom.terminals.do({|sym|
 			str = str ++ sym.asString ++ ","
 		});
-		^(str.keep(str.size-1) ++ "| ")		
+		^(str.keep(str.size-1) ++ "| ")
 	}
-	
+
 	appendFoaSynthDefTerminals{
 		var str = "|out=0,amp=0,rotx=0,roty=0,rotz=0,";
 		chrom.terminals.do({|sym|
 			str = str ++ sym.asString ++ ","
 		});
-		^(str.keep(str.size-1) ++ "| ")		
+		^(str.keep(str.size-1) ++ "| ")
+	}
+
+	appendSynthDefWrapTerminals{
+		var str = "|";
+		chrom.terminals.do({|sym|
+			str = str ++ sym.asString ++ ","
+		});
+		^(str.keep(str.size-1) ++ "| ")
 	}
 
 	appendString{|node|
 		var str = "";
-						
+
 		if (node.isFunction) {
-			
+
 			str = str + node.value.asString ++ ".ar(";
-							
+
 			node.nodes.do({|subnode, i|
 				var farg;
 				farg = chrom.forceArgs.select({|aval, aname| node.argNames[i] == aname });
@@ -385,16 +409,16 @@ UGenExpressionTree : ExpressionTree {
 				{
 					str = str ++ this.appendString(subnode);
 				};
-				if (i < node.nodes.lastIndex) { 
+				if (i < node.nodes.lastIndex) {
 					if (chrom.isExceptionOp(node.value.name)) {
-						str = str + node.value.name.asString ++ " " 
+						str = str + node.value.name.asString ++ " "
 					}
 					{
-						str = str ++ ", " 
+						str = str ++ ", "
 					}
 				}
 			});
-			
+
 			str = str ++ " )";
 		}
 		{
@@ -402,7 +426,7 @@ UGenExpressionTree : ExpressionTree {
 		};
 		^str
 	}
-	
+
 	saveAsSynthDef{|name, panner, limiter, args, stats|
 		var def, arch, meta;
 		def = this.asSynthDefString(name, panner, limiter).interpret;
@@ -413,9 +437,9 @@ UGenExpressionTree : ExpressionTree {
 		arch.writeItem(meta);
 		arch.writeClose;
 		arch = nil;
-		Post << "Wrote metadata for " << name << " to " << this.class.metaDir << Char.nl; 
+		Post << "Wrote metadata for " << name << " to " << Paths.gepMetaDir << Char.nl;
 	}
-		
+
 	*loadMetadata{|defname, path|
 		var meta, arch;
 		path = path ? Paths.gepMetaDir;
@@ -425,7 +449,7 @@ UGenExpressionTree : ExpressionTree {
 		arch = nil;
 		^meta
 	}
-	
+
 	*loadMetadataFromDir{|path|
 		path = path ? Paths.gepMetaDir;
 		^(path++"*").pathMatch.collect(_.basename).collect(_.split($.)).collect(_.first).collect({|name|
@@ -434,61 +458,61 @@ UGenExpressionTree : ExpressionTree {
 			data
 		})
 	}
-	
+
 	*initClass{
 		foaControls = Dictionary();
 		foaControls['noise0'] = [
-			"LFNoise0.kr(rotx).range(-pi, pi)", 
-			"LFNoise0.kr(roty).range(-pi, pi)", 
+			"LFNoise0.kr(rotx).range(-pi, pi)",
+			"LFNoise0.kr(roty).range(-pi, pi)",
 			"LFNoise0.kr(rotz).range(-pi, pi)"
 		];
 		foaControls['noise2'] = [
-			"LFNoise2.kr(rotx).range(-pi, pi)", 
-			"LFNoise2.kr(roty).range(-pi, pi)", 
+			"LFNoise2.kr(rotx).range(-pi, pi)",
+			"LFNoise2.kr(roty).range(-pi, pi)",
 			"LFNoise2.kr(rotz).range(-pi, pi)"
 		];
 		foaControls['saw'] = [
-			"LFSaw.kr(rotx).range(-pi, pi)", 
-			"LFSaw.kr(roty).range(-pi, pi)", 
+			"LFSaw.kr(rotx).range(-pi, pi)",
+			"LFSaw.kr(roty).range(-pi, pi)",
 			"LFSaw.kr(rotz).range(-pi, pi)"
 		];
 		foaControls['sine'] = [
-			"SinOsc.kr(rotx).range(-pi, pi)", 
-			"SinOsc.kr(roty).range(-pi, pi)", 
+			"SinOsc.kr(rotx).range(-pi, pi)",
+			"SinOsc.kr(roty).range(-pi, pi)",
 			"SinOsc.kr(rotz).range(-pi, pi)"
 		];
 		foaControls['mix1'] = [
-			"SinOsc.kr(rotx).range(-pi, pi)", 
-			"LFSaw.kr(roty).range(-pi, pi)", 
+			"SinOsc.kr(rotx).range(-pi, pi)",
+			"LFSaw.kr(roty).range(-pi, pi)",
 			"LFNoise0.kr(rotz).range(-pi, pi)"
 		];
 		foaControls['mix2'] = [
-			"LFNoise1.kr(rotx).range(-pi, pi)", 
-			"LFTri.kr(roty).range(-pi, pi)", 
+			"LFNoise1.kr(rotx).range(-pi, pi)",
+			"LFTri.kr(roty).range(-pi, pi)",
 			"SinOsc.kr(rotz).range(-pi, pi)"
 		];
 		foaControls['mix3'] = [
-			"LFSaw.kr(rotx).range(-pi, pi)", 
-			"LFNoise1.kr(roty).range(-pi, pi)", 
+			"LFSaw.kr(rotx).range(-pi, pi)",
+			"LFNoise1.kr(roty).range(-pi, pi)",
 			"LFPulse.kr(rotz).range(-pi, pi)"
 		];
 		foaControls['mix4'] = [
-			"LFNoise0.kr(rotx).range(-pi, pi)", 
-			"SinOsc.kr(roty).range(-pi, pi)", 
+			"LFNoise0.kr(rotx).range(-pi, pi)",
+			"SinOsc.kr(roty).range(-pi, pi)",
 			"LFSaw.kr(rotz).range(-pi, pi)"
 		];
 	}
-	
+
 }
 
 UGepNode : GepNode{
-	
+
 	var <>argNames;
-	
+
 	*new{|value, nodes, argNames|
 		^super.new(value, nodes).init(argNames)
 	}
-	
+
 	init{|names| argNames = names }
 
 }
@@ -496,7 +520,7 @@ UGepNode : GepNode{
 /*
 UGepNode : GepNode{
 	var <value, <>nodes, <>range;
-	
+
 	*new{|value, nodes, range|
 		^super.new(value, nodes).range_(range)
 	}
@@ -505,14 +529,14 @@ UGepNode : GepNode{
 */
 
 UGepPlayer{
-	
+
 	var <defname, <defstr, headsize, numgenes, code, linker, methods, terminals, args, stats;
 	var argcode, chrom, et, isValid, <synth, <>amp = 0;
-	
+
 	*new{|defname|
 		^super.newCopyArgs(defname).init
 	}
-	
+
 	init{
 		var path, data, meta;
 		path = Paths.gepArchDir +/+ defname.asString ++ "." ++ UGEP.fileExt;
@@ -534,18 +558,18 @@ UGepPlayer{
 			("Data file " ++ path ++ " not found").warn
 		}
 	}
-	
+
 	makeDefString{
 		chrom = GEPChromosome(code, terminals, numgenes, linker);
 		et = chrom.asUgenExpressionTree;
-		defstr = et.asFoaSynthDefString(defname, Normalizer, 
+		defstr = et.asFoaSynthDefString(defname, Normalizer,
 			UGenExpressionTree.foaControls.keys.choose
 		);
 		{
 			defstr.interpret.add
 		}.try({ isValid = false });
 	}
-	
+
 	getArgs{
 		if (args.isKindOf(Event)) {
 			^args.args
@@ -554,17 +578,17 @@ UGepPlayer{
 			^args
 		}
 	}
-	
+
 	play{|target=1, addAction='addToHead', out=0, amp=0, rotx=0, roty=0, rotz=0|
 		if (isValid) {
-			synth = Synth(defname, [\out, out, \amp, amp, \rotx, rotx, \roty, roty, \rotz, rotz] 
+			synth = Synth(defname, [\out, out, \amp, amp, \rotx, rotx, \roty, roty, \rotz, rotz]
 				++ this.getArgs, target, addAction)
 		}
 		{
 			"SynthDef not valid".error
 		}
 	}
-	
+
 	fade{|start=0, end=0, time=1, interval=0.1|
 		var value, incr, numSteps;
 		numSteps = (time/interval).asInt;
@@ -578,13 +602,13 @@ UGepPlayer{
 			});
 			synth.set('amp', end);
 			Post << "finished fade for " << defname << Char.nl;
-		}).play		
+		}).play
 	}
-	
+
 	set{|name, value| synth.set(name, value) }
-	
+
 	free{ synth.free }
-		
+
 	asPmono{|target=1, addAction='addToHead', ampPattern=1, deltaPattern=1, out=0, rotx=1, roty=1, rotz=1|
 		^Pmono(
 			defname, \group, target, \addAction, addAction,
@@ -594,5 +618,5 @@ UGepPlayer{
 			*this.getArgs
 		)
 	}
-	
+
 }
