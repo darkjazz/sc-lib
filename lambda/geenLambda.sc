@@ -37,16 +37,16 @@ GeenLambda{
 			Post << "Initialising MikroGeen.." << Char.nl;
 			if (geen.isNil)
 			{
-				geen = MikroGeen();
+				geen = MikroGeen(16, headsize: 16, numgenes: 4);
 			};	
 			Post << "Updating clusters.." << Char.nl;
-//			geen.updateClusters;
-			geen.loadClusters("/Users/alo/Data/mikro/130214_194521.kmeans");
+			geen.updateClusters;
+//			geen.loadClusters("/Users/alo/Data/mikro/130214_194521.kmeans");
 			Post << "Loading event data.." << Char.nl;
 			geen.loadEventData(doneAction: { 
 				Post << "Training sets.." << Char.nl;
-//				geen.trainSets;
-				geen.loadSets;
+				geen.trainSets;
+//				geen.loadSets;
 				Post << "Training sets finished..." << Char.nl;
 				Post << "Setup complete, ready for launch..." << Char.nl;
 			});
@@ -217,18 +217,18 @@ GeenLambda{
 //					mikro.graphics.setAdd([rrand(0.01, 0.1), rrand(0.9, 0.99)].choose);
 //					mikro.graphics.setBackground(0.1.rand, 0.1.rand, 0.1.rand);
 
-//					if ((isActive.not) and: { mikro.analyzer.events.size > 4 }) {
-//						isActive = true;
-//						Post << "playing MikroGeen prepared sequence" << Char.nl;
-//						
-//						geen.playPreparedSequence( 
-//							(3..8).wchoose(Array.geom(6,16,0.8).normalizeSum), 
-//							stats.amps.mean.explin(0.001, 1.0, 0.3, 4.0), 
-//							mikro.analyzer.events.last, mikro.analyzer.eventIntervals.last, {
-//								isActive = false
-//							}
-//						);
-//					};
+					if ((isActive.not) and: { mikro.analyzer.events.size > 4 }) {
+						isActive = true;
+						Post << "playing MikroGeen prepared sequence" << Char.nl;
+						
+						geen.playPreparedSequence( 
+							(3..8).wchoose(Array.geom(6,16,0.8).normalizeSum), 
+							stats.amps.mean.explin(0.001, 1.0, 0.3, 4.0), 
+							mikro.analyzer.events.last, mikro.analyzer.eventIntervals.last, {
+								isActive = false
+							}
+						);
+					};
 					this.changePattern
 				};
 				

@@ -71,6 +71,58 @@ UGepLoader{
 		file = nil;
 		^this.loadNames(defarray)
 	}
+	
+	/* 
+	simple date search format: yymmdd
+	*/
+	loadByDate{|from, to|
+		var paths, dates, indices;
+		paths = (Paths.gepArchDir ++ "*").pathMatch;
+		dates = paths.collect({|path| path.basename.split($.).first.drop(15).keep(6) });
+		indices = dates.selectIndices({|date| 
+			var select = false;
+			if (from.notNil.and(to.isNil))
+			{
+				select = (date.asInt >= from.asInt)
+			};
+			if (from.isNil.and(to.notNil))
+			{
+				select = (date.asInt <= to.asInt)
+			};
+			if (from.notNil.and(to.notNil))
+			{
+				select = (date.asInt >= from.asInt).and(date.asInt <= to.asInt)
+			};
+			select
+		});
+		
+		paths = paths[indices];
+		
+		data = paths.collect({|path|
+			var gesdata, meta, defname;
+			defname = path.basename.split($.).first;
+			if (File.exists(path)) { data = UGEP.loadData(path) };
+			meta = UGenExpressionTree.loadMetadata(defname);
+			meta.data = data;
+			meta.defname = defname.asSymbol;
+			meta
+		});
+		
+		this.syncStats;
+		
+		if (headsize.notNil) {
+			data = data.select({|item| item.data.header.headsize == headsize });
+		};
+
+		if (numgenes.notNil) {
+			data = data.select({|item| item.data.header.numgenes == numgenes });
+		};
+
+		Post << "UGep metadata loaded." << Char.nl;
+
+		^data
+		
+	}
 
 	syncStats{
 
@@ -93,4 +145,81 @@ UGepLoader{
 
 	}
 
+}
+
+JsonLoader{
+	
+	classvar <localIP = "127.0.0.1", <localPort = 5984;
+	classvar <remoteIP = "", remotePort = 0;
+	classvar <viewsPath = "/Users/alo/SuperCollider/gep/json/views_00.js";
+	
+	var <db;
+	
+	*new{|dbname, useLocal=true|
+		^super.new.init(dbname, useLocal)
+	}
+	
+	init{|dbname, useLocal|
+		db = CouchDB(NetAddr(this.class.localIP, this.class.localPort), dbname)
+	}
+	
+	putViewsFromFile{
+		db.putViewsFromDoc(this.class.viewsPath)
+	}
+		
+	getIDsByDate{|date|
+		var str, ids, defkey;
+		str = db.get("headerByDate?key=\"#\"".replace("#", date));
+		str = str.subStr((str.find("\"rows\":")+10), str.size-6) ++ "  ";
+		ids = str.split(Char.nl).collect({|id| 
+			id.replace("{", "(").replace("}", ")").replace("\"", "'")
+				.keep(id.size-2).interpret 
+		});
+		^ids
+	}
+	
+	getIDsByDateRange{|from="000000", to="999999"|
+		var str, ids, defkey;
+		str = db.get("headerByDate?'startkey=\"#\"&endkey=\"$\"'"
+			.replace("#", from).replace("$", to)
+		);
+		str = str.subStr((str.find("\"rows\":")+10), str.size-6) ++ "  ";
+		ids = str.split(Char.nl).collect({|id| 
+			id.replace("{", "(").replace("}", ")").replace("\"", "'")
+				.keep(id.size-2).interpret 
+		});
+		^ids
+	}
+			
+	getPlayerDataByDefName{|defname|
+		var rsp, array, data;
+		rsp = db.get("playerDataByDefName?key=\"#\"".replace("#", defname));
+		array = rsp.subStr((rsp.find("\"value\":")+8), rsp.size - 7)
+			.replace("\"", "'").replace("\n", "").interpret;
+		data = ();
+		data.defname = defname;
+		data.args = array[0];
+		data.headsize = array[1].asInteger;
+		data.numgenes = array[2].asInteger;
+		data.code = array[3].collect({|it| 
+			if (it.asString.size == 1) { it.asSymbol } { it.asString.interpret }
+		});
+		data.terminals = array[4];
+		data.linker = AbstractFunction.methods.select({|method| 
+			method.name == array[5]
+		}).first;
+		^data
+	}
+	
+	getDefNamesByHeader{|headsize, numgenes|
+		var str, ids, defkey;
+		str = db.get("defnamesByHeader?key=\"#\"".replace("#", headsize.asString ++ numgenes.asString));
+		str = str.subStr((str.find("\"rows\":")+10), str.size-6) ++ "  ";
+		ids = str.split(Char.nl).collect({|id| 
+			id.replace("{", "(").replace("}", ")").replace("\"", "'")
+				.keep(id.size-2).interpret 
+		});
+		^ids
+	}
+		
 }

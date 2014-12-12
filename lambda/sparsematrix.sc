@@ -14,6 +14,25 @@ SparseMatrix{
 	*new{|decoder, graphics, quant=2, ncoef=8|
 		^super.newCopyArgs(decoder, graphics, quant, ncoef).init
 	}
+	
+	*makeSparsePatterns{|quant|
+		SparseMatrix.allPatterns = DjembeLib.convertAll(quant);
+		SparseMatrix.patterns12 = SparseMatrix.allPatterns.select({|pat| 
+			(pat.first.size / quant) % 6 == 0 
+		});
+		SparseMatrix.patterns16 = SparseMatrix.allPatterns.select({|pat, name| 
+			SparseMatrix.patterns12.keys.includes(name).not 
+		});
+		SparseMatrix.sparseObjects = SparseMatrix.allPatterns.collect(
+			SparsePattern(_)).collect(_.makeSparse
+		);
+		SparseMatrix.sparsePatterns = SparseMatrix.sparseObjects.collect(_.patterns);
+		SparseMatrix.patterns16.collect(_.size).postln;
+		SparseMatrix.patterns16.size.postln;
+		"-----".postln;
+		SparseMatrix.patterns12.collect(_.size).postln;
+		SparseMatrix.patterns12.size.postln;
+	}
 
 	init{
 		defpath = Paths.matrixdefs;
@@ -79,16 +98,7 @@ SparseMatrix{
 		nofxbus = Server.default.options.numAudioBusChannels-1;
 
 		if (this.class.allPatterns.isNil) {
-			this.class.allPatterns = DjembeLib.convertAll(quant);
-			this.class.patterns12 = this.class.allPatterns.select({|pat| (pat.first.size / quant) % 6 == 0 });
-			this.class.patterns16 = this.class.allPatterns.select({|pat, name| this.class.patterns12.keys.includes(name).not });
-			this.class.sparseObjects = this.class.allPatterns.collect(SparsePattern(_)).collect(_.makeSparse);
-			this.class.sparsePatterns = this.class.sparseObjects.collect(_.patterns);
-			this.class.patterns16.collect(_.size).postln;
-			this.class.patterns16.size.postln;
-			"-----".postln;
-			this.class.patterns12.collect(_.size).postln;
-			this.class.patterns12.size.postln;
+			this.class.makeSparsePatterns(quant)
 		};
 
 		rDB = (
@@ -327,6 +337,7 @@ SparseMatrix{
 		buffers.bits = (Paths.matrixbufs +/+ "bit*").pathMatch.collect({|path| Buffer.read(Server.default, path) });
 		buffers.cycles = (Paths.matrixbufs +/+ "cycle*").pathMatch.collect({|path| Buffer.read(Server.default, path) });
 		Server.default.sync;
+		Post << "matrix buffers loaded.." << Char.nl;
 	}
 
 	makeDef{|name, func|
@@ -451,7 +462,7 @@ SparseMatrix{
 
 	defsAt{|name| ^patterndefs[name]  }
 
-	assignCodeWindow{|document|
+	assignCodeWindow{|document,prompt="@ "|
 		var sendarray;
 		if (document.isKindOf(Document).not) {
 			codewindow = document ? Document("---sparsematrix---")
@@ -463,7 +474,7 @@ SparseMatrix{
 			if ((uni == 3) and: { key == 76 })
 			{
 				sendarray = doc.selectedString.split(Char.nl);
-				sendarray[0] = "@ " ++ sendarray[0];
+				sendarray[0] = prompt ++ sendarray[0];
 				sendarray.do({|str|
 					graphics.sendCodeLine(str)
 				})
@@ -579,7 +590,7 @@ SparseMatrix{
 			size: 32, groupsize: 4, div: 4,
 			sourcenames: ['mandiani', 'kakilambe', 'basikolo'],
 			prefix: "b1", protoname: 'fragproto01',
-			buffers: ~matrix.buffers.frags.drop(28).reverse, defname: 'frag04'
+			buffers: this.buffers.frags.drop(28).reverse, defname: 'frag04'
 		);
 
 		this.addPatternBufferDef('b02',

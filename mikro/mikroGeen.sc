@@ -2,26 +2,32 @@ MikroGeen{
 
 	classvar <>archPath = "/Users/alo/Data/mikro/sets/";
 
-	var nclusters, timeQuant, <metadata, datasize = 20, <clusters;
+	var nclusters, timeQuant, headsize, numgenes, <metadata, datasize = 20, <clusters;
 	var <durSet, <freqSet, <ampSet, <intervalSet, <clusterSet, <envSet;
 	var <eventData, <allEvents, <currentEvent, <defclusters, <group;
 	var player, <globalbus, <dynsynth, <currentSequence, <currentSource;
 
-	*new{|nclusters, timeQuant, defdir|
-		^super.newCopyArgs(nclusters, timeQuant).init(defdir)
+	*new{|nclusters, timeQuant, defdir, headsize, numgenes|
+		^super.newCopyArgs(nclusters, timeQuant, headsize, numgenes).init(defdir)
 	}
 
 	init{|defdir|
 
 //		Server.default.loadDirectory(defdir ? UGenExpressionTree.defDir);
 		/* data.stats can either be an Event or as of 2014 an Array */
-
-		metadata = UGenExpressionTree.loadMetadataFromDir.select({|data|
-			data.stats.isKindOf(Event)
-		}).select({|data|
-			(data.stats.mfcc.size == datasize).and(data.stats.amp.mean <= 1.0)
-				.and(data.stats.mfcc.collect(_.mean).sum.isNaN.not)
-		});
+		
+		if (headsize.notNil.and(numgenes.notNil))
+		{
+			metadata = UGepLoader(headsize, numgenes).load
+		}
+		{
+			metadata = UGenExpressionTree.loadMetadataFromDir.select({|data|
+				data.stats.isKindOf(Event)
+			}).select({|data|
+				(data.stats.mfcc.size == datasize).and(data.stats.amp.mean <= 1.0)
+					.and(data.stats.mfcc.collect(_.mean).sum.isNaN.not)
+			})
+		};
 
 		{
 			SynthDef(\dynamics, {|out, in, amp, ra, rt, er, tl|
@@ -62,7 +68,7 @@ MikroGeen{
 
 			metadata.do({|data|
 				Server.default.loadSynthDef(data.defname, dir: defdir ?
-					UGenExpressionTree.defDir )
+					Paths.gepDefDir )
 			});
 
 		}.fork;

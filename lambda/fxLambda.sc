@@ -1,20 +1,16 @@
 FxLambda{
 	
-	var decoder, graphics, geen, nano, loops, loopstreams, fxdef, efxsynth, mapSynths, fxsynths, fxReady=false;
+	var decoder, graphics, nano, args, loops, loopstreams, fxdef, efxsynth, mapSynths, fxsynths, fxReady=false;
 	var group, freqs, nano, accActive, accControl, oscfncs, rotation, efxbus, gepnames, <gepdefs, gepsynths;
 	var <>accMin, <>accMax, <>bpm=0;
 	
-	*new{|decoder, graphics, geen, nano|
-		^super.newCopyArgs(decoder, graphics, geen, nano).init
+	*new{|decoder, graphics, nano|
+		^super.newCopyArgs(decoder, graphics, nano).init
 	}
 	
 	init{
 		var loadstruct;
-		
-		if (geen.isNil) {
-			geen = MikroGeen();
-		};
-		
+				
 		if (decoder.isNil) {
 			decoder = FoaDecoder();
 		};
@@ -157,11 +153,18 @@ FxLambda{
 			'gep_gen006_019_120523_223408'
 		].collect(_.asString);
 		
+		args = ();
+		
+		gepnames.do({|name|
+			Server.default.loadSynthDef(name, dir: Paths.gepDefDir );
+			args[name] = UGenExpressionTree.loadMetadata(name.asSymbol).args
+		});
+		
 		gepnames.clump(gepnames.size/4).do({|arr, i|
 			var def;
 			def = ();
 			arr.do({|name|
-				def[name] = geen.getDefArgs(name)
+				def[name] = args[name]
 			});
 			gepdefs[i] = (
 				stream: Pseq(arr, inf).asStream,
@@ -286,7 +289,7 @@ FxLambda{
 	
 	scaleArgsToBeat{|args|
 		if (bpm > 0) {
-			^Event.newFrom(args).collect({|value| geen.roundFreq(value, 1, this.calcBeatDur)  }).asKeyValuePairs;
+			^Event.newFrom(args).collect({|value| value.roundFreq(1, this.calcBeatDur)  }).asKeyValuePairs;
 		} {
 			^args
 		}

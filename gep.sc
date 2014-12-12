@@ -123,6 +123,7 @@ GEP{
 				}
 			})
 		}
+		^code
 	}
 	
 	// transpose insert sequence
@@ -237,7 +238,7 @@ GEP{
 		
 		// mutation
 		if (mutationRate > 0.0) {
-			newgen.do({|chrom| this.mutate(chrom.code) })
+			newgen.do({|chrom| chrom.code = this.mutate(chrom.code) })
 		};
 		
 		// insert sequence transposition
@@ -258,21 +259,6 @@ GEP{
 		// recombination
 		newgen.do({|chromA|
 			this.performRecombination(chromA, newgen.choose)
-//			var codeA, codeB, chromB = newgen.choose;
-//			codeA = chromA.code;
-//			codeB = chromB.code;
-//			if (recombinationRate > 0.0) {
-//				if (0.5.coin) {
-//					#codeA, codeB = this.recombineSingle(codeA, codeB);
-//				} {
-//					#codeA, codeB = this.recombineMultiple(codeA, codeB);
-//				}
-//			};
-//			if (geneRecombinationRate > 0.0) {
-//				#codeA, codeB = this.recombineGene(codeA, codeB)
-//			};
-//			chromA.code = codeA;
-//			chromB.code = codeB;
 		});
 		
 		chromosomes = newgen;
@@ -281,6 +267,23 @@ GEP{
 		
 		this.updateScores
 		
+	}
+	
+	growPopulation{
+		var newgen;
+		generationCount = generationCount + 1;
+		newgen = chromosomes.collect({|chr| chr.deepCopy });
+		newgen.do({|chr|
+			chr.generation = generationCount;
+			chr.code = this.mutate(chr.code);
+			chr.code = this.transposeInsertSequence(chr.code);
+			chr.code = this.transposeRoot(chr.code);
+			chr.code = this.transposeGene(chr.code);
+		});
+		newgen.pairsDo({|chrA, chrB| 
+			this.performRecombination(chrA, chrB)
+		});
+		chromosomes = chromosomes ++ newgen;
 	}
 	
 	updateScores{ 
@@ -317,10 +320,14 @@ GEP{
 
 GEPChromosome{
 	var <>code, <terminals, <numGenes, <linker, <forceArgs, <>score=0;
-	var <tree, <>extraDomains, <>constants, parents;
+	var <tree, <>extraDomains, <>constants, parents, <>generation = 0;
 	
 	*new{|code, terminals, ngenes, linker, forceArgs|
 		^super.newCopyArgs(code, terminals, ngenes, linker, forceArgs)
+	}
+	
+	*fromData{|data|
+		^GEPChromosome(data.code, data.terminals, data.header.numgenes, data.linker)
 	}
 	
 	asExpressionTree{|includeObjects=true|
@@ -489,6 +496,31 @@ ExpressionTree{
 			str = str ++ sym.asString ++ ","
 		});
 		^(str.keep(str.size-1) ++ "| ")
+	}
+	
+	renderDot{|name, path|
+		var str, rank = "{rank = same; ";
+		str = "digraph " ++ name ++ "\n{";
+		str = str ++ "graph [margin='0,0,0,0', pad=5.00,5.00, rankdir=TB];\n";
+		str = str ++ "node [margin=0 shape=circle style=filled fontsize=12];\n";
+		str = str ++ "edge [arrowhead=none];\n\n";
+		str = str ++ "R00T [label='Out' fillcolor='grey20' fontcolor=white];\n\n";
+		root.nodes.do({|node, i|
+			var lname;
+			lname = "L" ++ i.asString.padLeft(2);
+			str = str ++ lname ++ " [label='" ++ chrom.linker.name.asString 
+				++ "' fillcolor=grey40 fontcolor=white];\n";
+			str = str ++ this.renderNode(node);
+			rank = rank ++ lname ++ "; ";
+		});
+		str = str ++ "{ rank = same; R00T; }\n";
+		str = str ++ rank ++ "}\n";
+		str = str ++ "}";
+	}
+	
+	renderNode{|node|
+		var nodestr;
+		nodestr = "";
 	}
 	
 }

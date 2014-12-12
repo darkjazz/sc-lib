@@ -2,6 +2,9 @@ UGEP : GEP {
 
 	classvar <fileExt = "gepdata";
 	classvar <fileNamePrefix = "gep";
+	
+	var <colors, <similarityMatrix, <names, jsonWriter;
+	var <>dbname = "ges_00";
 
 	*new{|populationSize, numgenes, headsize, ugens, terminals, linker, forceArgs|
 		^super.new(populationSize, numgenes, headsize, ugens, terminals, linker, forceArgs).init
@@ -60,7 +63,7 @@ UGEP : GEP {
 
 	initFromLibrary{|excludeUGenList|
 		var selection, data, randInd;
-		data = this.class.loadDataFromDir;
+		data = UGepLoader(headsize, numgenes).load;
 		selection = data.select({|data|
 			(data.header.headsize == headsize).and(data.header.numgenes == numgenes)
 		});
@@ -210,6 +213,55 @@ UGEP : GEP {
 		archive.writeItem(this.at(index).code);
 		archive.writeClose;
 	}
+	
+	saveJson{|index, panner, limiter, args, pchrom, stats|
+		var data, defname, chrom;
+		if (jsonWriter.isNil) { jsonWriter = JsonWriter(dbname) };
+		defname = this.makeDefName(index);
+		chrom = this.chromosomes[index];
+		data = this.buildJson(defname, chrom, args, pchrom, stats);
+		this.saveSynthDef(chrom, defname, panner, limiter);
+		jsonWriter.saveSynthDef(data);
+	}
+	
+	buildJson{|defname, chrom, args, pchrom, stats|
+		var data, params;
+		params = (code: pchrom.code, literals: args, constants: pchrom.constants, 
+			extraDomains: pchrom.extraDomains);
+		data = ();
+		data['defname'] = defname.asString;
+		data['code'] = chrom.code;
+		data['generation'] = generationCount;
+		data['headsize'] = headsize;
+		data['numgenes'] = numgenes;
+		data['methods'] = methods;
+		data['terminals'] = terminals;
+		data['linker'] = linker;
+		data['params'] = params;
+		data['stats'] = this.syncStats(stats);
+		^data;
+	}
+	
+	syncStats{|stats|
+		var dev, means, values, newstats;
+		values = stats.collect(_.last).flop;
+		means = values.collect(_.mean);
+		newstats = ();
+		newstats['amp'] = ('mean': means[22], 'stdDev': values[22].stdDev);
+		newstats['cent'] = ('mean': means[21], 'stdDev': values[21].stdDev);
+		newstats['flat'] = ('mean': means[20], 'stdDev': values[20].stdDev);
+		newstats['err'] = ('mean': 0, 'stdDev': 0);
+		newstats['mfcc'] = means[0..19].collect({|mean, i| 
+			('mean': mean, 'stdDev': values[i].stdDev) 
+		});
+		^newstats
+	}	
+	
+	saveSynthDef{|chrom, defname, panner, limiter|
+		var tree, synthDef;
+		tree = chrom.asUgenExpressionTree;
+		tree.saveSynthDef(defname.asSymbol, panner, limiter);
+	}
 
 	makeDefName{|index|
 		^(this.class.fileNamePrefix ++ "_gen" ++ generationCount.asString.padLeft(3, "0") ++ "_"
@@ -241,7 +293,9 @@ UGEP : GEP {
 UGenExpressionTree : ExpressionTree {
 
 	classvar <foaControls;
-
+	
+	var drawdict, ugens, colors, names;
+	
 	decode{
 		var code;
 		code = chrom.code.clump((chrom.code.size/chrom.numGenes).asInt);
@@ -439,7 +493,14 @@ UGenExpressionTree : ExpressionTree {
 		arch = nil;
 		Post << "Wrote metadata for " << name << " to " << Paths.gepMetaDir << Char.nl;
 	}
-
+	
+	saveSynthDef{|name, panner, limiter|
+		var def;
+		def = this.asSynthDefString(name, panner, limiter).interpret;
+		def.writeDefFile(Paths.gepDefDir);
+		Post << "Wrote SynthDef " << name << " to " << Paths.gepDefDir << Char.nl;
+	}
+	
 	*loadMetadata{|defname, path|
 		var meta, arch;
 		path = path ? Paths.gepMetaDir;

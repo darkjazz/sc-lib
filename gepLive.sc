@@ -456,7 +456,7 @@ GepSynth{
 
 GepPlayer{
 
-	var <data, <decoder, <graphics, <synths, <defStrings, <group, foaSynths, foaBus, <>syncDurs = true;
+	var <>data, <decoder, <graphics, <synths, <defStrings, <group, foaSynths, foaBus, <>syncDurs = true;
 	var <codewindow, <>sendEnabled=false, <>playFunc, <>freeFunc, <routines, <bpm, <bps, <beatdur;
 
 	*new{|data, decoder, graphics|
@@ -541,7 +541,7 @@ GepPlayer{
 		}.fork;
 	}
 
-	play{|index, amp, foaKind='zoom', section=0|
+	play{|index, amp=0.0, foaKind='zoom', section=0|
 		{
 			var name, defargs, ampargs;
 			name = data[index].defname;
@@ -671,7 +671,37 @@ GepPlayer{
 		})
 
 	}
-
+	
+	playSparseRoutines{|dataIndices, sparseName, sparseIndices, div = 4, foaKind, width=1.0|
+		var patterns, arr, times, amps, durs, cdur;
+		if (SparseMatrix.allPatterns.isNil) { SparseMatrix.makeSparsePatterns(2) };
+		patterns = SparseMatrix.sparsePatterns[sparseName][sparseIndices];
+		arr = (0 ! patterns.first.size);
+		patterns.do({|pat| arr[pat.indexOf(1)] = 1 });
+		arr = arr.add(1);
+		times = Array();
+		cdur = 0;
+		arr.do({|val, i|
+			if ((i > 0).and(val == 1))
+			{
+				times = times.add(cdur);
+				cdur = 0;
+			};
+			cdur = cdur + 1;			
+		});
+		durs = times.collect({|time, i|  
+			[times.keep(i).sum, time*width, time-(time*width), times.drop(i+1).sum]
+		}) * (beatdur / div);
+		amps = durs.collect({ [0.0, 1.0, 0.0, 0.0] });
+		amps.do({|amp, i|
+			this.playRoutine(dataIndices[i], Pseq(amp, inf), Pseq(durs[i], inf), foaKind)
+		})
+	}
+	
+	stopSparseRoutines{|dataIndices|
+		dataIndices.do({|ind| this.stopRoutine(ind) })
+	}
+	
 	playRoutine{|index, amps, durs, foaKind|
 		if (routines[index].notNil) {
 			this.stopRoutine(index);
@@ -718,6 +748,66 @@ GepPlayer{
 	stopRoutine{|index|
 		routines[index].stop;
 		routines[index] = nil;
+	}
+
+}
+
+JGepPlayer : GepPlayer {
+	var <defnames, <loader;
+	
+	*new{|decoder, graphics, dbname|
+		^super.new(decoder: decoder, graphics: graphics).initLoader(dbname)
+	}
+	
+	initLoader{|dbname|
+		loader = JsonLoader(dbname);
+	}
+	
+	getDefNamesByDate{|date|
+		defnames = loader.getIDsByDate(date).collect({|id| id['value'].first });
+		data = Array.newClear(defnames.size);
+	}
+
+	getDefNamesByDateRange{|from="000000", to="999999"|
+		defnames = loader.getIDsByDateRange(from, to).collect({|id| id['value'].first });
+		data = Array.newClear(defnames.size);
+	}
+	
+	getDefNamesByHeader{|headsize, numgenes|
+		defnames = loader.getDefNamesByHeader(headsize, numgenes).collect({|def| def['value'] });
+		data = Array.newClear(defnames.size);
+	}
+	
+	play{|index, amp=0.0, foaKind='zoom', section=0|
+		var name, defargs, ampargs;
+		if (data.isNil) {
+			data = Array.newClear(defnames.size);
+		};
+		name = defnames[index];
+		data[index] = loader.getPlayerDataByDefName(name);
+		{
+			defargs = data[index].args;
+			ampargs = [\out, foaBus[("foa"++foaKind).asSymbol], \amp, amp];
+			Server.default.loadSynthDef(name, dir: Paths.gepDefDir);
+			Server.default.sync;
+			this.compilePanDefString(index);
+			defStrings[name.asSymbol].postln;
+			if (sendEnabled) {
+				this.sendSynthDefString(defStrings[name.asSymbol])
+			};
+			synths[index] = GepSynth(name, defargs, group, ampargs);
+			playFunc.(index, section, synths[index])
+		}.fork
+	}
+	
+	compilePanDefString{|index|
+		var defname, defstr, chrom;
+		defname = data[index].defname;
+		chrom = GEPChromosome(data[index].code, data[index].terminals,
+			data[index].numgenes, data[index].linker);
+		defstr = chrom.asUgenExpressionTree.asSynthDefString(defname, Pan2, Normalizer);
+		defStrings[defname.asSymbol] = defstr;
+		^defname
 	}
 
 }

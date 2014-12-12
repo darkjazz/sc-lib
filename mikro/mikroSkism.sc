@@ -140,7 +140,8 @@ MikroSkism{
 		args[\amp] = 0.0;
 		if (def.metadata.includesKey(\grainEnvBuf)) {
 			args[\grainEnvBuf] = grainEnvs[def.metadata.grainEnvBuf]
-		};			
+		};		
+		if (synths.isNil) { synths = () };
 		synths[name] = Synth.tail(mikro.group, def.name, args.asKeyValuePairs);
 		if (def.metadata.includesKey(\envbufnums)) {
 			synths[name].setn(\envbufnums, grainEnvs.collect(_.bufnum))

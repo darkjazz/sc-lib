@@ -1,5 +1,5 @@
 SlideShow{
-	var paths, <window, index = 0;
+	var paths, <window, <index = 0, <>bookmarks;
 	*new{|paths|
 		^super.newCopyArgs(paths)
 	}
@@ -21,6 +21,16 @@ SlideShow{
 		});
 		
 		func.(window)
+	}
+	
+	setPage{|number| index = number }
+	
+	goToBookmark{|name|  
+		if (bookmarks.notNil)
+		{
+			index = bookmarks[name];
+			this.makeWindow
+		}
 	}
 	
 	next{
