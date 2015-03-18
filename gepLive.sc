@@ -778,13 +778,26 @@ JGepPlayer : GepPlayer {
 		data = Array.newClear(defnames.size);
 	}
 	
+	loadData{|index|
+		if (data.isNil) {
+			data = Array.newClear(defnames.size);
+		};
+		if (data[index].isNil) {
+			data[index] = loader.getPlayerDataByDefName(defnames[index])
+		};
+		Post << "Data for '" << defnames[index] << "' (" << index 
+			<< ") loaded.." << Char.nl;
+	}
+	
 	play{|index, amp=0.0, foaKind='zoom', section=0|
 		var name, defargs, ampargs;
 		if (data.isNil) {
 			data = Array.newClear(defnames.size);
 		};
 		name = defnames[index];
-		data[index] = loader.getPlayerDataByDefName(name);
+		if (data[index].isNil) {
+			data[index] = loader.getPlayerDataByDefName(name)
+		};
 		{
 			defargs = data[index].args;
 			ampargs = [\out, foaBus[("foa"++foaKind).asSymbol], \amp, amp];
@@ -808,6 +821,101 @@ JGepPlayer : GepPlayer {
 		defstr = chrom.asUgenExpressionTree.asSynthDefString(defname, Pan2, Normalizer);
 		defStrings[defname.asSymbol] = defstr;
 		^defname
+	}
+	
+	playSparseRoutines{|dataIndices, sparseName, sparseIndices, div = 4, foaKind, durscale=#[1.0], ampscale=#[1.0]|
+		var patterns, arr, times, amps, durs, cdur;
+		if (SparseMatrix.allPatterns.isNil) { SparseMatrix.makeSparsePatterns(2) };
+		patterns = SparseMatrix.sparsePatterns[sparseName][sparseIndices];
+		arr = (0 ! patterns.first.size);
+		patterns.do({|pat| arr[pat.indexOf(1)] = 1 });
+		if (durscale.isKindOf(Number)) { durscale = durscale.bubble; };
+		if (ampscale.isKindOf(Number)) { ampscale = ampscale.bubble; };
+		arr = arr.add(1);
+		times = Array();
+		cdur = 0;
+		arr.do({|val, i|
+			if ((i > 0).and(val == 1))
+			{
+				times = times.add(cdur);
+				cdur = 0;
+			};
+			cdur = cdur + 1;			
+		});
+		durs = times.collect({|time, i|  
+			[times.keep(i).sum, time*durscale.wrapAt(i), 
+				time-(time*durscale.wrapAt(i)), times.drop(i+1).sum]
+		}) * (beatdur / div);
+		amps = durs.collect({|dur, i| [0.0, 1.0, 0.0, 0.0] * ampscale.wrapAt(i) });
+		amps.do({|amp, i|
+			this.playRoutine(dataIndices[i], Pseq(amp, inf), Pseq(durs[i], inf), foaKind)
+		})
+	}	
+
+	playRoutine{|index, amps, durs, foaKind|
+		var name, defargs, ampargs, pbind, sum, mul;
+		if (data.isNil) {
+			data = Array.newClear(defnames.size);
+		};
+		name = defnames[index];
+		if (data[index].isNil) {
+			data[index] = loader.getPlayerDataByDefName(name)
+		};	
+		if (routines[index].notNil) {
+			this.stopRoutine(index);
+		};		
+		{
+			defargs = data[index].args;
+			ampargs = [\out, foaBus[("foa"++foaKind).asSymbol]];
+			Server.default.loadSynthDef(name, dir: Paths.gepDefDir);
+			Server.default.sync;
+			this.compilePanDefString(index);
+			if (sendEnabled) {
+				this.sendSynthDefString(defStrings[name.asSymbol])
+			};
+			sum = durs.list.sum;
+			mul = (beatdur*(sum/beatdur).round(1))/sum;
+			durs.list = durs.list * mul;
+			routines[index] = Routine({
+				var ampstr, durstr;
+				ampstr = amps.asStream;
+				durstr = durs.asStream;
+				loop({
+					var synth, dur, amp;
+					amp = ampstr.next;
+					dur = durstr.next;
+					if (amp.isNil.or(dur.isNil)) { this.stopRoutine(index) };
+					if (amp > 0) {
+						synth = GepSynth(name, defargs, group, ampargs ++ [\amp, amp])
+					}
+					{
+						synth = nil;
+					};
+					if (synth.isNil.not) {
+						SystemClock.sched(dur, { synth.free; nil });
+					};
+					dur.wait;
+				})
+			}).play
+		}.fork
+
+	}	
+	
+	makeGepDef{|name, func, nargs = 8|
+		SynthDef(name, {|out, dur = 0.1, amp = 1.0, rotx = 0.0, roty = 0.0, rotz = 0.0|
+			var sig;
+			sig = SynthDef.wrap(func, prependArgs: ArrayControl.kr('gepargs', nargs, 0.0) )
+				* EnvGen.kr(EnvControl.kr, timeScale: dur, doneAction: 2);
+			Out.ar(out, FoaTransform.ar(
+				FoaEncode.ar(sig * amp, FoaEncoderMatrix.newDirection), 'rtt', rotx, roty, rotz)
+			)
+		});
+	}
+	
+	playGepDef{|defname, out, amp, dur, env, args, target|
+		if (target.isNil) { target = decoder };
+		^Synth.before(target, defname, [\out, out, \amp, amp, \dur, dur])
+			.setn('env', env).setn('gepargs', args)
 	}
 
 }

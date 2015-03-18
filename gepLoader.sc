@@ -190,7 +190,7 @@ JsonLoader{
 		});
 		^ids
 	}
-			
+
 	getPlayerDataByDefName{|defname|
 		var rsp, array, data;
 		rsp = db.get("playerDataByDefName?key=\"#\"".replace("#", defname));
@@ -220,6 +220,40 @@ JsonLoader{
 				.keep(id.size-2).interpret 
 		});
 		^ids
+	}
+	
+	getDocumentByDefName{|defname|
+		var doc, data, argchrom, operators;
+		operators = ['*', '/', '+', '-'];
+		doc = db.get("docByDefName?key=\"#\"".replace("#", defname));
+		doc = doc.subStr((doc.find("\"value\":") + 8), doc.size - 7)
+			.replace("{", "(").replace("}", ")").replace("\n", "").replace("\"", "'")
+			.interpret;
+		data = ();
+		data.defname = doc.defname;
+		data.args = doc.args.literals;
+		data.headsize = doc.headsize;
+		data.numgenes = doc.numgenes;
+		data.code = doc.code.collect({|it| 
+			if (it.asString.size == 1) { it.asSymbol } { it.asString.interpret }
+		});
+		data.terminals = doc.terminals;
+		data.linker = AbstractFunction.methods.select({|method| 
+			method.name == doc.linker
+		}).first;
+		data.stats = doc.stats;
+		argchrom = ();
+		argchrom.code = doc.args.code.collect({|it| 
+			if (operators.includes(it)) {
+				AbstractFunction.methods.select({|method| method.name.asSymbol == it }).first
+			} { it.asSymbol }
+		});
+		argchrom.constants = doc.args.constants;
+		argchrom.extraDomains = doc.args.extraDomains.collect({|domain|
+			ControlSpec(*domain)
+		});
+		data.argchrom = argchrom;
+		^data
 	}
 		
 }

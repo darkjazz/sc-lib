@@ -330,6 +330,11 @@ GEPChromosome{
 		^GEPChromosome(data.code, data.terminals, data.header.numgenes, data.linker)
 	}
 	
+	*fromJsonData{|data|
+		^GEPChromosome(data.code, data.terminals, data.numgenes.asInteger, 
+			data.linker)
+	}
+	
 	asExpressionTree{|includeObjects=true|
 		tree = ExpressionTree(this, includeObjects);
 		^tree

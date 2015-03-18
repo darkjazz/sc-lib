@@ -388,7 +388,10 @@ CinderApp{
 		fps = value;
 		this.sendMsg("framerate", fps.asFloat)  
 	}
-		
+	
+	postActivePatterns{
+		this.patternLib.select({|pat| pat.active == 1 }).collect(_.index)
+	}
 }
 
 Rotation{

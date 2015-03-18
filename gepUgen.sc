@@ -10,8 +10,8 @@ UGEP : GEP {
 		^super.new(populationSize, numgenes, headsize, ugens, terminals, linker, forceArgs).init
 	}
 
-	*newValid{|populationSize, numgenes, headsize, ugens, terminals, linker, forceArgs|
-		^super.new(populationSize, numgenes, headsize, ugens, terminals, linker, forceArgs).initValid
+	*newValid{|populationSize, numgenes, headsize, ugens, terminals, linker, forceArgs, methodRatio=0.5|
+		^super.new(populationSize, numgenes, headsize, ugens, terminals, linker, forceArgs, methodRatio).initValid
 	}
 
 	*newRandomFromLibrary{|populationSize, numgenes, headsize, linker, excludeUGenList|
@@ -172,7 +172,7 @@ UGEP : GEP {
 		indv = Array();
 		numgenes.do({
 			indv = indv ++ Array.with(methods.choose) ++ Array.fill(headsize-1, {
-				[methods, terminals].choose.choose
+				[methods, terminals].wchoose([methodRatio, 1.0-methodRatio].normalizeSum).choose
 			});
 			indv = indv ++ Array.fill(tailsize, {
 				terminals.choose
@@ -323,7 +323,9 @@ UGenExpressionTree : ExpressionTree {
 		if (depth > maxDepth) { maxDepth = depth };
 		nodes = event.values.pop.collect({|ind|
 			if (gene[ind].isKindOf(Class)) {
-				this.appendArgs(array.select({|sev| sev.keys.pop == ind }).first, array )
+				this.appendArgs(array.select({|sev| 
+					sev.keys.pop == ind 
+				}).first, array )
 			} {
 				UGepNode(gene[ind])
 			}

@@ -444,7 +444,7 @@ DjembePattern{
 
 SparsePattern{
 	
-	var original, <patterns, <subpatterns;
+	var original, <patterns, <subpatterns, <appendedPatterns;
 	
 	*new{|original|
 		^super.newCopyArgs(original)
@@ -511,6 +511,15 @@ SparsePattern{
 				SparsePattern(original - ([patterns] ++ subpatterns).sum).makeSparse.patterns
 			);
 		});
+	}
+	
+	appendSubPatterns{
+		appendedPatterns = patterns.copy;
+		subpatterns.do({|subpat|
+			subpat.do({|row, i| 
+				appendedPatterns[i] = appendedPatterns[i] ++ row
+			})
+		})		
 	}
 	
 }

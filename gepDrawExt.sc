@@ -1,7 +1,7 @@
 +UGEP {
 	
 	draw{
-		var win;
+		var win, height;
 		if (colors.isNil) {
 			colors = methods.collect({ Color( *{1.0.rand.round(0.1)} ! 3 ) })
 		};
@@ -9,6 +9,8 @@
 		{
 			names = methods.collect({|ugen| ugen.name.asString.keep(4) });
 		};
+		height = this.chromosomes.size * 10 + 
+			(this.chromosomes.last.generation * 10);
 		win = Window("GES population", Rect(100, 100, 450, 800))
 			.background_(Color.grey(0.1)).front;
 		win.drawFunc = {
@@ -30,6 +32,42 @@
 				})
 			})	
 		};
+	}
+	
+	drawOrder{|indices|
+
+		var win, height;
+		if (colors.isNil) {
+			colors = methods.collect({ Color( *{1.0.rand.round(0.1)} ! 3 ) })
+		};
+		if (names.isNil)
+		{
+			names = methods.collect({|ugen| ugen.name.asString.keep(4) });
+		};
+		height = this.chromosomes.size * 10 + 40;
+		win = Window("GES population", Rect(100, 100, 450, 800))
+			.background_(Color.grey(0.1)).front;
+		win.drawFunc = {
+			var currentGen = 0;
+			var posy = 10;
+			indices.do({|ind, y|
+				var chrom, cols, ugens;
+				chrom = this.chromosomes[ind];
+				ugens = chrom.code.select({|codon| codon.isKindOf(Class) });
+				cols = ugens.collect({|ugen| colors[methods.indexOf(ugen)] });
+				if (currentGen == chrom.generation) 
+				{ posy = posy + 10; } 
+				{ posy = posy + 20; currentGen = chrom.generation};
+				Pen.font = Font("Inconsolata", 8);
+				cols.do({|color, x|
+					Pen.fillColor = Color.grey(0.8);
+					Pen.stringInRect(y.asString.padLeft(2), Rect(10, posy, 10, 7));
+					color.set;
+					Pen.fillRect(Rect(x*12+20, posy, 12, 7));
+				})
+			})	
+		};
+			
 	}
 	
 	drawCompare{|indexA, indexB|
