@@ -1,6 +1,7 @@
 SparseMatrix{
 
 	classvar <>allPatterns, <>patterns12, <>patterns16, <>sparseObjects, <>sparsePatterns;
+	classvar <>funcdefpath;
 
 	var <decoder, <graphics, <quant, <ncoef, <envs, <buffers, <group, <efxgroup, <nofxbus, <bpm, <bps, <beatdur;
 	var <rDB, <efx, <efxamps, <patterndefs, <argproto, <deffuncs, codewindow, <listener, <mfccresp;
@@ -11,6 +12,8 @@ SparseMatrix{
 
 	var <>eventLibName = "lib003", eventData, <freqSet, <durSet, <ampSet;
 
+	*initClass{ funcdefpath = Paths.devdir +/+ "lambda/supercollider/sparsematrix/deffuncs01.scd" }
+	
 	*new{|decoder, graphics, quant=2, ncoef=8|
 		^super.newCopyArgs(decoder, graphics, quant, ncoef).init
 	}
@@ -32,6 +35,8 @@ SparseMatrix{
 		"-----".postln;
 		SparseMatrix.patterns12.collect(_.size).postln;
 		SparseMatrix.patterns12.size.postln;
+		
+		SparseSynthPattern.makePrimeFreqs;
 	}
 
 	init{
@@ -249,79 +254,7 @@ SparseMatrix{
 	}
 
 	loadDefFuncs{
-		deffuncs = [
-			{|freq=40| Mix(SinOsc.ar([freq, freq+11, freq+23], 0.5pi)) },
-			{|freq=1| Mix(DelayC.ar(Impulse.ar(1, 10, 10),0.05,[0, 0.05])).clip(-0.9, 0.9) },
-			{|freq=8000| PinkNoise.ar(10.0).clip(-0.9, 0.9) * SinOsc.ar(freq) },
-			{|freq=20| Mix(LFSaw.ar([freq, freq + 11] + LFSaw.ar([1, 8]).range(freq, freq*2))).clip(-0.9, 0.9) },
-			{|freq=320| RLPF.ar(BrownNoise.ar(10).softclip, freq, 0.5, 1) },
-			{|freq=60| VarSaw.ar(IRand(*[freq, freq+20]), 0.25, 0.01, 20).clip(-0.5, 0.5) },
-			{|freq=20| LFPulse.ar(freq + LFPulse.ar(freq/2)).distort },
-			{|freq=1000| Dust2.ar(freq, 2, SinOsc.ar(Rand(freq*8, freq*16).round(2**(1/5)))) },
-
-			{|freq=44| LFGauss.ar(1/freq, XLine.kr(0.1, 0.01, 0.2)) },
-			{|freq=1000| LFNoise0.ar(freq + LFNoise0.ar(freq*2, 10).range(*[freq/20, freq/5]), freq/5).tanh * 0.8 },
-			{|freq=20| Mix(SinOsc.ar([freq,freq+5,freq+10,freq+15], 0.5pi)) },
-			{|freq=1000| Mix(SinOsc.ar(SinOsc.ar([freq, freq/10]).range(*[freq*2, freq*20]), 0.5pi)) },
-			{|freq=50| Mix(SinOsc.ar(SinOsc.ar([freq, freq+1]).range(*[freq/2, freq*2]), 0.5pi)) },
-			{|freq=10000| Impulse.ar(1, 100, 10).clip(-0.9, 0.9) + Dust2.ar(freq, 2).tanh },
-			{|freq=32| LFSaw.ar(freq, 0.5, LFNoise0.ar(10000).range(10, 100)).distort },
-			{|freq=10| Blip.ar(freq, 100, 10).clip(-0.9, 0.9) },
-
-			{|freq=32| LFTri.ar(freq, 0, LFNoise0.ar(freq*8).range(freq, freq*2)).clip(-0.9, 0.9).distort },
-			{|freq=12288| SinOsc.ar(freq) },
-			{|freq=16| Crackle.ar(1.6, 32).softclip },
-			{|freq=16384| Logistic.ar(VarSaw.kr(pi**2).range(3.57, 3.8), 2**14) },
-			{|freq=200| PMOsc.ar(SinOsc.kr(16).range(freq, freq*2), SinOsc.kr(12).range(freq*8,freq*2)) },
-			{|freq=32| Pluck.ar(SinOsc.ar(LFNoise0.ar(999).range(freq, freq * 2), 0, 10), Impulse.kr(2), 0.1, 0.1, 4).tanh },
-			{|freq=32| LFSaw.ar(LFNoise0.ar(freq**2).range(freq, freq*2), 0, 10).softclip },
-			{|freq=64| Decimator.ar(Impulse.ar(freq, 10, 10).softclip, 48000, 24, 2) },
-
-			{|freq=10| SineShaper.ar(SinOsc.ar(freq, 0, 10), 0.9) },
-			{|freq=20| SineShaper.ar(SinOsc.ar(freq, 0, 10), 0.8) },
-			{|freq=20| SineShaper.ar(SinOsc.ar(freq, 0, IRand(freq*10, freq*20)), 0.5) },
-			{|freq=8| SineShaper.ar(SinOsc.ar(freq, 0, IRand(freq**4, freq**4*2)), 0.7) },
-			{|freq=180| CrossoverDistortion.ar(SinOsc.ar(LFNoise2.ar(1000).range(freq, freq+20).round(10), 0, 2).softclip, 0.4, 0.2) },
-			{|freq=50| Disintegrator.ar(SinOsc.ar(LFSaw.ar(20).range(freq, freq*4).round(10), 0, 2).clip, 0.5, 0.5) },
-			{|freq=40| Gendy1.ar(2, 2, 1, 1, freq, freq*2) },
-			{|freq=16| Gendy1.ar(6, 6, 0.01, 0.01, freq, freq*4, 1, 1, 24, 24) },
-
-			{|freq=16| LFSaw.ar(LFSaw.ar(freq).range(*this.roundFreq([pi**pi, pi**pi*2])), LFSaw.ar(15).range(0, 2), LFPulse.ar(16).range(0.5, 1.0)) },
-			{|freq=32| StkPluck.ar(freq, 1.0, 10).clip(-0.9, 0.9) },
-			{|freq=64| StkSaxofony.ar(freq, 20, 40, XLine.kr(30, 10, 0.2), 10, 16, 10, 64, 1, 64).clip(-0.9, 0.9) },
-			{|freq=16| Oregonator.ar(Impulse.kr(freq), 4, 0.5).clip(-0.9, 0.9) },
-			{|freq=16| Brusselator.ar(0, 0.5, 2.0).tanh },
-			{|freq=16| SpruceBudworm.ar(0,0.1,25.45,1.5,0.5,5.0, initx:0.7, inity: 0.4).tanh },
-			{|freq=16000| Mix(MdaPiano.ar(freq,1,127,1,1,1,0,1,1,0.5,0.1,0.5,mul:20).softclip) },
-			{|freq=440| (Perlin3.ar(LFSaw.kr(freq/2), SinOsc.ar(freq), LFTri.ar(freq+100))*10).distort },
-
-			{|freq=16| CA0.ar(5512, 32, 18, 0) },
-			{|freq=16| CA0.ar(11025, 64, 22, 0) },
-			{|freq=16| CA0x.ar(11025, 32, 26, 0) },
-			{|freq=16| (CA0x.ar(11025, 64, 30, 0)*10).clip(-0.9, 0.9) },
-			{|freq=16| CA1.ar(44100/8, 32, 30, 0, 10).softclip },
-			{|freq=16| CA1.ar(4410, 64, 73, 0) },
-			{|freq=16| CA1x.ar(2205, 32, 105, 0) },
-			{|freq=16| CA1x.ar(4410, 64, 105, 0) },
-
-			{|freq=440| Logist0.ar((freq * Rand(1, 5)).round(2**(1/12)), 1.8) },
-			{|freq=110| CML0.ar(Select.kr(IRand(0, 4), Scale.chromatic24.ratios * freq), 1.2, 0.05, 1.0) },
-			{|freq=110| GCM0.ar(Select.kr(IRand(0, 4), Scale.chromatic24.ratios * freq), 1.5, 0.01) },
-			{|freq=110| HCM0.ar(Select.kr(IRand(0, 4), Scale.chromatic24.ratios * freq), 1.1, 0.3) },
-			{|freq=16| Nagumo.ar(0.01, 0.01, LFPulse.ar(10).range(0, 1)) },
-			{|freq=2048| FIS.ar(LFSaw.ar(4).range(1,4),LFNoise0.ar(10).abs,SinOsc.ar(freq).range(1,10).round(1)) },
-			{|freq=16| CombN.ar(CA1.ar(800,20,SinOsc.kr(30, 0.5pi).range(30, 60).round(1)),0.2,0.125,0.25) },
-			{|freq=800| Mix(GVerb.ar(LPF.ar(Impulse.ar(1),freq,20),5)) },
-
-			{|freq=50| Logist0.ar(freq, LFNoise2.kr(4).range(1, 2), 0.01) },
-			{|freq=880| CML0.ar(freq, 1.99, 0.01, 0.1) },
-			{|freq=440| GCM3.ar(Select.kr(IRand(0, 4), Scale.chromatic24.ratios * freq), 1.7, 0.1) },
-			{|freq=110| HCM3.ar(Select.kr(IRand(0, 4), Scale.chromatic24.ratios * freq), 1.99, 0.8) },
-			{|freq=16| Nagumo.ar(0.01, 0.001, LFPulse.ar(110).range(0, 1)) },
-			{|freq=16| FIS.ar(LFSaw.ar(1).range(1,4),Crackle.ar(1.99).abs,LFSaw.ar(64).range(1,10).round(1)) },
-			{|freq=16| Mix(DelayN.ar(CombN.ar(CA1.ar(440,200,165),0.2,0.01,0.2),0.05,(0.01,0.02..0.04))) },
-			{|freq=500| Mix(GVerb.ar(HPF.ar(Impulse.ar(1),freq,20),5)) }
-];
+		deffuncs = this.class.funcdefpath.load;
 		deffuncs.collect({|fnc, i|
 			this.makeDef(this.class.makeDefName(i, "d"), fnc)
 		});
@@ -771,6 +704,8 @@ SparseMatrix{
 }
 
 SparseMatrixPattern{
+	
+	classvar <>twinPrimes, <>usePrimes = false, <>useTwinPrimes = false;
 
 	var <name, <indices, <groupsize, div, prefix, matrix, sourcenames, subpatterns, protoname, appendSubPatterns; 
 	var <patterns, <args, <groups, <ctrls;
@@ -785,7 +720,33 @@ SparseMatrixPattern{
 		previousStates = Array.newClear(maxStateSize);
 		size = indices.size;
 	}
+	
+	*makePrimeFreqs{|offset=13|
+		var number, allPrimes;
+		number = offset;
+		allPrimes = Array();
+		while ({ number < 20000 }, {
+			allPrimes = allPrimes.add(number);
+			number = (number + 1).asInt.nextPrime;
+		});
+		
+		twinPrimes = Array();
+		
+		allPrimes.doAdjacentPairs({|x, y|
+			if (y - x == 2) {
+				twinPrimes = twinPrimes.addAll([x, y]);
+			}
+		});
+				
+	}
 
+	findNearestTwinPrime{|freq|
+		var diff, index;
+		diff = (freq - this.class.twinPrimes).abs;
+		index = diff.indexOf(diff.minItem);
+		^this.class.twinPrimes[index];		
+	}
+	
 	setControls{|onFunc, ampFunc, durFunc, empFunc, names|
 		var coll;
 
@@ -814,6 +775,24 @@ SparseMatrixPattern{
 			if (durFunc.notNil) { ctr.dur = durFunc.() };
 			if (empFunc.notNil) { ctr.emp = empFunc.() };
 		})
+	}
+	
+	setAmpDev{|pct, pat|
+		if (pat.isNil) {
+			ctrls.do({|ctr| ctr.ampdev = pct })
+		}
+		{
+			ctrls[pat].ampdev = pct	
+		}
+	}
+	
+	setDurDev{|pct, pat|
+		if (pat.isNil) {
+			ctrls.do({|ctr| ctr.durdev = pct })
+		}
+		{
+			ctrls[pat].durdev = pct	
+		}
 	}
 
 	setGroups{|indices, onFunc, ampFunc, durFunc, empFunc|
@@ -931,7 +910,15 @@ SparseMatrixPattern{
 	}
 
 	makeControls{
-		ctrls = patterns.collect({  (active: 0, amp: 0, emp: 0, dur: rrand(0.01, 0.1)) });
+		ctrls = patterns.collect({  (active: 0, amp: 0, emp: 0, dur: rrand(0.01, 0.1), ampdev: 0, durdev: 0) });
+	}
+	
+	calculateAmp{|key|
+		^ctrls[key].amp + (ctrls[key].amp * ctrls[key].ampdev.rand * [-1, 1].choose)
+	}
+	
+	calculateDur{|key|
+		^ctrls[key].dur + (ctrls[key].dur * ctrls[key].durdev.rand * [-1, 1].choose)
 	}
 }
 
@@ -942,7 +929,7 @@ SparseSynthPattern : SparseMatrixPattern{
 	*new{|name, indices, groupsize, div, sourcenames, subpatterns, prefix, matrix, protoname|
 		^super.new(name, indices, groupsize, div, prefix, matrix, sourcenames, subpatterns, protoname).makePdef
 	}
-
+		
 	makePdef{
 		var instr, argproto;
 		var combined;
@@ -968,8 +955,8 @@ SparseSynthPattern : SparseMatrixPattern{
 		});
 
 		groups = groups.clump(groupsize);
-
-		ctrls = patterns.collect({  (active: 0, amp: 0, emp: 0, dur: rrand(0.01, 0.1)) });
+		
+		this.makeControls;
 
 		argproto = ();
 
@@ -991,11 +978,17 @@ SparseSynthPattern : SparseMatrixPattern{
 				var defindex, freq;
 				defindex = instr[key].asString.drop(1).asInteger;
 				freq = matrix.deffuncs[defindex].def.makeEnvirFromArgs[\freq];
-				freq = this.class.scale.performNearestInScale(freq.cpsmidi).midicps;
+				if (this.class.usePrimes) { freq = freq.asInt.nextPrime; }
+				{
+					if (this.class.useTwinPrimes) { freq = this.findNearestTwinPrime(freq); }
+					{
+						freq = this.class.scale.performNearestInScale(freq.cpsmidi).midicps;
+					}
+				};
 				Pbind(\instrument, instr[key], \group, matrix.group, \addAction, \addToHead, 
 					\delta, Pfunc({ matrix.beatdur / div }),
-					\amp, Pfunc({ ctrls[key].amp }), \emp, Pfunc({ ctrls[key].emp }), \out, matrix.decoder.bus, \freq, freq,
-					\dur, Pfunc({ ctrls[key].dur }), \pat, matrix.makePattern(key, patterns[key].bubble),
+					\amp, Pfunc({ this.calculateAmp(key) }), \emp, Pfunc({ ctrls[key].emp }), \out, matrix.decoder.bus, 
+					\freq, freq, \dur, Pfunc({ this.calculateDur(key) }), \pat, matrix.makePattern(key, patterns[key].bubble),
 					\type, Pfunc({|ev| if (ctrls[key].active.booleanValue) { ev.pat } { \rest } }),
 					*args.asKeyValuePairs
 				)
@@ -1275,15 +1268,26 @@ SparseJGepPattern : SparseMatrixPattern {
 		gepargs = ();
 
 		Routine({
-
+			
+			var t = SystemClock.seconds;
+			
 			defnames.do({|dname, i|
-				var key = SparseMatrix.makeDefName(i, prefix);
+				var grgs, key = SparseMatrix.makeDefName(i, prefix);
 				instr[key] = dname;
 				gepdata[i] = loader.getPlayerDataByDefName(dname);
-				gepargs[key] = gepdata[i].args.select(_.isKindOf(Number)).bubble;
+				grgs = gepdata[i].args.select(_.isKindOf(Number));
+				if (usePrimes) { grgs = grgs.collect({|frq| frq.asInt.nextPrime }) }
+				{
+					if (useTwinPrimes) {
+						grgs = grgs.collect({|frq| this.findNearestTwinPrime(frq) });
+					}
+				};
+				gepargs[key] = grgs.bubble;
 				this.addGepSynthDef(dname, gepdata[i]);
 				Server.default.sync;
 			});
+			
+			Post << "Gep patterns init time elapsed: " << (SystemClock.seconds - t) << Char.nl;
 
 			Pdef(name, Ppar(
 				args.collect({|args, key|
