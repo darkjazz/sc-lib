@@ -124,3 +124,13 @@ FoaDecoder{
 	}
 	
 }
+
+FoaDiffuser {
+	*ar{|input, numFrames=1024, rate=20.0|
+		var fft, aformat;
+		if (input.asArray.size > 1) { input = Mix(input) };
+		fft = FFT(LocalBuf(numFrames), input);
+		aformat = Array.fill(4, { IFFT(PV_Diffuser(fft, Dust.ar(rate))) });
+		^FoaEncode.ar(aformat, FoaEncoderMatrix.newAtoB)
+	}
+}

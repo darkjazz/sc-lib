@@ -62,11 +62,12 @@ FxLambda{
 			sig = Mix.fill(4, {|i|
 				DelayC.ar(filter[i][0].ar(src, filter[i][1], filter[i][2]), delaytime: del[i] )
 			});
-			fft = FFT(LocalBuf(1024), sig);
-			af = Array.fill(4, {
-				IFFT(PV_Diffuser(fft, Dust.kr(Rand(10.0, 20.0))))
-			});
-			bf = FoaEncode.ar(af, FoaEncoderMatrix.newAtoB);
+			bf = FoaDiffuser.ar(sig, 1024, 20.0);
+//			fft = FFT(LocalBuf(1024), sig);
+//			af = Array.fill(4, {
+//				IFFT(PV_Diffuser(fft, Dust.kr(Rand(10.0, 20.0))))
+//			});
+//			bf = FoaEncode.ar(af, FoaEncoderMatrix.newAtoB);
 			Out.ar(out, FoaTransform.ar(bf, 'rtt', xang, yang, zang))
 		}, metadata: (
 			maps: (
@@ -111,8 +112,7 @@ FxLambda{
 		SynthDef(\procgen, {|out, in, amp|
 			var input, sig, fft, bf, rot, til, tum;
 			input = Limiter.ar(Mix(In.ar(in, 2)).tanh, -1.0.dbamp, 0.1) * amp;
-			fft = FFT(LocalBuf(1024), input);
-			bf = FoaEncode.ar(Array.fill(4, {IFFT(PV_Diffuser(fft, Dust.ar(20.0))) }), FoaEncoderMatrix.newAtoB );
+			bf = FoaDiffuser.ar(input, 1024, 20.0);
 			rot = LFNoise2.kr(bf[0].explin(0.001, 1.0, 0.5, 20.0)).range(-pi, pi);
 			til = LFNoise2.kr(bf[1].explin(0.001, 1.0, 0.5, 20.0)).range(-pi, pi);
 			tum = LFNoise2.kr(bf[2].explin(0.001, 1.0, 0.5, 20.0)).range(-pi, pi);

@@ -405,10 +405,14 @@ LiveGenetic{
 
 GepSynth{
 
-	var defname, defargs, ampargs, bus, source, proc, patternPlayer;
+	var <defname, <defargs, <ampargs, <bus, <source, <proc, <patternPlayer;
 
 	*new{|defname, defargs, target, ampargs|
 		^super.newCopyArgs(defname, defargs, ampargs).init(target)
+	}
+	
+	*newproc{|defname, defargs, ampargs|
+		^super.newCopyArgs(defname, defargs, ampargs)
 	}
 
 	init{|target|
@@ -454,9 +458,35 @@ GepSynth{
 	nodeID{ ^source.nodeID }
 }
 
+GepProcSynth : GepSynth {
+	
+	var <>procdef, <>procargs; 
+
+	*new{|defname, defargs, target, ampargs, def, args|
+		^super.newproc(defname, defargs, ampargs).procdef_(def).procargs_(args)
+			.initProc(target)
+	}
+	
+	initProc{|target|
+		{
+			procdef.add;
+			Server.default.sync;
+			bus = Bus.audio(Server.default, 2);
+			source = Synth.head(target, defname, [\out, bus, \amp, 1.0] ++ defargs);
+			Server.default.sync;
+			proc = Synth.after(source, procdef.name, ampargs ++ [\in, bus, \id, source]
+				++ procargs	
+			);
+			Server.default.sync;
+		}.fork
+		
+	}
+	
+}
+
 GepPlayer{
 
-	var <>data, <decoder, <graphics, <synths, <defStrings, <group, foaSynths, foaBus, <>syncDurs = true;
+	var <>data, <decoder, <graphics, <synths, <defStrings, <group, <foaSynths, foaBus, <>syncDurs = true;
 	var <codewindow, <>sendEnabled=false, <>playFunc, <>freeFunc, <routines, <bpm, <bps, <beatdur;
 
 	*new{|data, decoder, graphics|
@@ -491,11 +521,16 @@ GepPlayer{
 					input = In.ar(in, 2).dup(2).flat;
 					bf = FoaEncode.ar(
 						Array.fill(4, { |i|
-							IFFT( PV_Diffuser( FFT( LocalBuf(1024), Limiter.ar(input[i])*amp)))
+							IFFT( 
+								PV_Diffuser( 
+									FFT( LocalBuf(1024), Limiter.ar(input[i])*amp), 
+									Dust.kr(20.0)
+								)
+							)
 						}), FoaEncoderMatrix.newAtoB
 					);
 					tf = FoaTransform.ar(bf, kind,
-						LFNoise1.kr(ar).range(-pi/4, pi/4),
+						LFNoise1.kr(ar).range(-pi/2, pi/2),
 						LFNoise1.kr(tr).range(-pi, pi),
 						LFNoise1.kr(pr).range(-pi, pi)
 					);
@@ -774,10 +809,47 @@ JGepPlayer : GepPlayer {
 	}
 	
 	getDefNamesByHeader{|headsize, numgenes|
-		defnames = loader.getDefNamesByHeader(headsize, numgenes).collect({|def| def['value'] });
+		defnames = loader.getDefNamesByHeader(headsize, numgenes)
+			.collect({|def| def['value'] });
 		data = Array.newClear(defnames.size);
 	}
-	
+
+	startManual{|kinds=#[zoom,focus]|
+		{
+			kinds.do({|kind|
+				var defname = ("foa"++kind.asString).asSymbol;
+				SynthDef(defname, {|out, in, amp=0, angle=0, theta=0, phi=0, rox=0, roy=0, roz=0|
+					var input, bf, tf, args;
+					input = In.ar(in, 2).dup(2).flat;
+					bf = FoaEncode.ar(
+						Array.fill(4, { |i|
+							IFFT( 
+								PV_Diffuser( FFT( LocalBuf(1024), Limiter.ar(input[i])*amp), Dust.kr(20.0))
+							)
+						}), FoaEncoderMatrix.newAtoB
+					);
+					tf = FoaTransform.ar(bf, kind, angle, theta, phi);
+					tf = FoaTransform.ar(tf, 'rtt', rox, roy, roz);
+					Out.ar(out, tf)
+				}).add;
+				foaBus[defname] = Bus.audio(Server.default, 2);
+				Server.default.sync;
+				foaSynths[defname] = Synth.tail(group, defname,
+					[\in, foaBus[defname], \out, decoder.bus, \amp, 0])
+			});
+
+			SynthDef(\ampctr, {|in, out, amp, id|
+				var input, freeTrig;
+				input = In.ar(in, 2);
+				freeTrig = CheckBadValues.kr(input, 0, 0);
+				Free.kr(freeTrig, id);
+				FreeSelf.kr(freeTrig);
+				Out.ar(out, input * amp)
+			}).add;
+
+		}.fork
+	}
+		
 	loadData{|index|
 		if (data.isNil) {
 			data = Array.newClear(defnames.size);
@@ -809,6 +881,30 @@ JGepPlayer : GepPlayer {
 				this.sendSynthDefString(defStrings[name.asSymbol])
 			};
 			synths[index] = GepSynth(name, defargs, group, ampargs);
+			playFunc.(index, section, synths[index])
+		}.fork
+	}
+	
+	procplay{|index, amp=0.0, foaKind='zoom', section=0, procdef, procargs|
+		var name, defargs, ampargs;
+		if (data.isNil) {
+			data = Array.newClear(defnames.size);
+		};
+		name = defnames[index];
+		if (data[index].isNil) {
+			data[index] = loader.getPlayerDataByDefName(name)
+		};
+		{
+			defargs = data[index].args;
+			ampargs = [\out, foaBus[("foa"++foaKind).asSymbol], \amp, amp];
+			Server.default.loadSynthDef(name, dir: Paths.gepDefDir);
+			Server.default.sync;
+			this.compilePanDefString(index);
+			defStrings[name.asSymbol].postln;
+			if (sendEnabled) {
+				this.sendSynthDefString(defStrings[name.asSymbol])
+			};
+			synths[index] = GepProcSynth(name, defargs, group, ampargs, procdef, procargs);
 			playFunc.(index, section, synths[index])
 		}.fork
 	}

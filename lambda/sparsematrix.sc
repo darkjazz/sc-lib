@@ -263,9 +263,14 @@ SparseMatrix{
 	loadBuffers{
 		buffers = ();
 
-		buffers.frags = (Paths.matrixbufs +/+ "frag*").pathMatch.collect({|path| Buffer.read(Server.default, path) });
-		buffers.bits = (Paths.matrixbufs +/+ "bit*").pathMatch.collect({|path| Buffer.read(Server.default, path) });
-		buffers.cycles = (Paths.matrixbufs +/+ "cycle*").pathMatch.collect({|path| Buffer.read(Server.default, path) });
+		buffers.frags = (Paths.matrixbufs +/+ "frag*").pathMatch
+			.collect({|path| Buffer.read(Server.default, path) });
+		buffers.bits = (Paths.matrixbufs +/+ "bit*").pathMatch
+			.collect({|path| Buffer.read(Server.default, path) });
+		buffers.cycles = (Paths.matrixbufs +/+ "cycle*").pathMatch
+			.collect({|path| Buffer.read(Server.default, path) });
+		buffers.evo = (Paths.matrixbufs +/+ "ev*").pathMatch
+			.collect({|path| Buffer.read(Server.default, path) });
 		Server.default.sync;
 		Post << "matrix buffers loaded.." << Char.nl;
 	}
@@ -323,14 +328,14 @@ SparseMatrix{
 		).count(seq.size * seq.first.size)
 	}
 
-	addPatternSynthDef{|name, indices, groupsize=4, div=8, sourcenames, subpatterns=0, prefix, protoname|
-		patterndefs[name] = SparseSynthPattern(name, indices, groupsize, div, sourcenames, subpatterns, prefix, this, 
-			protoname ? 'argproto')
+	addPatternSynthDef{|name, indices, groupsize=4, div=8, sourcenames, subpatterns=0, prefix, protoname, append=false|
+		patterndefs[name] = SparseSynthPattern(name, indices, groupsize, div, sourcenames, subpatterns, 
+			prefix, this, protoname ? 'argproto', append)
 	}
 
-	addPatternBufferDef{|name, indices, groupsize=4, div=8, sourcenames, subpatterns=0, prefix, protoname, buffers, defname|
-		patterndefs[name] = SparseBufferPattern(name, indices, groupsize, div, sourcenames, subpatterns, prefix, this, 
-			protoname ? 'argproto', buffers, defname)
+	addPatternBufferDef{|name, indices, groupsize=4, div=8, sourcenames, subpatterns=0, prefix, protoname, buffers, defname, append=false|
+		patterndefs[name] = SparseBufferPattern(name, indices, groupsize, div, sourcenames, subpatterns, 
+			prefix, this, protoname ? 'argproto', buffers, defname, append)
 	}
 
 	addPatternCycleDef{|name, size, buffers, defname, prefix|
@@ -926,35 +931,20 @@ SparseSynthPattern : SparseMatrixPattern{
 
 	classvar <>scale;
 
-	*new{|name, indices, groupsize, div, sourcenames, subpatterns, prefix, matrix, protoname|
-		^super.new(name, indices, groupsize, div, prefix, matrix, sourcenames, subpatterns, protoname).makePdef
+	*new{|name, indices, groupsize, div, sourcenames, subpatterns, prefix, matrix, protoname, append=false|
+		^super.new(name, indices, groupsize, div, prefix, matrix, sourcenames, subpatterns, protoname, append).makePdef
 	}
 		
 	makePdef{
 		var instr, argproto;
 		var combined;
 		if (this.class.scale.isNil) { scale = Scale.chromatic24 };
-		sourcenames.bubble.flat.do({|name|
-			var sub;
-			combined = combined ++ SparseMatrix.sparsePatterns[name];
-			if (subpatterns > 0) {
-				sub = SparseMatrix.sparseObjects[name].makeSubPatterns(subpatterns).subpatterns;
-				sub.do({|subpat|
-					combined = combined ++ subpat
-				})
-			}
-		});
 		patterns = ();
 		groups = Array();
 
-		combined.keep(size).do({|seq, i|
-			var key;
-			key = SparseMatrix.makeDefName(i, prefix);
-			patterns[key] = seq;
-			groups = groups.add(key);
-		});
+		combined = this.mergePatterns;
 
-		groups = groups.clump(groupsize);
+		this.makePatterns(combined);
 		
 		this.makeControls;
 
@@ -1032,37 +1022,29 @@ SparseSynthPattern : SparseMatrixPattern{
 SparseBufferPattern : SparseMatrixPattern{
 	var <buffers;
 
-	*new{|name, indices, groupsize, div, sourcenames, subpatterns, prefix, matrix, protoname, buffers, defname|
-		^super.new(name, indices, groupsize, div, prefix, matrix, sourcenames, subpatterns, protoname).makePdef(buffers, defname)
+	*new{|name, indices, groupsize, div, sourcenames, subpatterns, prefix, matrix, protoname, buffers, defname, 
+			append=false|
+		^super.new(name, indices, groupsize, div, prefix, matrix, sourcenames, subpatterns, protoname, append)
+			.makePdef(buffers, defname)
 	}
 
 	makePdef{|bufs, defname|
-		var argproto, combined = Array();
-		sourcenames.bubble.flat.do({|name|
-			var sub;
-			combined = combined ++ SparseMatrix.sparsePatterns[name];
-			if (subpatterns > 0) {
-				sub = SparseMatrix.sparseObjects[name].makeSubPatterns(subpatterns).subpatterns;
-				sub.do({|subpat|
-					combined = combined ++ subpat
-				})
-			}
-		});
+		var argproto, combined;
 		patterns = ();
 		groups = Array();
 		buffers = ();
+		
+		combined = this.mergePatterns;
 
-		combined.keep(size).do({|seq, i|
-			var key;
-			key = SparseMatrix.makeDefName(i, prefix);
-			patterns[key] = seq;
-			groups = groups.add(key);
-			buffers[key] = bufs[i];
+		this.makePatterns(combined);
+		
+		patterns.keys(Array).sort.do({|key, i|
+			buffers[key] = bufs[i]
 		});
-
+		
+		this.makeControls;
+		
 		groups = groups.clump(groupsize);
-
-		ctrls = patterns.collect({  (active: 0, amp: 0, emp: 0, dur: rrand(0.01, 0.1)) });
 
 		argproto = ();
 

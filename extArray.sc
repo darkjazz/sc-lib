@@ -20,3 +20,14 @@
 		})
 	}
 }
+
++ Collection {
+    removeDups {
+        var result;
+        result = this.species.new(this.size);
+        this.do({ arg item;
+            result.includes(item).not.if({ result.add(item) });
+        });
+        ^result
+    }
+}
