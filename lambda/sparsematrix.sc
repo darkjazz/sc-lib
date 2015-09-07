@@ -3,7 +3,7 @@ SparseMatrix{
 	classvar <>allPatterns, <>patterns12, <>patterns16, <>sparseObjects, <>sparsePatterns;
 	classvar <>funcdefpath;
 
-	var <decoder, <graphics, <quant, <ncoef, <envs, <buffers, <group, <efxgroup, <nofxbus, <bpm, <bps, <beatdur;
+	var <decoder, <graphics, <quant, <ncoef, <envs, <buffers, <>group, <>efxgroup, <nofxbus, <bpm, <bps, <beatdur;
 	var <rDB, <efx, <efxamps, <patterndefs, <argproto, <deffuncs, codewindow, <listener, <mfccresp;
 	var <skismDefs, skismSynths, grainEnvs, <gepdefs, <gepsynths, <>onsetFunc;
 	var <patternPlayers, <ampctrls;
@@ -13,18 +13,18 @@ SparseMatrix{
 	var <>eventLibName = "lib003", eventData, <freqSet, <durSet, <ampSet;
 
 	*initClass{ funcdefpath = Paths.devdir +/+ "lambda/supercollider/sparsematrix/deffuncs01.scd" }
-	
-	*new{|decoder, graphics, quant=2, ncoef=8|
-		^super.newCopyArgs(decoder, graphics, quant, ncoef).init
+
+	*new{|decoder, graphics, quant=2, ncoef=8, action|
+		^super.newCopyArgs(decoder, graphics, quant, ncoef).init(action)
 	}
-	
+
 	*makeSparsePatterns{|quant|
 		SparseMatrix.allPatterns = DjembeLib.convertAll(quant);
-		SparseMatrix.patterns12 = SparseMatrix.allPatterns.select({|pat| 
-			(pat.first.size / quant) % 6 == 0 
+		SparseMatrix.patterns12 = SparseMatrix.allPatterns.select({|pat|
+			(pat.first.size / quant) % 6 == 0
 		});
-		SparseMatrix.patterns16 = SparseMatrix.allPatterns.select({|pat, name| 
-			SparseMatrix.patterns12.keys.includes(name).not 
+		SparseMatrix.patterns16 = SparseMatrix.allPatterns.select({|pat, name|
+			SparseMatrix.patterns12.keys.includes(name).not
 		});
 		SparseMatrix.sparseObjects = SparseMatrix.allPatterns.collect(
 			SparsePattern(_)).collect(_.makeSparse
@@ -35,219 +35,221 @@ SparseMatrix{
 		"-----".postln;
 		SparseMatrix.patterns12.collect(_.size).postln;
 		SparseMatrix.patterns12.size.postln;
-		
+
 		SparseSynthPattern.makePrimeFreqs;
 	}
 
-	init{
+	init{|action|
 		defpath = Paths.matrixdefs;
 		skismDefPath = Paths.skismdefs;
 		bufferPath = Paths.matrixbufs;
 		{
-		if (decoder.isNil) {
-			decoder = FoaDecoder()
-		};
-		if (graphics.isNil) {
-			graphics = CinderApp()
-		};
+			if (decoder.isNil) {
+				decoder = FoaDecoder()
+			};
+			if (graphics.isNil) {
+				graphics = CinderApp()
+			};
 
-		this.loadBuffers;
+			this.loadBuffers;
 
-		Server.default.sync;
+			Server.default.sync;
 
-		grainEnvs = (
-			perc: Env.perc,
-			rev: Env([0.001, 1.0, 0.001], [0.99, 0.01], [4, 0]),
-			tri: Env.triangle,
-			sine: Env.sine
-		).collect({|env| Buffer.sendCollection(Server.default, env.discretize(1024))});
+			grainEnvs = (
+				perc: Env.perc,
+				rev: Env([0.001, 1.0, 0.001], [0.99, 0.01], [4, 0]),
+				tri: Env.triangle,
+				sine: Env.sine
+			).collect({|env| Buffer.sendCollection(Server.default, env.discretize(1024))});
 
-		envs = (
-			sine00: Env.sine,
-			sine01: Env([0, 1, 1, 0], [0.2, 0.6, 0.2], \sine),
-			sine02: Env([0, 1, 1, 0], [0.3, 0.4, 0.3], \sine),
-			perc00: Env.perc,
-			perc01: Env.perc(0.1, 0.9, 1, 4),
-			perc02: Env.perc(0.005, 1, 1, -16),
-			perc03: Env.perc(curve: 0),
-			perc04: Env([0.001, 1.0], [1], 4),
-			lin00: Env([0, 1, 1, 0], [0.3, 0.4, 0.3]),
-			lin01: Env([0, 1, 1, 0], [0, 1, 0]),
-			step00: Env([0, 1, 0.3, 0.8, 0], (1/4!4), \step),
-			step01: Env([0, 1, 0.5, 1, 0.5, 1, 0], (1/6!6), \step),
-			wlch00: Env([0.001, 0.5, 0.4, 1.0, 0.001], [0.2, 0.3, 0.3, 0.2], \welch),
-			wlch01: Env([0.001, 1, 0.3, 0.8, 0.001], [0.3, 0.3, 0.1, 0.3], \welch),
-			gate00: Env([0, 1, 1, 0], [0, 1, 0], \lin, 2, 1),
-			exp00: Env([0.001, 1.0, 1.0, 0.001], [0.1, 0.8, 0.1], \exp),
-			exp01: Env([0.001, 1.0, 0.001], [0.05, 0.95], \exp),
-			exp02: Env([0.001, 1.0, 1.0, 0.001], [0.2, 0.6, 0.2], \exp),
-			exp03: Env([0.001, 1.0, 0.001], [0.9, 0.1], \exp),
-			default: Env([1, 1, 0], [1, 0])
-		).collect(_.asArray).collect(_.bubble);
+			envs = (
+				sine00: Env.sine,
+				sine01: Env([0, 1, 1, 0], [0.2, 0.6, 0.2], \sine),
+				sine02: Env([0, 1, 1, 0], [0.3, 0.4, 0.3], \sine),
+				perc00: Env.perc,
+				perc01: Env.perc(0.1, 0.9, 1, 4),
+				perc02: Env.perc(0.005, 1, 1, -16),
+				perc03: Env.perc(curve: 0),
+				perc04: Env([0.001, 1.0], [1], 4),
+				lin00: Env([0, 1, 1, 0], [0.3, 0.4, 0.3]),
+				lin01: Env([0, 1, 1, 0], [0, 1, 0]),
+				step00: Env([0, 1, 0.3, 0.8, 0], (1/4!4), \step),
+				step01: Env([0, 1, 0.5, 1, 0.5, 1, 0], (1/6!6), \step),
+				wlch00: Env([0.001, 0.5, 0.4, 1.0, 0.001], [0.2, 0.3, 0.3, 0.2], \welch),
+				wlch01: Env([0.001, 1, 0.3, 0.8, 0.001], [0.3, 0.3, 0.1, 0.3], \welch),
+				gate00: Env([0, 1, 1, 0], [0, 1, 0], \lin, 2, 1),
+				exp00: Env([0.001, 1.0, 1.0, 0.001], [0.1, 0.8, 0.1], \exp),
+				exp01: Env([0.001, 1.0, 0.001], [0.05, 0.95], \exp),
+				exp02: Env([0.001, 1.0, 1.0, 0.001], [0.2, 0.6, 0.2], \exp),
+				exp03: Env([0.001, 1.0, 0.001], [0.9, 0.1], \exp),
+				default: Env([1, 1, 0], [1, 0])
+			).collect(_.asArray).collect(_.bubble);
 
-		this.loadDefFuncs;
+			this.loadDefFuncs;
 
-		defpath.load;
+			defpath.load;
 
-		Server.default.sync;
+			Server.default.sync;
 
-		skismDefs = skismDefPath.load;
+			skismDefs = skismDefPath.load;
 
-		skismDefs.do(_.add);
+			skismDefs.do(_.add);
 
-		Server.default.sync;
+			Server.default.sync;
 
-		if (decoder.isRunning) {
-			group = Group.before(decoder.synth)
-		}
-		{
-			group = Group();
-		};
-		efxgroup = Group.after(group);
-		nofxbus = Server.default.options.numAudioBusChannels-1;
+			if (decoder.isRunning) {
+				group = Group.before(decoder.synth)
+			}
+			{
+				group = Group();
+			};
+			efxgroup = Group.after(group);
+			nofxbus = Server.default.options.numAudioBusChannels-1;
 
-		if (this.class.allPatterns.isNil) {
-			this.class.makeSparsePatterns(quant)
-		};
+			if (this.class.allPatterns.isNil) {
+				this.class.makeSparsePatterns(quant)
+			};
 
-		rDB = (
-			r00: { Pseq([
+			rDB = (
+				r00: { Pseq([
 					Pseq([pi/6, pi/6.neg, pi/4.neg, pi/4], 4),
 					Pseq([0, 1, 1, 0, 0.5, -0.5, -0.5, 0.5], 2),
 					Pseq([pi/8, 5pi/8, pi/8.neg, 5pi/8.neg], 4),
 					Pn(0, 8)
 				], inf) },
-			r01: { Prand((0,0.25..2)*pi-pi, inf) },
-			r02: { Pxrand((0,0.2..1.8)*pi-pi, inf) },
-			r03: { Pbrown(pi.neg, pi, pi/24, inf) },
-			r04: { Pstutter(Pxrand((1..3), inf), Pseq((0,pi/6..2pi).mirror2-pi, inf)) },
-			r05: { Prand((0,0.3..2)*pi-pi, inf) },
-			r06: { Pwhite(pi.neg, pi, inf) },
-			r07: { Pstutter(Pseq([2, 3, 2], inf), Pxrand( (0,0.3..2)*pi-pi, inf )) },
-			r08: { Pbrown(pi.neg, pi, pi/6, inf) },
-			r09: { Pwrand( (0.5.neg,0.4.neg..0.5)*pi, (0.5,0.4..0).mirror.normalizeSum, inf ) },
-			r10: { Pwrand( (0.5,0.4..0.5.neg)*pi, (0.5,0.4..0).mirror.normalizeSum, inf ) },
-			r11: { Pwrand( (0.5,0.6..1.5)*pi, (0.5,0.4..0).mirror.normalizeSum, inf ) },
-			r12: { Pbrown(0, 0.5pi, 0.5pi/6, inf) },
-			r13: { Pbrown(0, 0.5pi.neg, 0.5pi/6, inf) },
-			r14: { Pbrown(pi, 0.5pi, 0.5pi/8, inf) },
-			r15: { Pbrown(pi.neg, 0.5pi.neg, 0.5pi/8, inf) },
-			default: 0
-		);
+				r01: { Prand((0,0.25..2)*pi-pi, inf) },
+				r02: { Pxrand((0,0.2..1.8)*pi-pi, inf) },
+				r03: { Pbrown(pi.neg, pi, pi/24, inf) },
+				r04: { Pstutter(Pxrand((1..3), inf), Pseq((0,pi/6..2pi).mirror2-pi, inf)) },
+				r05: { Prand((0,0.3..2)*pi-pi, inf) },
+				r06: { Pwhite(pi.neg, pi, inf) },
+				r07: { Pstutter(Pseq([2, 3, 2], inf), Pxrand( (0,0.3..2)*pi-pi, inf )) },
+				r08: { Pbrown(pi.neg, pi, pi/6, inf) },
+				r09: { Pwrand( (0.5.neg,0.4.neg..0.5)*pi, (0.5,0.4..0).mirror.normalizeSum, inf ) },
+				r10: { Pwrand( (0.5,0.4..0.5.neg)*pi, (0.5,0.4..0).mirror.normalizeSum, inf ) },
+				r11: { Pwrand( (0.5,0.6..1.5)*pi, (0.5,0.4..0).mirror.normalizeSum, inf ) },
+				r12: { Pbrown(0, 0.5pi, 0.5pi/6, inf) },
+				r13: { Pbrown(0, 0.5pi.neg, 0.5pi/6, inf) },
+				r14: { Pbrown(pi, 0.5pi, 0.5pi/8, inf) },
+				r15: { Pbrown(pi.neg, 0.5pi.neg, 0.5pi/8, inf) },
+				default: 0
+			);
 
 
-		efx = (
-			efx0: ( def: \rev00, args: (rtime: Pbrown(2.0, 3.0, 0.1,inf), hf: Pn(1.0))),
-			efx1: ( def: \rev01, args: (room: 10, rtime: 8, damp: 0.5, bw: 0.5, 
-				spr: 15, dry: 0, early: 1.0, tail: 0.7)
-			),
-			efx2: ( def: \rev02, args: (room: 20, rtime: 6,
-				wsz: Prand([0.02,0.06,0.1,0.2],inf), 
-				pch:Prand(Array.geom(24,1.0,2**(1/24)).reverse.keep(10),inf),
-				pds: Pwrand([0,Pwhite(0.1, 0.5, 1)],[0.7, 0.3],inf),
-				tds: Pwrand([0,Pwhite(0.1, 0.5, 1)],[0.7, 0.3],inf) )
-			),
-			efx3: (def: \del00, args: (del: Pfunc({ beatdur / 2 }), dec: Pfunc({ beatdur * 4 }),
-				pch: Pwrand(Array.geom(24, 0.5, 2**(3/24))[(0..23).select(_.isPrime)],
-					Array.geom(9, 1.0, 2**(1/9)).normalizeSum, inf ),
-				room: 8, rtime: 4, ramp: 0.2 )
-			),
-			efx4: (def: \del01, args: (del: Pfunc({ beatdur / 2 }), dec: Pfunc({ beatdur * 4 }) )),
-			efx5: ( def: \del02, args: ( rtime: 10, del: Pfunc({ beatdur }), dec: Pfunc({ beatdur }) ))			
-		).keysValuesDo({|name, ev|
-			ev[\args][\delta] = Pfunc({ beatdur });
-			ev[\args][\in] = Bus.audio;
-			ev[\args][\addAction] = \addToHead;
-			ev[\args][\group] = efxgroup;
-			ev[\args][\amp] = Pfunc({ efxamps[name] });
-			ev[\args][\out] = decoder.bus;
-		});
+			efx = (
+				efx0: ( def: \rev00, args: (rtime: Pbrown(2.0, 3.0, 0.1,inf), hf: Pn(1.0))),
+				efx1: ( def: \rev01, args: (room: 10, rtime: 8, damp: 0.5, bw: 0.5,
+					spr: 15, dry: 0, early: 1.0, tail: 0.7)
+				),
+				efx2: ( def: \rev02, args: (room: 20, rtime: 6,
+					wsz: Prand([0.02,0.06,0.1,0.2],inf),
+					pch:Prand(Array.geom(24,1.0,2**(1/24)).reverse.keep(10),inf),
+					pds: Pwrand([0,Pwhite(0.1, 0.5, 1)],[0.7, 0.3],inf),
+					tds: Pwrand([0,Pwhite(0.1, 0.5, 1)],[0.7, 0.3],inf) )
+				),
+				efx3: (def: \del00, args: (del: Pfunc({ beatdur / 2 }), dec: Pfunc({ beatdur * 4 }),
+					pch: Pwrand(Array.geom(24, 0.5, 2**(3/24))[(0..23).select(_.isPrime)],
+						Array.geom(9, 1.0, 2**(1/9)).normalizeSum, inf ),
+					room: 8, rtime: 4, ramp: 0.2 )
+				),
+				efx4: (def: \del01, args: (del: Pfunc({ beatdur / 2 }), dec: Pfunc({ beatdur * 4 }) )),
+				efx5: ( def: \del02, args: ( rtime: 10, del: Pfunc({ beatdur }), dec: Pfunc({ beatdur }) ))
+			).keysValuesDo({|name, ev|
+				ev[\args][\delta] = Pfunc({ beatdur });
+				ev[\args][\in] = Bus.audio;
+				ev[\args][\addAction] = \addToHead;
+				ev[\args][\group] = efxgroup;
+				ev[\args][\amp] = Pfunc({ efxamps[name] });
+				ev[\args][\out] = decoder.bus;
+			});
 
-		efxamps = efx.collect({ 0.0 });
+			efxamps = efx.collect({ 0.0 });
 
-		Pdef(\efx, Ppar(
-			efx.collect({|efx| Pmono(efx[\def], *efx[\args].asKeyValuePairs) }).values
-		));
+			Pdef(\efx, Ppar(
+				efx.collect({|efx| Pmono(efx[\def], *efx[\args].asKeyValuePairs) }).values
+			));
 
-		argproto = ();
+			argproto = ();
 
-		argproto['argproto'] = (
-			p00: (efx: nofxbus, rotx: rDB.r00, roty: rDB.r00, rotz: rDB.r00, env: envs.perc01 ),
-			p01: (efx: nofxbus, rotx: rDB.r06, roty: rDB.r05, rotz: rDB.r04, env: envs.perc01 ),
-			p02: (efx: nofxbus, rotx: rDB.r01, roty: rDB.r01, rotz: rDB.r01, env: envs.perc00 ),
-			p03: (efx: nofxbus, rotx: rDB.r02, roty: rDB.r02, rotz: rDB.r02, env: envs.step00 ),
-			p04: (efx: nofxbus, rotx: rDB.r03, roty: rDB.r03, rotz: rDB.r03, env: envs.perc00 ),
-			p05: (efx: nofxbus, rotx: rDB.r04, roty: rDB.r04, rotz: rDB.r04, env: envs.perc02 ),
-			p06: (efx: nofxbus, rotx: rDB.r04, roty: rDB.r04, rotz: rDB.r04, env: envs.perc02 ),
-			p07: (efx: nofxbus, rotx: rDB.r06, roty: rDB.r06, rotz: rDB.r06, env: envs.sine00 ),
-			p08: (efx: nofxbus, rotx: rDB.r05, roty: rDB.r05, rotz: rDB.r05, env: envs.perc00 ),
-			p09: (efx: nofxbus, rotx: rDB.r04, roty: rDB.r04, rotz: rDB.r04, env: envs.perc02 ),
-			p10: (efx: nofxbus, rotx: rDB.r04, roty: rDB.r04, rotz: rDB.r04, env: envs.perc02 ),
-			p11: (efx: nofxbus, rotx: rDB.r04, roty: rDB.r04, rotz: rDB.r04, env: envs.perc02 ),
-			p13: (efx: nofxbus, rotx: rDB.r06, roty: rDB.r06, rotz: rDB.r06, env: envs.perc00 ),
-			p14: (efx: nofxbus, rotx: rDB.r02, roty: rDB.r06, rotz: rDB.r06, env: envs.perc00 ),
-			p15: (efx: nofxbus, rotx: rDB.r15, roty: rDB.r06, rotz: rDB.r06, env: envs.perc00 ),
-			p16: (efx: nofxbus, rotx: rDB.r09, roty: rDB.r05, rotz: rDB.r03, env: envs.perc00 ),
-			p17: (efx: nofxbus, rotx: rDB.r07, roty: rDB.r07, rotz: rDB.r07, env: envs.perc00 ),
-			p18: (efx: nofxbus, rotx: rDB.r06, roty: rDB.r06, rotz: rDB.r06, env: envs.perc00 ),
-			p19: (efx: nofxbus, rotx: rDB.r03, roty: rDB.r03, rotz: rDB.r03, env: envs.perc00 ),
-			p20: (efx: nofxbus, rotx: rDB.r09, roty: rDB.r09, rotz: rDB.r09, env: envs.perc00 ),
-			p22: (efx: nofxbus, rotx: rDB.r10, roty: rDB.r10, rotz: rDB.r10, env: envs.perc00 ),
-			p24: (efx: nofxbus, rotx: rDB.r12, roty: rDB.r11, rotz: rDB.r12, env: envs.perc00 ),
-			p25: (efx: nofxbus, rotx: rDB.r13, roty: rDB.r12, rotz: rDB.r11, env: envs.perc00 ),
-			p26: (efx: nofxbus, rotx: rDB.r14, roty: rDB.r14, rotz: rDB.r14, env: envs.perc00 ),
-			p27: (efx: nofxbus, rotx: rDB.r15, roty: rDB.r15, rotz: rDB.r10, env: envs.perc00 ),
-			p28: (efx: nofxbus, rotx: rDB.r06, roty: rDB.r06, rotz: rDB.r06, env: envs.perc00 ),
-			p29: (efx: nofxbus, rotx: rDB.r06, roty: rDB.r06, rotz: rDB.r06, env: envs.perc00 ),
-			p30: (efx: nofxbus, rotx: rDB.r06, roty: rDB.r06, rotz: rDB.r06, env: envs.perc00 ),
-			p31: (efx: nofxbus, rotx: rDB.r06, roty: rDB.r07, rotz: rDB.r07, env: envs.perc00 ),
-			default: ( efx: nofxbus, rotx: rDB.r06, roty: rDB.r06, rotz: rDB.r06, env: envs[\default] )
-		);
+			argproto['argproto'] = (
+				p00: (efx: nofxbus, rotx: rDB.r00, roty: rDB.r00, rotz: rDB.r00, env: envs.perc01 ),
+				p01: (efx: nofxbus, rotx: rDB.r06, roty: rDB.r05, rotz: rDB.r04, env: envs.perc01 ),
+				p02: (efx: nofxbus, rotx: rDB.r01, roty: rDB.r01, rotz: rDB.r01, env: envs.perc00 ),
+				p03: (efx: nofxbus, rotx: rDB.r02, roty: rDB.r02, rotz: rDB.r02, env: envs.step00 ),
+				p04: (efx: nofxbus, rotx: rDB.r03, roty: rDB.r03, rotz: rDB.r03, env: envs.perc00 ),
+				p05: (efx: nofxbus, rotx: rDB.r04, roty: rDB.r04, rotz: rDB.r04, env: envs.perc02 ),
+				p06: (efx: nofxbus, rotx: rDB.r04, roty: rDB.r04, rotz: rDB.r04, env: envs.perc02 ),
+				p07: (efx: nofxbus, rotx: rDB.r06, roty: rDB.r06, rotz: rDB.r06, env: envs.sine00 ),
+				p08: (efx: nofxbus, rotx: rDB.r05, roty: rDB.r05, rotz: rDB.r05, env: envs.perc00 ),
+				p09: (efx: nofxbus, rotx: rDB.r04, roty: rDB.r04, rotz: rDB.r04, env: envs.perc02 ),
+				p10: (efx: nofxbus, rotx: rDB.r04, roty: rDB.r04, rotz: rDB.r04, env: envs.perc02 ),
+				p11: (efx: nofxbus, rotx: rDB.r04, roty: rDB.r04, rotz: rDB.r04, env: envs.perc02 ),
+				p13: (efx: nofxbus, rotx: rDB.r06, roty: rDB.r06, rotz: rDB.r06, env: envs.perc00 ),
+				p14: (efx: nofxbus, rotx: rDB.r02, roty: rDB.r06, rotz: rDB.r06, env: envs.perc00 ),
+				p15: (efx: nofxbus, rotx: rDB.r15, roty: rDB.r06, rotz: rDB.r06, env: envs.perc00 ),
+				p16: (efx: nofxbus, rotx: rDB.r09, roty: rDB.r05, rotz: rDB.r03, env: envs.perc00 ),
+				p17: (efx: nofxbus, rotx: rDB.r07, roty: rDB.r07, rotz: rDB.r07, env: envs.perc00 ),
+				p18: (efx: nofxbus, rotx: rDB.r06, roty: rDB.r06, rotz: rDB.r06, env: envs.perc00 ),
+				p19: (efx: nofxbus, rotx: rDB.r03, roty: rDB.r03, rotz: rDB.r03, env: envs.perc00 ),
+				p20: (efx: nofxbus, rotx: rDB.r09, roty: rDB.r09, rotz: rDB.r09, env: envs.perc00 ),
+				p22: (efx: nofxbus, rotx: rDB.r10, roty: rDB.r10, rotz: rDB.r10, env: envs.perc00 ),
+				p24: (efx: nofxbus, rotx: rDB.r12, roty: rDB.r11, rotz: rDB.r12, env: envs.perc00 ),
+				p25: (efx: nofxbus, rotx: rDB.r13, roty: rDB.r12, rotz: rDB.r11, env: envs.perc00 ),
+				p26: (efx: nofxbus, rotx: rDB.r14, roty: rDB.r14, rotz: rDB.r14, env: envs.perc00 ),
+				p27: (efx: nofxbus, rotx: rDB.r15, roty: rDB.r15, rotz: rDB.r10, env: envs.perc00 ),
+				p28: (efx: nofxbus, rotx: rDB.r06, roty: rDB.r06, rotz: rDB.r06, env: envs.perc00 ),
+				p29: (efx: nofxbus, rotx: rDB.r06, roty: rDB.r06, rotz: rDB.r06, env: envs.perc00 ),
+				p30: (efx: nofxbus, rotx: rDB.r06, roty: rDB.r06, rotz: rDB.r06, env: envs.perc00 ),
+				p31: (efx: nofxbus, rotx: rDB.r06, roty: rDB.r07, rotz: rDB.r07, env: envs.perc00 ),
+				default: ( efx: nofxbus, rotx: rDB.r06, roty: rDB.r06, rotz: rDB.r06, env: envs[\default] )
+			);
 
-		argproto['fragproto'] = argproto['argproto'].collect({|args|
-			args.collect(_.()).putPairs(
-				(
-					rate: (0.125 * Array.geom(14, 1, 2**(1/7))).choose, warp: Pxrand((2..6).reciprocal, inf),
-					dur: Pfunc({ beatdur }) * Prand([1, 2, 4], inf), wisz: Pxrand((0.05, 0.075..0.2), inf), genv: -1,
-					ffhi: 1, wrnd: Prand([0.01, 0.0], inf), dens: Pstutter(Pwhite(1, 4, inf), Pseq([4, 6, 8, 10], inf)),
-					intr: 4, fwid: Pseq([0.75, 0.5], inf), fflo: Pseg(Pseq([0.2, 0.5, 0.2], 1), Pseq([2, 4, 2, 3], 1), \linear, inf),
-					ffrq: Pseq([2, 4, 6], inf) * Pfunc({ beatdur.reciprocal * 4 })
-				).asKeyValuePairs
-			)
-		});
+			argproto['fragproto'] = argproto['argproto'].collect({|args|
+				args.collect(_.()).putPairs(
+					(
+						rate: (0.125 * Array.geom(14, 1, 2**(1/7))).choose, warp: Pxrand((2..6).reciprocal, inf),
+						dur: Pfunc({ beatdur }) * Prand([1, 2, 4], inf), wisz: Pxrand((0.05, 0.075..0.2), inf), genv: -1,
+						ffhi: 1, wrnd: Prand([0.01, 0.0], inf), dens: Pstutter(Pwhite(1, 4, inf), Pseq([4, 6, 8, 10], inf)),
+						intr: 4, fwid: Pseq([0.75, 0.5], inf), fflo: Pseg(Pseq([0.2, 0.5, 0.2], 1), Pseq([2, 4, 2, 3], 1), \linear, inf),
+						ffrq: Pseq([2, 4, 6], inf) * Pfunc({ beatdur.reciprocal * 4 })
+					).asKeyValuePairs
+				)
+			});
 
-		argproto['fragproto00'] = argproto['argproto'].collect({|args|
-			args.collect(_.()).putPairs((rate: 1).asKeyValuePairs)
-		});
+			argproto['fragproto00'] = argproto['argproto'].collect({|args|
+				args.collect(_.()).putPairs((rate: 1).asKeyValuePairs)
+			});
 
-		argproto['fragproto01'] = argproto['argproto'].collect({|args|
-			args.collect(_.()).putPairs(
-				(
-					grate: 10, gdlo: 0.01, gdhi: 0.2, loop: 1, dur: Pfunc({|ev| ev.buf.duration * 2 }),
-					rate: 0.125, ffhi: 1, fwid: Pseq([0.25, 0.5], inf),
-					fflo: Pseg(Pseq([0.0, 0.3, 0.0], 1), Pseq([2, 4, 2, 3], 1), \linear, inf),
-					ffrq: Pseq([1, 2, 4, 8], inf) * Pfunc({ beatdur.reciprocal * 4 }), fwid: Pseq([0.25, 0.5, 0.5], inf),
-					rmz: rrand(100, 200), rev: rrand(6.0, 12.0), ear: rrand(0.1, 0.4), tai: rrand(0.4, 0.7),
-					done: 2
-				).asKeyValuePairs
-			)
-		});
+			argproto['fragproto01'] = argproto['argproto'].collect({|args|
+				args.collect(_.()).putPairs(
+					(
+						grate: 10, gdlo: 0.01, gdhi: 0.2, loop: 1, dur: Pfunc({|ev| ev.buf.duration * 2 }),
+						rate: 0.125, ffhi: 1, fwid: Pseq([0.25, 0.5], inf),
+						fflo: Pseg(Pseq([0.0, 0.3, 0.0], 1), Pseq([2, 4, 2, 3], 1), \linear, inf),
+						ffrq: Pseq([1, 2, 4, 8], inf) * Pfunc({ beatdur.reciprocal * 4 }), fwid: Pseq([0.25, 0.5, 0.5], inf),
+						rmz: rrand(100, 200), rev: rrand(6.0, 12.0), ear: rrand(0.1, 0.4), tai: rrand(0.4, 0.7),
+						done: 2
+					).asKeyValuePairs
+				)
+			});
 
-		patterndefs = ();
+			patterndefs = ();
 
-		gepdefs = ();
+			gepdefs = ();
 
-		gepsynths = ();
+			gepsynths = ();
 
-		this.setBPM(120);
+			this.setBPM(120);
 
-		skismSynths = ();
+			skismSynths = ();
 
-		patternPlayers = ();
+			patternPlayers = ();
 
-		ampctrls = ();
+			ampctrls = ();
 
-		"sparsematrix performance ready...".postln;
+			"sparsematrix performance ready...".postln;
+
+			action.(this);
 
 		}.fork
 
@@ -329,12 +331,12 @@ SparseMatrix{
 	}
 
 	addPatternSynthDef{|name, indices, groupsize=4, div=8, sourcenames, subpatterns=0, prefix, protoname, append=false|
-		patterndefs[name] = SparseSynthPattern(name, indices, groupsize, div, sourcenames, subpatterns, 
+		patterndefs[name] = SparseSynthPattern(name, indices, groupsize, div, sourcenames, subpatterns,
 			prefix, this, protoname ? 'argproto', append)
 	}
 
 	addPatternBufferDef{|name, indices, groupsize=4, div=8, sourcenames, subpatterns=0, prefix, protoname, buffers, defname, append=false|
-		patterndefs[name] = SparseBufferPattern(name, indices, groupsize, div, sourcenames, subpatterns, 
+		patterndefs[name] = SparseBufferPattern(name, indices, groupsize, div, sourcenames, subpatterns,
 			prefix, this, protoname ? 'argproto', buffers, defname, append)
 	}
 
@@ -343,7 +345,7 @@ SparseMatrix{
 	}
 
 	addPatternGepDef{|name, groupsize=4, div=8, sourcenames, subpatterns=0, prefix, protoname, append, defnames, loader|
-		patterndefs[name] = SparseJGepPattern(name, groupsize, div, sourcenames, subpatterns, prefix, this, 
+		patterndefs[name] = SparseJGepPattern(name, groupsize, div, sourcenames, subpatterns, prefix, this,
 			protoname ? 'argproto', append, defnames, loader)
 	}
 
@@ -507,15 +509,15 @@ SparseMatrix{
 			});
 			argproto[pname.asSymbol] = proto;
 		});
-		
+
 	}
 
 	preparePatternDefs{
 		this.makeEfxProto;
-		
+
 		this.addPatternCycleDef('c00', 4, this.buffers.cycles[[1, 2, 7, 14]], 'frag05', "c0");
 
-		this.addPatternSynthDef('r00', 
+		this.addPatternSynthDef('r00',
 			sourcenames: ['kpanilogo', 'yole', 'diansa', 'sorsornet'], prefix: "r0", protoname: 'r00');
 
 		this.addPatternSynthDef('r01', div: 4,
@@ -570,7 +572,7 @@ SparseMatrix{
 		);
 
 	}
-	
+
 	loadPatternDefs{|path|
 		this.makeEfxProto;
 		(Paths.devdir +/+ "lambda/supercollider/sparsematrix" +/+ path).load.(this)
@@ -581,12 +583,12 @@ SparseMatrix{
 			defnames.keep(64), loader );
 		this.addPatternGepDef('g01', 8, 8, ['kokou', 'macrou'], 3, "g01", 'g01', false,
 			defnames[(64..127)], loader );
-		this.addPatternGepDef('g02', 8, 4, ['kokou', 'diansa', 'macrou', 'yole'], 1, "g02", 'g02', true,
-			defnames[(128..159)], loader );
-		this.addPatternGepDef('g03', 8, 4, ['cassa', 'raboday', 'kpanilogo', 'rumba'], 1, "g03", 'g03', true,
-			defnames[(160..191)], loader );
+		// this.addPatternGepDef('g02', 8, 4, ['kokou', 'diansa', 'macrou', 'yole'], 1, "g02", 'g02', true,
+		// defnames[(128..159)], loader );
+		// this.addPatternGepDef('g03', 8, 4, ['cassa', 'raboday', 'kpanilogo', 'rumba'], 1, "g03", 'g03', true,
+		// defnames[(160..191)], loader );
 	}
-	
+
 	patternKeys{ ^patterndefs.keys(Array) }
 
 	collectPatternKeys{|names|
@@ -709,15 +711,15 @@ SparseMatrix{
 }
 
 SparseMatrixPattern{
-	
+
 	classvar <>twinPrimes, <>usePrimes = false, <>useTwinPrimes = false;
 
-	var <name, <indices, <groupsize, div, prefix, matrix, sourcenames, subpatterns, protoname, appendSubPatterns; 
+	var <name, <indices, <groupsize, div, prefix, matrix, sourcenames, subpatterns, protoname, appendSubPatterns;
 	var <patterns, <args, <groups, <ctrls;
 	var <previousStates, maxStateSize = 4, <size;
 
 	*new{|name, indices, groupsize, div, prefix, matrix, sourcenames, subpatterns, protoname, append=false|
-		^super.newCopyArgs(name, indices, groupsize, div, prefix, matrix, sourcenames, 
+		^super.newCopyArgs(name, indices, groupsize, div, prefix, matrix, sourcenames,
 			subpatterns, protoname, append).init
 	}
 
@@ -725,7 +727,7 @@ SparseMatrixPattern{
 		previousStates = Array.newClear(maxStateSize);
 		size = indices.size;
 	}
-	
+
 	*makePrimeFreqs{|offset=13|
 		var number, allPrimes;
 		number = offset;
@@ -734,24 +736,24 @@ SparseMatrixPattern{
 			allPrimes = allPrimes.add(number);
 			number = (number + 1).asInt.nextPrime;
 		});
-		
+
 		twinPrimes = Array();
-		
+
 		allPrimes.doAdjacentPairs({|x, y|
 			if (y - x == 2) {
 				twinPrimes = twinPrimes.addAll([x, y]);
 			}
 		});
-				
+
 	}
 
 	findNearestTwinPrime{|freq|
 		var diff, index;
 		diff = (freq - this.class.twinPrimes).abs;
 		index = diff.indexOf(diff.minItem);
-		^this.class.twinPrimes[index];		
+		^this.class.twinPrimes[index];
 	}
-	
+
 	setControls{|onFunc, ampFunc, durFunc, empFunc, names|
 		var coll;
 
@@ -781,22 +783,22 @@ SparseMatrixPattern{
 			if (empFunc.notNil) { ctr.emp = empFunc.() };
 		})
 	}
-	
+
 	setAmpDev{|pct, pat|
 		if (pat.isNil) {
 			ctrls.do({|ctr| ctr.ampdev = pct })
 		}
 		{
-			ctrls[pat].ampdev = pct	
+			ctrls[pat].ampdev = pct
 		}
 	}
-	
+
 	setDurDev{|pct, pat|
 		if (pat.isNil) {
 			ctrls.do({|ctr| ctr.durdev = pct })
 		}
 		{
-			ctrls[pat].durdev = pct	
+			ctrls[pat].durdev = pct
 		}
 	}
 
@@ -821,11 +823,11 @@ SparseMatrixPattern{
 		this.saveCurrentState;
 		ctrls = previousStates[(index + 1).clip(1, maxStateSize-1)].collect({|ctr| ctr.collect(_.())  })
 	}
-	
+
 	setEfx{|index, efx|
 		if (efx.isKindOf(Array).not) { efx = efx.bubble };
 		if (efx.size == 0) { matrix.nofxbus.bubble };
-		Pdefn((SparseMatrix.makeDefName(index, prefix)++"efx").asSymbol, 
+		Pdefn((SparseMatrix.makeDefName(index, prefix)++"efx").asSymbol,
 			efx.collect({|efxkey| matrix.efx[efxkey].args.in})
 		)
 	}
@@ -870,8 +872,8 @@ SparseMatrixPattern{
 
 	mergePatterns{
 		var merged = Array();
-		if (appendSubPatterns) 
-		{ 
+		if (appendSubPatterns)
+		{
 			merged = this.appendSubPatterns
 		}
 		{
@@ -903,7 +905,7 @@ SparseMatrixPattern{
 		groups = groups.clump(groupsize);
 
 	}
-	
+
 	appendSubPatterns{
 		var appendedPatterns = Array();
 		sourcenames.do({|sourcename|
@@ -917,11 +919,11 @@ SparseMatrixPattern{
 	makeControls{
 		ctrls = patterns.collect({  (active: 0, amp: 0, emp: 0, dur: rrand(0.01, 0.1), ampdev: 0, durdev: 0) });
 	}
-	
+
 	calculateAmp{|key|
 		^ctrls[key].amp + (ctrls[key].amp * ctrls[key].ampdev.rand * [-1, 1].choose)
 	}
-	
+
 	calculateDur{|key|
 		^ctrls[key].dur + (ctrls[key].dur * ctrls[key].durdev.rand * [-1, 1].choose)
 	}
@@ -934,7 +936,7 @@ SparseSynthPattern : SparseMatrixPattern{
 	*new{|name, indices, groupsize, div, sourcenames, subpatterns, prefix, matrix, protoname, append=false|
 		^super.new(name, indices, groupsize, div, prefix, matrix, sourcenames, subpatterns, protoname, append).makePdef
 	}
-		
+
 	makePdef{
 		var instr, argproto;
 		var combined;
@@ -945,7 +947,7 @@ SparseSynthPattern : SparseMatrixPattern{
 		combined = this.mergePatterns;
 
 		this.makePatterns(combined);
-		
+
 		this.makeControls;
 
 		argproto = ();
@@ -955,12 +957,12 @@ SparseSynthPattern : SparseMatrixPattern{
 		});
 
 		args = patterns.collect({|pat, key| argproto[key] ? argproto[\default]; });
-		
+
 		args.keysValuesDo({|patkey, argev|
 			argev['efx'] = Pdefn((patkey ++ "efx").asSymbol, argev['efx']);
 		});
-		
-		instr = ().putPairs(args.size.collect({|i| [SparseMatrix.makeDefName(i, prefix), 
+
+		instr = ().putPairs(args.size.collect({|i| [SparseMatrix.makeDefName(i, prefix),
 			SparseMatrix.makeDefName(indices[i], "d")]  }).flat);
 
 		Pdef(name, Ppar(
@@ -975,9 +977,9 @@ SparseSynthPattern : SparseMatrixPattern{
 						freq = this.class.scale.performNearestInScale(freq.cpsmidi).midicps;
 					}
 				};
-				Pbind(\instrument, instr[key], \group, matrix.group, \addAction, \addToHead, 
+				Pbind(\instrument, instr[key], \group, matrix.group, \addAction, \addToHead,
 					\delta, Pfunc({ matrix.beatdur / div }),
-					\amp, Pfunc({ this.calculateAmp(key) }), \emp, Pfunc({ ctrls[key].emp }), \out, matrix.decoder.bus, 
+					\amp, Pfunc({ this.calculateAmp(key) }), \emp, Pfunc({ ctrls[key].emp }), \out, matrix.decoder.bus,
 					\freq, freq, \dur, Pfunc({ this.calculateDur(key) }), \pat, matrix.makePattern(key, patterns[key].bubble),
 					\type, Pfunc({|ev| if (ctrls[key].active.booleanValue) { ev.pat } { \rest } }),
 					*args.asKeyValuePairs
@@ -1022,7 +1024,7 @@ SparseSynthPattern : SparseMatrixPattern{
 SparseBufferPattern : SparseMatrixPattern{
 	var <buffers;
 
-	*new{|name, indices, groupsize, div, sourcenames, subpatterns, prefix, matrix, protoname, buffers, defname, 
+	*new{|name, indices, groupsize, div, sourcenames, subpatterns, prefix, matrix, protoname, buffers, defname,
 			append=false|
 		^super.new(name, indices, groupsize, div, prefix, matrix, sourcenames, subpatterns, protoname, append)
 			.makePdef(buffers, defname)
@@ -1033,17 +1035,17 @@ SparseBufferPattern : SparseMatrixPattern{
 		patterns = ();
 		groups = Array();
 		buffers = ();
-		
+
 		combined = this.mergePatterns;
 
 		this.makePatterns(combined);
-		
+
 		patterns.keys(Array).sort.do({|key, i|
 			buffers[key] = bufs[i]
 		});
-		
+
 		this.makeControls;
-		
+
 		groups = groups.clump(groupsize);
 
 		argproto = ();
@@ -1250,9 +1252,9 @@ SparseJGepPattern : SparseMatrixPattern {
 		gepargs = ();
 
 		Routine({
-			
+
 			var t = SystemClock.seconds;
-			
+
 			defnames.do({|dname, i|
 				var grgs, key = SparseMatrix.makeDefName(i, prefix);
 				instr[key] = dname;
@@ -1268,7 +1270,7 @@ SparseJGepPattern : SparseMatrixPattern {
 				this.addGepSynthDef(dname, gepdata[i]);
 				Server.default.sync;
 			});
-			
+
 			Post << "Gep patterns init time elapsed: " << (SystemClock.seconds - t) << Char.nl;
 
 			Pdef(name, Ppar(
@@ -1278,7 +1280,7 @@ SparseJGepPattern : SparseMatrixPattern {
 					Pbind(
 						\instrument, instr[key], \group, matrix.group, \addAction, \addToHead,
 						\delta, Pfunc({ matrix.beatdur / div }),
-						\amp, Pfunc({ ctrls[key].amp }), \emp, Pfunc({ ctrls[key].emp }), 
+						\amp, Pfunc({ ctrls[key].amp }), \emp, Pfunc({ ctrls[key].emp }),
 						\out, matrix.decoder.bus,
 						\dur, Pfunc({ ctrls[key].dur }), \pat, matrix.makePattern(key, patterns[key].bubble),
 						\type, Pfunc({|ev| if (ctrls[key].active.booleanValue) { ev.pat } { \rest } }),

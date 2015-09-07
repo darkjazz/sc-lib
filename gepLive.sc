@@ -410,7 +410,7 @@ GepSynth{
 	*new{|defname, defargs, target, ampargs|
 		^super.newCopyArgs(defname, defargs, ampargs).init(target)
 	}
-	
+
 	*newproc{|defname, defargs, ampargs|
 		^super.newCopyArgs(defname, defargs, ampargs)
 	}
@@ -459,29 +459,30 @@ GepSynth{
 }
 
 GepProcSynth : GepSynth {
-	
-	var <>procdef, <>procargs; 
+
+	var <>procdef, <>procargs;
 
 	*new{|defname, defargs, target, ampargs, def, args|
 		^super.newproc(defname, defargs, ampargs).procdef_(def).procargs_(args)
 			.initProc(target)
 	}
-	
+
 	initProc{|target|
 		{
 			procdef.add;
 			Server.default.sync;
 			bus = Bus.audio(Server.default, 2);
+			Server.default.sync;
 			source = Synth.head(target, defname, [\out, bus, \amp, 1.0] ++ defargs);
 			Server.default.sync;
 			proc = Synth.after(source, procdef.name, ampargs ++ [\in, bus, \id, source]
-				++ procargs	
+				++ procargs
 			);
 			Server.default.sync;
 		}.fork
-		
+
 	}
-	
+
 }
 
 GepPlayer{
@@ -521,9 +522,9 @@ GepPlayer{
 					input = In.ar(in, 2).dup(2).flat;
 					bf = FoaEncode.ar(
 						Array.fill(4, { |i|
-							IFFT( 
-								PV_Diffuser( 
-									FFT( LocalBuf(1024), Limiter.ar(input[i])*amp), 
+							IFFT(
+								PV_Diffuser(
+									FFT( LocalBuf(1024), Limiter.ar(input[i])*amp),
 									Dust.kr(20.0)
 								)
 							)
@@ -706,7 +707,7 @@ GepPlayer{
 		})
 
 	}
-	
+
 	playSparseRoutines{|dataIndices, sparseName, sparseIndices, div = 4, foaKind, width=1.0|
 		var patterns, arr, times, amps, durs, cdur;
 		if (SparseMatrix.allPatterns.isNil) { SparseMatrix.makeSparsePatterns(2) };
@@ -722,9 +723,9 @@ GepPlayer{
 				times = times.add(cdur);
 				cdur = 0;
 			};
-			cdur = cdur + 1;			
+			cdur = cdur + 1;
 		});
-		durs = times.collect({|time, i|  
+		durs = times.collect({|time, i|
 			[times.keep(i).sum, time*width, time-(time*width), times.drop(i+1).sum]
 		}) * (beatdur / div);
 		amps = durs.collect({ [0.0, 1.0, 0.0, 0.0] });
@@ -732,11 +733,11 @@ GepPlayer{
 			this.playRoutine(dataIndices[i], Pseq(amp, inf), Pseq(durs[i], inf), foaKind)
 		})
 	}
-	
+
 	stopSparseRoutines{|dataIndices|
 		dataIndices.do({|ind| this.stopRoutine(ind) })
 	}
-	
+
 	playRoutine{|index, amps, durs, foaKind|
 		if (routines[index].notNil) {
 			this.stopRoutine(index);
@@ -789,15 +790,15 @@ GepPlayer{
 
 JGepPlayer : GepPlayer {
 	var <defnames, <loader;
-	
+
 	*new{|decoder, graphics, dbname|
 		^super.new(decoder: decoder, graphics: graphics).initLoader(dbname)
 	}
-	
+
 	initLoader{|dbname|
 		loader = JsonLoader(dbname);
 	}
-	
+
 	getDefNamesByDate{|date|
 		defnames = loader.getIDsByDate(date).collect({|id| id['value'].first });
 		data = Array.newClear(defnames.size);
@@ -807,7 +808,7 @@ JGepPlayer : GepPlayer {
 		defnames = loader.getIDsByDateRange(from, to).collect({|id| id['value'].first });
 		data = Array.newClear(defnames.size);
 	}
-	
+
 	getDefNamesByHeader{|headsize, numgenes|
 		defnames = loader.getDefNamesByHeader(headsize, numgenes)
 			.collect({|def| def['value'] });
@@ -823,7 +824,7 @@ JGepPlayer : GepPlayer {
 					input = In.ar(in, 2).dup(2).flat;
 					bf = FoaEncode.ar(
 						Array.fill(4, { |i|
-							IFFT( 
+							IFFT(
 								PV_Diffuser( FFT( LocalBuf(1024), Limiter.ar(input[i])*amp), Dust.kr(20.0))
 							)
 						}), FoaEncoderMatrix.newAtoB
@@ -849,7 +850,7 @@ JGepPlayer : GepPlayer {
 
 		}.fork
 	}
-		
+
 	loadData{|index|
 		if (data.isNil) {
 			data = Array.newClear(defnames.size);
@@ -857,10 +858,10 @@ JGepPlayer : GepPlayer {
 		if (data[index].isNil) {
 			data[index] = loader.getPlayerDataByDefName(defnames[index])
 		};
-		Post << "Data for '" << defnames[index] << "' (" << index 
+		Post << "Data for '" << defnames[index] << "' (" << index
 			<< ") loaded.." << Char.nl;
 	}
-	
+
 	play{|index, amp=0.0, foaKind='zoom', section=0|
 		var name, defargs, ampargs;
 		if (data.isNil) {
@@ -884,7 +885,7 @@ JGepPlayer : GepPlayer {
 			playFunc.(index, section, synths[index])
 		}.fork
 	}
-	
+
 	procplay{|index, amp=0.0, foaKind='zoom', section=0, procdef, procargs|
 		var name, defargs, ampargs;
 		if (data.isNil) {
@@ -908,7 +909,7 @@ JGepPlayer : GepPlayer {
 			playFunc.(index, section, synths[index])
 		}.fork
 	}
-	
+
 	compilePanDefString{|index|
 		var defname, defstr, chrom;
 		defname = data[index].defname;
@@ -918,7 +919,7 @@ JGepPlayer : GepPlayer {
 		defStrings[defname.asSymbol] = defstr;
 		^defname
 	}
-	
+
 	playSparseRoutines{|dataIndices, sparseName, sparseIndices, div = 4, foaKind, durscale=#[1.0], ampscale=#[1.0]|
 		var patterns, arr, times, amps, durs, cdur;
 		if (SparseMatrix.allPatterns.isNil) { SparseMatrix.makeSparsePatterns(2) };
@@ -936,17 +937,17 @@ JGepPlayer : GepPlayer {
 				times = times.add(cdur);
 				cdur = 0;
 			};
-			cdur = cdur + 1;			
+			cdur = cdur + 1;
 		});
-		durs = times.collect({|time, i|  
-			[times.keep(i).sum, time*durscale.wrapAt(i), 
+		durs = times.collect({|time, i|
+			[times.keep(i).sum, time*durscale.wrapAt(i),
 				time-(time*durscale.wrapAt(i)), times.drop(i+1).sum]
 		}) * (beatdur / div);
 		amps = durs.collect({|dur, i| [0.0, 1.0, 0.0, 0.0] * ampscale.wrapAt(i) });
 		amps.do({|amp, i|
 			this.playRoutine(dataIndices[i], Pseq(amp, inf), Pseq(durs[i], inf), foaKind)
 		})
-	}	
+	}
 
 	playRoutine{|index, amps, durs, foaKind|
 		var name, defargs, ampargs, pbind, sum, mul;
@@ -956,10 +957,10 @@ JGepPlayer : GepPlayer {
 		name = defnames[index];
 		if (data[index].isNil) {
 			data[index] = loader.getPlayerDataByDefName(name)
-		};	
+		};
 		if (routines[index].notNil) {
 			this.stopRoutine(index);
-		};		
+		};
 		{
 			defargs = data[index].args;
 			ampargs = [\out, foaBus[("foa"++foaKind).asSymbol]];
@@ -995,8 +996,8 @@ JGepPlayer : GepPlayer {
 			}).play
 		}.fork
 
-	}	
-	
+	}
+
 	makeGepDef{|name, func, nargs = 8|
 		SynthDef(name, {|out, dur = 0.1, amp = 1.0, rotx = 0.0, roty = 0.0, rotz = 0.0|
 			var sig;
@@ -1007,7 +1008,7 @@ JGepPlayer : GepPlayer {
 			)
 		});
 	}
-	
+
 	playGepDef{|defname, out, amp, dur, env, args, target|
 		if (target.isNil) { target = decoder };
 		^Synth.before(target, defname, [\out, out, \amp, amp, \dur, dur])
