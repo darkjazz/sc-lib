@@ -9,6 +9,17 @@ Paths{
 		}
 	}
 
+	*dataDir{
+		if (thisProcess.platform.name == 'linux')
+		{
+			^(Paths.prefix ++ "/data")
+		}
+		{
+			^(Paths.prefix ++ "/Data")
+		}
+	}
+
+
 	*gepdir{
 		if (thisProcess.platform.name == 'linux')
 		{

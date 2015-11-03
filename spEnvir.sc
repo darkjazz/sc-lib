@@ -1,7 +1,5 @@
 SpEnvir{
 
-	const <pwdfile = "/usr/local/etc/pwd.lock";
-
 	var <settings, serverReplyTime = 0;
 
 	*new{|settings|
@@ -15,7 +13,8 @@ SpEnvir{
 		this.configure;
 
 		{
-			("echo " ++ SpEnvir.pwdfile.load ++ " | sudo -S systemctl start couchdb.service").unixCmd;
+
+			// CouchDB.startServer;
 
 			1.wait;
 
@@ -46,7 +45,7 @@ SpEnvir{
 					currentEnvironment[\defs] = matrix.patterndefs;
 					Post << "audio activated, pdefs initialized.." << Char.nl;
 					this.startServerMonitor;
-					{ MasterEQ(currentEnvironment[\channels]) }.defer;
+					{ MasterEQ(currentEnvironment[\channels]); Server.default.scope; }.defer;
 				}).play
 			};
 
@@ -70,6 +69,8 @@ SpEnvir{
 
 			currentEnvironment[\matrix].setBPM(currentEnvironment[\bpm]);
 			currentEnvironment[\player].setBPM(currentEnvironment[\bpm]);
+
+			currentEnvironment[\sender] = CodeSender(currentEnvironment[\graphics]);
 
 			SparseMatrixPattern.useTwinPrimes = true;
 
@@ -272,6 +273,32 @@ SpEnvir{
 			});
 			nil
 		});
+	}
+
+	loadChordAnalysis{
+		currentEnvironment[\chordloader] = ChordLoader(Paths.dataDir +/+ "pixies/pixieschords.csv");
+
+		currentEnvironment[\chordloader].load;
+
+		currentEnvironment[\durset] = MarkovSet();
+		currentEnvironment[\deltaset] = MarkovSet();
+		currentEnvironment[\chordset] = MarkovSet();
+
+		currentEnvironment[\uchords] = ();
+
+		currentEnvironment[\chordloader].chords.do({|chord|
+			currentEnvironment[\uchords][chord.getKey] = chord.getFreqs
+		});
+
+		currentEnvironment[\deltas] = [];
+
+		currentEnvironment[\chordloader].chords.doAdjacentPairs({|chA, chB|
+			currentEnvironment[\chordset].read(chA.getKey, chB.getKey);
+			currentEnvironment[\durset].read(chA.getDur.round(1/16), chB.getDur.round(1/16));
+			currentEnvironment[\deltas] = currentEnvironment[\deltas].add((chB.getStartTime - chA.getStartTime).round(1/16));
+		});
+
+		currentEnvironment[\deltas].doAdjacentPairs({|dA, dB| currentEnvironment[\deltaset].read(dA, dB) });
 	}
 
 	setDefaultSettings{
