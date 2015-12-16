@@ -234,7 +234,8 @@ SparseMatrix{
 			});
 
 			argproto['bufproto'] = argproto['argproto'].collect({|args|
-				args.collect(_.()).putPairs((rate: [0.25, 0.5, 1.0].choose).asKeyValuePairs)
+				args.collect(_.())
+				.putPairs((rate: Array.geom(7, 0.25, 2**(1/5)).choose).asKeyValuePairs)
 			});
 
 			patterndefs = ();
@@ -275,7 +276,7 @@ SparseMatrix{
 			.collect({|path| Buffer.read(Server.default, path) });
 		buffers.cycles = (Paths.matrixbufs +/+ "cycle*").pathMatch
 			.collect({|path| Buffer.read(Server.default, path) });
-		buffers.evo = (Paths.matrixbufs +/+ "ev*").pathMatch
+		buffers.evo = (Paths.matrixbufs +/+ "ges/*").pathMatch
 			.collect({|path| Buffer.read(Server.default, path) });
 		buffers.msk = (Paths.matrixbufs +/+ "msk*").pathMatch
 			.collect({|path| Buffer.read(Server.default, path) });
@@ -501,7 +502,7 @@ SparseMatrix{
 			});
 			argproto[pname.asSymbol] = proto;
 		});
-		4.do({|x|
+		6.do({|x|
 			var proto, pname;
 			proto = ();
 			pname = "g0"++x.asString;
@@ -589,10 +590,18 @@ SparseMatrix{
 			defnames.keep(64), loader );
 		this.addPatternGepDef('g01', 8, 8, ['kokou', 'macrou'], 3, "g01", 'g01', false,
 			defnames[(64..127)], loader );
-		this.addPatternGepDef('g02', 8, 4, ['kokou', 'diansa', 'macrou', 'yole'], 1, "g02", 'g02', true,
-		defnames[(128..159)], loader );
-		this.addPatternGepDef('g03', 8, 4, ['cassa', 'raboday', 'kpanilogo', 'rumba'], 1, "g03", 'g03', true,
+
+		this.addPatternGepDef('g02', 8, 4, ['kokou', 'diansa', 'macrou', 'yole'], 1, "g02",
+			'g02', true, defnames[(128..159)], loader );
+		this.addPatternGepDef('g03', 8, 4, ['cassa', 'raboday', 'kpanilogo', 'rumba'], 1, "g03",
+			'g03', true,
 		defnames[(160..191)], loader );
+
+		// this.addPatternGepDef('g04', 8, 8, ['koukou', 'cassa', 'doudoumba', 'kakilambe'], 1,
+		// "g04", 'g04', true, defnames[(192..223)], loader );
+		// this.addPatternGepDef('g05', 8, 4, ['sorsornet', 'soli', 'rumba', 'foret'], 1,
+		// "g05", 'g05', true, defnames[(224..255)], loader );
+
 	}
 
 	patternKeys{ ^patterndefs.keys(Array) }

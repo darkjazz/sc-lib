@@ -14,7 +14,7 @@ SpEnvir{
 
 		{
 
-			// CouchDB.startServer;
+			CouchDB.startServer;
 
 			1.wait;
 
@@ -35,12 +35,17 @@ SpEnvir{
 					Post << "pattern definitions loaded.." << Char.nl;
 					1.wait;
 					currentEnvironment[\loader] = JsonLoader(currentEnvironment[\dbname]);
-					currentEnvironment[\defnames] = currentEnvironment[\loader].getDefNamesByHeader(16, 1)
-					.collect({|def| def['value'] });
+					currentEnvironment[\defnames] = currentEnvironment[\loader]
+					.getIDsByDateRange("151105", "151106")
+					.collect({|def| def['value'].first });
 					Post << "ges synth def names loaded.." << Char.nl;
 					1.wait;
+					currentEnvironment[\matrix].setBPM(currentEnvironment[\bpm]);
+					currentEnvironment[\player].setBPM(currentEnvironment[\bpm]);
 					matrix.prepareAudio;
-					Pdef('matrix', Ppar(currentEnvironment['initPdefs'].collect({|name| Pdef(name) }))).quant(64);
+					Pdef('matrix', Ppar(currentEnvironment['initPdefs'].collect({|name|
+						Pdef(name)
+					}))).quant(64);
 					Pdef('matrix').play;
 					currentEnvironment[\defs] = matrix.patterndefs;
 					Post << "audio activated, pdefs initialized.." << Char.nl;
@@ -66,9 +71,6 @@ SpEnvir{
 			currentEnvironment[\player].getDefNamesByHeader(
 				currentEnvironment[\headsize], currentEnvironment[\numgenes]
 			);
-
-			currentEnvironment[\matrix].setBPM(currentEnvironment[\bpm]);
-			currentEnvironment[\player].setBPM(currentEnvironment[\bpm]);
 
 			currentEnvironment[\sender] = CodeSender(currentEnvironment[\graphics]);
 
@@ -104,27 +106,27 @@ SpEnvir{
 
 	automateGraphics{
 		var maxPatterns, ruleWeight, changeWeight, patches, graphPatterns, activePatterns, graphics, rot;
-		maxPatterns = 5;
-		ruleWeight = 0.05;
-		changeWeight = 0.1;
+		maxPatterns = 4;
+		ruleWeight = 0.2;
+		changeWeight = 0.4;
 
 		graphics = currentEnvironment[\graphics];
 
 		patches = [
-			[1.0, 1, 1, 0.0, 1.0, 1.0], //0
+			[1.0, 0, 0, 0.0, 0.7, 1.0], //0
 			[1.0, 1, 1, 0.9, 0.1, 0.4],
 			[1.0, 1, 1, 1.0, 0.8, 0.0],
-			[1.0, 1, 1, 0.6, 0.8, 0.8],
+			[1.0, 1, 1, 1.0, 1.0, 1.0],
 			[1.0, 0, 0, 1.0, 1.0, 1.0],
 			[1.0, 1, 1, 0.5, 1.0, 1.0], //5
 			[1.0, 1, 1, 0.5, 0.9, 0.8],
 			[1.0, 1, 1, 1.0, 0.3, 0.5],
 			[1.0, 0, 0, 0.6, 0.7, 0.9],
-			[1.0, 0, 0, 0.5, 0.8, 0.9],
+			[1.0, 1, 1, 0.5, 0.8, 0.9],
 			[1.0, 1, 1, 0.2, 0.8, 0.8], //10
 			[1.0, 0, 0, 0.0, 0.5, 1.0],
 			[1.0, 0, 0, 0.6, 0.8, 1.0],
-			[1.0, 1, 1, 0.2, 0.8, 1.0],
+			[1.0, 0, 0, 0.2, 0.8, 1.0],
 			[1.0, 0, 0, 1.0, 1.0, 1.0],
 			[1.0, 0, 0, 1.0, 1.0, 1.0], //15
 			[1.0, 1, 1, 0.1, 1.0, 0.3],
@@ -132,34 +134,44 @@ SpEnvir{
 			[1.0, 1, 1, 1.0, 1.0, 1.0],
 			[1.0, 0, 0, 1.0, 1.0, 1.0],
 			[1.0, 1, 1, 1.0, 1.0, 0.2], //20
-			[1.0, 1, 1, 1.0, 1.0, 1.0],
-			[1.0, 1, 1, 1.0, 0.9, 1.0],
-			[1.0, 0, 1, 1.0, 1.0, 1.0],
+			[1.0, 1, 1, 1.0, 0.0, 1.0],
+			[1.0, 1, 1, 0.4, 0.8, 1.0],
+			[1.0, 1, 1, 0.1, 0.2, 0.3],
 			[1.0, 1, 1, 0.5, 0.6, 0.7],
-			[1.0, 0, 0, 0.5, 0.6, 0.7], //25
+			[1.0, 1, 1, 0.9, 0.8, 0.7], //25
 			[1.0, 1, 1, 0.6, 0.7, 0.8],
 			[1.0, 1, 1, 0.2, 0.7, 0.6],
 			[1.0, 0, 0, 1.0, 1.0, 1.0],
 			[1.0, 0, 0, 0.6, 0.9, 1.0],
 			[1.0, 0, 0, 1.0, 1.0, 1.0], //30
-			[1.0, 0, 0, 0.5, 0.3, 1.0],
-			[1.0, 0, 0, 0.2, 0.5, 0.6],
-			[0.5, 0, 0, 0.7, 0.8, 0.0],
-			[1.0, 0, 0, 1.0, 0.2, 0.5],
-			[1.0, 0, 0, 0.0, 1.0, 0.8]
-
+			[1.0, 0, 0, 1.0, 1.0, 0.0],
+			[1.0, 0, 0, 0.0, 0.2, 0.0],
+			[1.0, 1, 1, 0.0, 0.4, 0.4],
+			[1.0, 0, 0, 1.0, 0.0, 0.5],
+			[1.0, 0, 0, 1.0, 0.2, 0.8], //35
+			[1.0, 0, 0, 1.0, 1.0, 1.0],
+			[1.0, 0, 0, 0.0, 1.0, 1.0],
+			[1.0, 0, 0, 1.0, 1.0, 1.0],
+			[1.0, 0, 0, 1.0, 1.0, 1.0],
 		];
 
 		patches.do({|pa, i|
 			graphics.setPattern(*([i, 0] ++ pa))
 		});
 
-		graphPatterns = (0..35);
+		graphPatterns = (0..39);
 
-		activePatterns = [10];
-		graphics.setPattern(10, 1, 1.0, 1, 1, 0.6, 0.7, 0.9);
+		activePatterns = [1];
+		graphics.setPattern(1, 1.0, 1, 1, 0.9, 0.1, 0.4);
+
 
 		Tdef('ciAuto', {|mfcc|
+			10.wait;
+			activePatterns = [1, 24];
+			graphics.setPattern(24, 1.0, 1, 1, 0.5, 0.6, 0.7);
+
+			60.wait;
+
 			loop({
 				var curr, args;
 
@@ -171,7 +183,7 @@ SpEnvir{
 						activePatterns.size.rand.do({
 							curr = activePatterns.choose;
 							activePatterns.remove(curr);
-							args = [curr, 0] ++ patches.choose;
+							args = [curr, 0] ++ patches[curr];
 							graphics.setPattern(*args);
 						})
 					}
@@ -186,10 +198,9 @@ SpEnvir{
 					graphics.sendPredefined3DRule(
 						[
 							\flamingstarbow, \chenille, \belzhab, \glissergy,
-							\cooties, \faders, \frozenspirals, \glisserati,
-							\nova, \orthogo, \rainzha, \rake, \sedimental,
-							\snake, \starwars, \sticks, \thrillgrill,
-							\transers, \wanderers, \worms, \xtasy
+							\faders, \frozenspirals, \glisserati, \sedimental,
+							\nova, \orthogo, \rainzha, \rake,
+							\snake, \transers, \worms, \xtasy
 						].choose;
 					);
 				};
@@ -204,12 +215,12 @@ SpEnvir{
 					graphics.unmapCodePanel;
 				}{
 					if (0.5.coin) {
-						rot = Rotation(rrand(-100.0, 100.0), rrand(0.005, 0.05), rrand(-20.0, 20.0),
-							rrand(-120.0, 120.0),
+						rot = Rotation(rrand(-140.0, 140.0), rrand(0.005, 0.05), rrand(-40.0, 40.0),
+							rrand(-140.0, 140.0),
 							rrand(-pi, pi), rrand(0.01, 0.08), rrand(-pi, pi), rrand(0.01, 0.07));
 					}
 					{
-						rot = Rotation(rrand(60.0, 120.0).neg, 0.0, rrand(60.0, 120.0).neg, 0.0, 0.0, -0.02, 0.0, 0.0);
+						rot = Rotation(rrand(100.0, 140.0).neg, 0.0, rrand(100.0, 140.0).neg, 0.0, 0.0, -0.02, 0.0, 0.0);
 					};
 					graphics.setCameraRotation(rot, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
 					graphics.rotateCamera;
@@ -295,10 +306,59 @@ SpEnvir{
 		currentEnvironment[\chordloader].chords.doAdjacentPairs({|chA, chB|
 			currentEnvironment[\chordset].read(chA.getKey, chB.getKey);
 			currentEnvironment[\durset].read(chA.getDur.round(1/16), chB.getDur.round(1/16));
-			currentEnvironment[\deltas] = currentEnvironment[\deltas].add((chB.getStartTime - chA.getStartTime).round(1/16));
+			currentEnvironment[\deltas] = currentEnvironment[\deltas].add(
+				(chB.getStartTime - chA.getStartTime).round(1/16)
+			);
 		});
 
-		currentEnvironment[\deltas].doAdjacentPairs({|dA, dB| currentEnvironment[\deltaset].read(dA, dB) });
+		currentEnvironment[\deltas].doAdjacentPairs({|dA, dB|
+			currentEnvironment[\deltaset].read(dA, dB)
+		});
+
+		currentEnvironment[\chordLog] = ();
+
+		Post << "Chord analysis loaded.." << Char.nl;
+	}
+
+	makeChordPattern{|name, defname, length, beats=1|
+		var key, chords, dur, delta, pbind;
+		key = currentEnvironment[\uchords].keys(Array).choose;
+		chords = length.collect({
+			key = currentEnvironment[\chordset].next(key)
+		});
+		currentEnvironment[\chordfreqs] = chords.collect({|key|
+			currentEnvironment[\uchords][key].collect(_.asInt).collect(_.prevPrime)
+		});
+		dur = currentEnvironment[\chordloader].chords.choose.getDur.round(1/16);
+		currentEnvironment[\chorddurs] = length.collect({
+			dur = currentEnvironment[\durset].next(dur)
+		});
+		delta = currentEnvironment[\deltas].choose;
+		currentEnvironment[\deltas] = length.collect({
+			delta = currentEnvironment[\deltaset].next(delta)
+		});
+		pbind = Pbind(
+			\instrument, defname,
+			\out, currentEnvironment[\decoder].bus,
+			\target, currentEnvironment[\matrix].efxgroup, \addAction, \addBefore,
+			\efx, Pdefn((name.asString ++ "efx").asSymbol, currentEnvironment[\matrix].nofxbus),
+			\frqs, Pseq(currentEnvironment[\chordfreqs].collect(_.bubble), inf),
+			\amps, Array.geom(5, 1.0, 13/17).bubble,
+			\dur, Pseq(currentEnvironment[\chorddurs], inf).round(
+				currentEnvironment[\matrix].beatdur / 4
+			),
+			\delta, Pseq(currentEnvironment[\deltas].normalizeSum *
+				currentEnvironment[\matrix].beatdur * beats, inf),
+			\amp, Pdefn((name.asString ++ "amp").asSymbol, 0),
+			\emp, Pdefn((name.asString ++ "emp").asSymbol, 0),
+			\env, Pfunc({ currentEnvironment[\matrix].envs[#[perc00,perc01].choose] })
+		);
+		if (currentEnvironment[\chordLog].includesKey(name.asSymbol).not)
+		{
+			currentEnvironment[\chordLog][name] = Array()
+		};
+		currentEnvironment[\chordLog][name] = currentEnvironment[\chordLog][name].add(pbind);
+		Pdef(name, pbind)
 	}
 
 	setDefaultSettings{

@@ -8,7 +8,7 @@ CouchDB {
 	*new{|addr, db| ^super.newCopyArgs(addr, db) }
 
 	*startServer{
-		("echo " ++ SpEnvir.pwdfile.load ++ " | sudo -S systemctl start couchdb.service").unixCmd;
+		("echo " ++ CouchDB.pwdfile.load ++ " | sudo -S systemctl start couchdb.service").unixCmd;
 	}
 
 	addrString{ ^(prefix ++ netAddr.hostname ++ ":" ++ netAddr.port.asString) }
