@@ -1,9 +1,15 @@
 CouchDB {
 
+	const <pwdfile = "/usr/local/etc/pwd.lock";
+
 	var <>netAddr, <>db;
 	var cmd = "curl", getcmd = "-X GET", putcmd = "-X PUT", prefix="http://";
 
 	*new{|addr, db| ^super.newCopyArgs(addr, db) }
+
+	*startServer{
+		("echo " ++ CouchDB.pwdfile.load ++ " | sudo -S systemctl start couchdb.service").unixCmd;
+	}
 
 	addrString{ ^(prefix ++ netAddr.hostname ++ ":" ++ netAddr.port.asString) }
 

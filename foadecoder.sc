@@ -1,31 +1,31 @@
 FoaDecoder{
-		
+
 	var <isLocal, <bus, <synth, <isRunning = false, <decoder;
-	
+
 	*new{|isLocal=true, decoderType='quad', normalize=false|
 		^super.newCopyArgs(isLocal).init(decoderType, normalize)
 	}
-	
+
 	init{|decoderType, normalize|
 		bus = Bus.audio(Server.default, 4);
-		this.makeSynthDef(decoderType, normalize);	
+		this.makeSynthDef(decoderType, normalize);
 	}
-	
+
 	makeSynthDef{|decoderType, normalize|
 
 		if (isLocal) {
-			{	
-				case 
-				{ decoderType == 'uhj' } { 
+			{
+				case
+				{ decoderType == 'uhj' } {
 					"Making uhj decoder".inform;
 					decoder = FoaDecoderKernel.newUHJ;
 					Server.default.sync;
-				} 
-				{ decoderType == 'stereo' } { 
+				}
+				{ decoderType == 'stereo' } {
 					"Making stereo decoder".inform;
 					decoder = FoaDecoderMatrix.newStereo;
 					Server.default.sync;
-				} 
+				}
 				{ decoderType == 'binaural' } {
 					"Making uhj decoder".inform;
 					decoder = FoaDecoderKernel.newCIPIC;
@@ -65,7 +65,7 @@ FoaDecoder{
 		}
 
 	}
-	
+
 	start{|target=1, addAction='addToHead'|
 		if (isRunning.not) {
 			synth = Synth(\decoder, target: target, addAction: addAction);
@@ -75,16 +75,20 @@ FoaDecoder{
 			"Decoder is already running!".inform
 		}
 	}
-	
+
+	resetRunningFlag{
+		isRunning = false;
+	}
+
 	free{
 		synth.free;
 		isRunning = false;
 	}
-	
+
 	numChannels{ ^decoder.numChannels }
-	
+
 	type{ ^decoder.kind }
-	
+
 	test{
 		{
 			if (isRunning.not) { this.start; Server.default.sync };
@@ -97,32 +101,32 @@ FoaDecoder{
 				low = Mix(SinOsc.ar(Array.geom(6, 20, 2**(1/17)) * (1..6), pi, 0.2)) * env;
 				sig = sig + CombC.ar(sig, del, del, dec);
 				sig = sig + Mix.ar(Dust2.ar(freqs, AmpCompA.kr(freqs) * 0.3));
-				sig = Reverb.ar(sig * rev) + sig + low;
+				sig = FreeVerb1.ar(sig * rev) + sig + low;
 				enc = FoaEncode.ar(sig, FoaEncoderMatrix.newDirection);
 				Out.ar(out, FoaTransform.ar(enc, 'rtt', rotX, rotY, rotZ))
 			}).add;
 			Server.default.sync;
-			Pdef(\test, 
-				Pbind(\instrument, \test00, \addAction, \addBefore, \group, synth, 
+			Pdef(\test,
+				Pbind(\instrument, \test00, \addAction, \addBefore, \group, synth,
 					\out, bus, \delta, 0.5, \amp, 0.3,\rev, 0.05, \rotY, 0, \rotZ, 0,
-					\delta, Pseg(Pseq([0.5, 0.125, 0.5]), Pseq([10, 10, 5, 5]), \linear, inf), 
-					\dur, Pseg(Pseq([0.3, 0.15, 0.05, 0.3]), Pseq([9, 9, 7, 7]), \linear, inf),  
+					\delta, Pseg(Pseq([0.5, 0.125, 0.5]), Pseq([10, 10, 5, 5]), \linear, inf),
+					\dur, Pseg(Pseq([0.3, 0.15, 0.05, 0.3]), Pseq([9, 9, 7, 7]), \linear, inf),
 					\del, Pseg(Pseq([0.5, 0.25, 0.5]), Pseq([10, 10]), \linear, inf),
 					\dec, Pseg(Pseq([2, 4, 2]), Pseq([9, 9]), \linear, inf),
 					\rotX, Pseq([
-						Pseg(Pseq([0, 2pi, 0]), Pseq([15, 15]), \linear, 1), 
+						Pseg(Pseq([0, 2pi, 0]), Pseq([15, 15]), \linear, 1),
 						Pseg(Pseq([2pi, 0, 2pi]), Pseq([10, 10]), \linear, 1),
 					], inf)
-				)	
+				)
 			).play;
 		}.fork;
 	}
-	
+
 	stopTest{
 		Pdef(\test).stop;
 		Pdef(\test).clear;
 	}
-	
+
 }
 
 FoaDiffuser {

@@ -53,6 +53,12 @@ CinderApp{
 		}
 	}
 
+	openNix{|includeArgs=true|
+		var argstr = "";
+		if (includeArgs) { argstr = this.makeArgumentString };
+		(appPath + argstr).unixCmd
+	}
+
 	start{|argMode|
 		mode = argMode ? 0;
 		this.open;
