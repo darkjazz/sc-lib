@@ -1,21 +1,21 @@
 GEP{
-	var <populationSize, <numgenes, <headsize, <methods, <terminals, <linker, <forceArgs, <>methodRatio; 
+	var <populationSize, <numgenes, <headsize, <methods, <terminals, <linker, <forceArgs, <>methodRatio;
 	var <tailsize, <chromosomes;
 	var <>mutationRate = 0.05, <>recombinationRate = 0.3, <>transpositionRate = 0.1, <>rootTranspositionRate = 0.1;
 	var <>geneRecombinationRate = 0.1, <>geneTranspositionRate = 0.1, fitnessFuncs;
 	var <generationCount = 0;
-	
+
 	*new{|populationSize, numgenes, headsize, methods, terminals, linker, forceArgs, methodRatio=0.5|
 		^super.newCopyArgs(populationSize, numgenes, headsize, methods, terminals, linker, forceArgs, methodRatio).init
 	}
-		
+
 	init{
 		forceArgs = forceArgs ? ();
 		tailsize = headsize * (this.maxNumberOfArgs - 1) + 1;
 		this.randInitChromosomes;
 		fitnessFuncs = Array();
 	}
-		
+
 	maxNumberOfArgs{
 		var max = 0;
 		methods.do({|method|
@@ -25,7 +25,7 @@ GEP{
 		});
 		^max
 	}
-	
+
 	randInitChromosomes{|forceInitFunc=true|
 		if (terminals.notNil.and(methods.notNil)) {
 			chromosomes = Array.fill(populationSize, {
@@ -50,11 +50,11 @@ GEP{
 			})
 		}
 	}
-	
+
 	add{|chrom| chromosomes = chromosomes.add(chrom) }
-		
+
 	// one point recombination
-	recombineSingle{|codeA, codeB|		
+	recombineSingle{|codeA, codeB|
 		if (recombinationRate.coin) {
 			^this.recombine(codeA, codeB, 1)
 		}
@@ -62,7 +62,7 @@ GEP{
 			^[codeA, codeB]
 		}
 	}
-	
+
 	// multiple point recombination
 	recombineMultiple{|codeA, codeB, numpoints=2|
 		if (recombinationRate.coin) {
@@ -72,10 +72,10 @@ GEP{
 			^[codeA, codeB]
 		};
 	}
-	
+
 	// gene recombination
 	recombineGene{|codeA, codeB|
-		if (geneRecombinationRate.coin) {			
+		if (geneRecombinationRate.coin) {
 			^this.recombine(codeA, codeB, 1, numgenes)
 		}
 		{
@@ -92,18 +92,18 @@ GEP{
 		points = Pseq(Array.fill(numpoints, { list.pop }).sort.round(round), 1).asStream;
 		point = points.next;
 		codeA.do({|dg, i|
-			if (off) { 
+			if (off) {
 				newcodeA[i] = codeA[i];
 				newcodeB[i] = codeB[i];
-			} { 
+			} {
 				newcodeA[i] = codeB[i];
-				newcodeB[i] = codeA[i]; 
+				newcodeB[i] = codeA[i];
 			};
 			if (i == point) { off = off.not; point = points.next }
 		});
-		^[newcodeA, newcodeB]		
+		^[newcodeA, newcodeB]
 	}
-		
+
 	// mutation
 	mutate{|code, number=1|
 		var index;
@@ -112,7 +112,7 @@ GEP{
 				index = code.size.rand;
 				if (index % this.geneSize == 0) {
 					code[index] = methods.select({|mth| mth != code[index] }).choose;
-				} 
+				}
 				{
 					if (code[index].isKindOf(Method)) {
 						code[index] = [methods.select({|mth| mth != code[index] }).choose, terminals.choose].choose
@@ -122,10 +122,11 @@ GEP{
 					}
 				}
 			})
-		}
+		};
+		this.assert(code);
 		^code
 	}
-	
+
 	// transpose insert sequence
 	transposeInsertSequence{|code, seqlo=1, seqhi=3|
 		var sourceindex, head, targetindex, seqlen, newcode;
@@ -134,11 +135,11 @@ GEP{
 			targetindex = rrand(0, code.size-this.geneSize).round(this.geneSize) + 1;
 			seqlen = rrand(seqlo,seqhi);
 			sourceindex = targetindex + rrand(1, this.geneSize-targetindex-seqlen);
-			head = code[(sourceindex..sourceindex+seqlen-1)] ++ 
+			head = code[(sourceindex..sourceindex+seqlen-1)] ++
 				code[(targetindex..targetindex+headsize-seqlen-1)];
 			if (head.includes(nil)) {
 				[targetindex, sourceindex, seqlen].postln;
-				code.postln; 
+				code.postln;
 				head.postln;
 				"----".postln
 			};
@@ -146,18 +147,18 @@ GEP{
 				newcode[index] = head[i]
 			});
 		};
-		
+		this.assert(newcode);
 		^newcode
 	}
-	
-	
+
+
 	// transpose root sequence
 	transposeRoot{|code,seqlo=1,seqhi=3|
 		var sourceindex, head, targetindex, seqlen, newcode, root, find;
 		newcode = code.copy;
-		
+
 		if (rootTranspositionRate.coin) {
-		
+
 			targetindex = rrand(0, code.size-this.geneSize).round(this.geneSize);
 			seqlen = rrand(seqlo,seqhi);
 			sourceindex = targetindex + rrand(1, this.geneSize-seqlen);
@@ -165,18 +166,18 @@ GEP{
 				.selectIndices({|pos| terminals.includes(pos).not }).first;
 			if (find.notNil)
 			{
-				sourceindex = sourceindex + find;	
-				head = code[(sourceindex..sourceindex+seqlen-1)] ++ 
+				sourceindex = sourceindex + find;
+				head = code[(sourceindex..sourceindex+seqlen-1)] ++
 					code[(targetindex..targetindex+headsize-seqlen-1)];
 				(targetindex..targetindex+headsize-1).do({|index, i|
 					newcode[index] = head[i]
 				});
 			}
 		};
-		
-		^newcode		
+		this.assert(newcode);
+		^newcode
 	}
-	
+
 	// transpose gene
 	transposeGene{|code|
 		var newcode, targetindex, head;
@@ -188,10 +189,10 @@ GEP{
 			newcode.insert(0, head);
 			newcode = newcode.flat
 		};
-		
+		this.assert(newcode);
 		^newcode
 	}
-	
+
 	performRecombination{|chromA, chromB|
 		var codeA, codeB;
 		codeA = chromA.code;
@@ -208,8 +209,10 @@ GEP{
 		};
 		chromA.code = codeA;
 		chromB.code = codeB;
+		this.assert(codeA);
+		this.assert(codeB);
 	}
-	
+
 	nextGeneration{
 		var weights, newgen, scores;
 		scores = chromosomes.collect(_.score);
@@ -220,7 +223,7 @@ GEP{
 			"no previous scores detected..".warn;
 			weights = (populationSize.reciprocal ! populationSize);
 		};
-		
+
 		// replication
 		newgen = Array.fill(populationSize, {
 			var chrom, index;
@@ -235,40 +238,48 @@ GEP{
 			};
 			chrom
 		});
-		
+
 		// mutation
 		if (mutationRate > 0.0) {
 			newgen.do({|chrom| chrom.code = this.mutate(chrom.code) })
 		};
-		
+
 		// insert sequence transposition
 		if (transpositionRate > 0.0) {
 			newgen.do({|chrom| chrom.code = this.transposeInsertSequence(chrom.code) })
 		};
-		
+
 		// root transposition
 		if (rootTranspositionRate > 0.0) {
 			newgen.do({|chrom| chrom.code = this.transposeRoot(chrom.code) })
 		};
-		
+
 		// gene transposition
 		if ((geneTranspositionRate > 0.0).and(numgenes > 1)  ) {
 			newgen.do({|chrom| chrom.code = this.transposeGene(chrom.code) })
 		};
-		
+
 		// recombination
 		newgen.do({|chromA|
 			this.performRecombination(chromA, newgen.choose)
 		});
-		
+
 		chromosomes = newgen;
-		
+
 		generationCount = generationCount + 1;
-		
+
 		this.updateScores
-		
+
 	}
-	
+
+	assert{|code|
+		if (code.first.isKindOf(Symbol))
+		{
+			"Genetic operation failed...".error;
+			code.throw;
+		}
+	}
+
 	growPopulation{
 		var newgen;
 		generationCount = generationCount + 1;
@@ -280,71 +291,71 @@ GEP{
 			chr.code = this.transposeRoot(chr.code);
 			chr.code = this.transposeGene(chr.code);
 		});
-		newgen.pairsDo({|chrA, chrB| 
-			this.performRecombination(chrA, chrB)
+		newgen.pairsDo({|chrA, chrB|
+			this.performRecombination(chrA, chrB);
 		});
 		chromosomes = chromosomes ++ newgen;
 	}
-	
-	updateScores{ 
-		fitnessFuncs.do(_.(chromosomes)) 
+
+	updateScores{
+		fitnessFuncs.do(_.(chromosomes))
 	}
-	
+
 	addFitnessFunc{|aFunc|
 		fitnessFuncs = fitnessFuncs.add(aFunc)
 	}
-	
+
 	removeFitnessFunc{|index|
 		fitnessFuncs.removeAt(index)
 	}
-	
+
 	geneSize{ ^(headsize + tailsize) }
-	
+
 	at{|index| ^chromosomes[index] }
-	
+
 	meanScore{ ^chromosomes.collect({|chr| chr.score }).mean }
-	
+
 	maxScore{ ^chromosomes.collect(_.score).maxItem }
-	
-	maxScoreGEPChromosomes{ 
+
+	maxScoreGEPChromosomes{
 		var max = this.maxScore;
-		^chromosomes.select({|chr| chr.score == max  }) 
+		^chromosomes.select({|chr| chr.score == max  })
 	}
-	
+
 	// hack: use with caution
 	replacePopulation{|chromArray|
 		chromosomes = chromArray
 	}
-				
+
 }
 
 GEPChromosome{
 	var <>code, <terminals, <numGenes, <linker, <forceArgs, <>score=0;
 	var <tree, <>extraDomains, <>constants, parents, <>generation = 0;
-	
+
 	*new{|code, terminals, ngenes, linker, forceArgs|
 		^super.newCopyArgs(code, terminals, ngenes, linker, forceArgs)
 	}
-	
+
 	*fromData{|data|
 		^GEPChromosome(data.code, data.terminals, data.header.numgenes, data.linker)
 	}
-	
+
 	*fromJsonData{|data|
-		^GEPChromosome(data.code, data.terminals, data.numgenes.asInteger, 
+		^GEPChromosome(data.code, data.terminals, data.numgenes.asInteger,
 			data.linker)
 	}
-	
+
 	asExpressionTree{|includeObjects=true|
 		tree = ExpressionTree(this, includeObjects);
 		^tree
 	}
-	
+
 	asUgenExpressionTree{|includeObjects=true|
 		tree = UGenExpressionTree(this, includeObjects);
 		^tree
 	}
-	
+
 	asSymbols{
 		^code.collect({|it| if (it.class == Symbol) { it } { it.name }  })
 	}
@@ -352,29 +363,29 @@ GEPChromosome{
 	isExceptionOp{|name|
 		^(['-', '+', '*', '/', '**'].includes(name))
 	}
-		
+
 	isBooleanOp{|name|
 		^(['or', 'not', 'and', 'xor', 'and', 'nand'].includes(name))
 	}
-	
+
 	fillConstants{|size, func|
 		constants = Array.fill(size, func)
 	}
-	
+
 	addExtraDomain{|domain|
 		if (extraDomains.isNil) {
 			extraDomains = Array();
 		};
-		
+
 		extraDomains = extraDomains.add(domain)
 	}
-	
+
 	setParents{|indA, indB|
 		parents = Array.newClear(2);
 		parents[0] = indA;
 		parents[1] = indB;
 	}
-	
+
 	progenyOf{ ^parents }
 }
 
@@ -384,11 +395,11 @@ GEPChromosome{
 ExpressionTree{
 	var chrom, includeObjects, gene;
 	var <root, depth=0, <maxDepth=0;
-	
+
 	*new{|chrom, includeObjects=true|
 		^super.newCopyArgs(chrom, includeObjects).decode
 	}
-	
+
 	decode{
 		var code;
 		code = chrom.code.clump((chrom.code.size/chrom.numGenes).asInt);
@@ -403,35 +414,35 @@ ExpressionTree{
 					indices = (argindex..argindex+argNames.size-1);
 					argindex = argindex + indices.size;
 					event[i] = indices;
-					
-				}				
+
+				}
 			}).select(_.notNil);
 			this.appendArgs(array.first, array)
 
 		}));
 	}
-	
+
 	appendArgs{|event, array|
 		var nodes;
 		depth = depth + 1;
 		if (depth > maxDepth) { maxDepth = depth };
-		nodes = event.values.pop.collect({|ind| 
+		nodes = event.values.pop.collect({|ind|
 			if (gene[ind].isKindOf(Method)) {
-				this.appendArgs(array.select({|sev| sev.keys.pop == ind }).first, array ) 
+				this.appendArgs(array.select({|sev| sev.keys.pop == ind }).first, array )
 			} {
 				GepNode(gene[ind])
 			}
-		}); 
+		});
 		depth = depth - 1;
-		^GepNode(gene[event.keys.pop], nodes)		
+		^GepNode(gene[event.keys.pop], nodes)
 	}
-		
+
 	asFunctionString{|includeBrackets=true|
 		var string = "";
 		if (includeBrackets) {
 			string = string ++ "{" ++ this.appendTerminals;
 		};
-		
+
 		if (chrom.isExceptionOp(chrom.linker.name).not)
 		{
 			if (chrom.isBooleanOp(chrom.linker.name)) {
@@ -443,7 +454,7 @@ ExpressionTree{
 		};
 
 		string = string ++ "( ";
-		
+
 		root.nodes.do({|node, i|
 			string = string ++ this.appendString(node);
 			if (i < root.nodes.lastIndex) {
@@ -461,32 +472,32 @@ ExpressionTree{
 		};
 		^string
 	}
-	
+
 	appendString{|node|
 		var str = "";
 		if (node.isFunction) {
 			if (includeObjects) {
-				str = str + node.value.ownerClass.asString.drop(5) ++ "." 
+				str = str + node.value.ownerClass.asString.drop(5) ++ "."
 			};
-			
+
 			if (chrom.isExceptionOp(node.value.name).not) {
-				str = str ++ node.value.name.asString 
+				str = str ++ node.value.name.asString
 			};
-			
+
 			str = str ++ "( ";
-				
+
 			node.nodes.do({|subnode, i|
 				str = str ++ this.appendString(subnode);
-				if (i < node.nodes.lastIndex) { 
+				if (i < node.nodes.lastIndex) {
 					if (chrom.isExceptionOp(node.value.name)) {
-						str = str + node.value.name.asString ++ " " 
+						str = str + node.value.name.asString ++ " "
 					}
 					{
-						str = str ++ ", " 
+						str = str ++ ", "
 					}
 				}
 			});
-			
+
 			str = str ++ " )";
 		}
 		{
@@ -494,7 +505,7 @@ ExpressionTree{
 		};
 		^str
 	}
-	
+
 	appendTerminals{
 		var str = "|";
 		chrom.terminals.do({|sym|
@@ -502,7 +513,7 @@ ExpressionTree{
 		});
 		^(str.keep(str.size-1) ++ "| ")
 	}
-	
+
 	renderDot{|name, path|
 		var str, rank = "{rank = same; ";
 		str = "digraph " ++ name ++ "\n{";
@@ -513,7 +524,7 @@ ExpressionTree{
 		root.nodes.do({|node, i|
 			var lname;
 			lname = "L" ++ i.asString.padLeft(2);
-			str = str ++ lname ++ " [label='" ++ chrom.linker.name.asString 
+			str = str ++ lname ++ " [label='" ++ chrom.linker.name.asString
 				++ "' fillcolor=grey40 fontcolor=white];\n";
 			str = str ++ this.renderNode(node);
 			rank = rank ++ lname ++ "; ";
@@ -522,22 +533,22 @@ ExpressionTree{
 		str = str ++ rank ++ "}\n";
 		str = str ++ "}";
 	}
-	
+
 	renderNode{|node|
 		var nodestr;
 		nodestr = "";
 	}
-	
+
 }
 
 GepNode{
 	var <value, <>nodes;
-	
+
 	*new{|value, nodes|
 		^super.newCopyArgs(value, nodes)
 	}
-		
+
 	isTerminal{ ^nodes.isNil }
-	
+
 	isFunction{ ^nodes.notNil }
 }

@@ -13,18 +13,18 @@ SparseMatrix{
 	var <>eventLibName = "lib003", eventData, <freqSet, <durSet, <ampSet;
 
 	*initClass{ funcdefpath = Paths.devdir +/+ "lambda/supercollider/sparsematrix/deffuncs01.scd" }
-	
+
 	*new{|decoder, graphics, quant=2, ncoef=8|
 		^super.newCopyArgs(decoder, graphics, quant, ncoef).init
 	}
-	
+
 	*makeSparsePatterns{|quant|
 		SparseMatrix.allPatterns = DjembeLib.convertAll(quant);
-		SparseMatrix.patterns12 = SparseMatrix.allPatterns.select({|pat| 
-			(pat.first.size / quant) % 6 == 0 
+		SparseMatrix.patterns12 = SparseMatrix.allPatterns.select({|pat|
+			(pat.first.size / quant) % 6 == 0
 		});
-		SparseMatrix.patterns16 = SparseMatrix.allPatterns.select({|pat, name| 
-			SparseMatrix.patterns12.keys.includes(name).not 
+		SparseMatrix.patterns16 = SparseMatrix.allPatterns.select({|pat, name|
+			SparseMatrix.patterns12.keys.includes(name).not
 		});
 		SparseMatrix.sparseObjects = SparseMatrix.allPatterns.collect(
 			SparsePattern(_)).collect(_.makeSparse
@@ -35,7 +35,7 @@ SparseMatrix{
 		"-----".postln;
 		SparseMatrix.patterns12.collect(_.size).postln;
 		SparseMatrix.patterns12.size.postln;
-		
+
 		SparseSynthPattern.makePrimeFreqs;
 	}
 
@@ -138,11 +138,11 @@ SparseMatrix{
 
 		efx = (
 			efx0: ( def: \rev00, args: (rtime: Pbrown(2.0, 3.0, 0.1,inf), hf: Pn(1.0))),
-			efx1: ( def: \rev01, args: (room: 10, rtime: 8, damp: 0.5, bw: 0.5, 
+			efx1: ( def: \rev01, args: (room: 10, rtime: 8, damp: 0.5, bw: 0.5,
 				spr: 15, dry: 0, early: 1.0, tail: 0.7)
 			),
 			efx2: ( def: \rev02, args: (room: 20, rtime: 6,
-				wsz: Prand([0.02,0.06,0.1,0.2],inf), 
+				wsz: Prand([0.02,0.06,0.1,0.2],inf),
 				pch:Prand(Array.geom(24,1.0,2**(1/24)).reverse.keep(10),inf),
 				pds: Pwrand([0,Pwhite(0.1, 0.5, 1)],[0.7, 0.3],inf),
 				tds: Pwrand([0,Pwhite(0.1, 0.5, 1)],[0.7, 0.3],inf) )
@@ -153,7 +153,7 @@ SparseMatrix{
 				room: 8, rtime: 4, ramp: 0.2 )
 			),
 			efx4: (def: \del01, args: (del: Pfunc({ beatdur / 2 }), dec: Pfunc({ beatdur * 4 }) )),
-			efx5: ( def: \del02, args: ( rtime: 10, del: Pfunc({ beatdur }), dec: Pfunc({ beatdur }) ))			
+			efx5: ( def: \del02, args: ( rtime: 10, del: Pfunc({ beatdur }), dec: Pfunc({ beatdur }) ))
 		).keysValuesDo({|name, ev|
 			ev[\args][\delta] = Pfunc({ beatdur });
 			ev[\args][\in] = Bus.audio;
@@ -329,12 +329,12 @@ SparseMatrix{
 	}
 
 	addPatternSynthDef{|name, indices, groupsize=4, div=8, sourcenames, subpatterns=0, prefix, protoname, append=false|
-		patterndefs[name] = SparseSynthPattern(name, indices, groupsize, div, sourcenames, subpatterns, 
+		patterndefs[name] = SparseSynthPattern(name, indices, groupsize, div, sourcenames, subpatterns,
 			prefix, this, protoname ? 'argproto', append)
 	}
 
 	addPatternBufferDef{|name, indices, groupsize=4, div=8, sourcenames, subpatterns=0, prefix, protoname, buffers, defname, append=false|
-		patterndefs[name] = SparseBufferPattern(name, indices, groupsize, div, sourcenames, subpatterns, 
+		patterndefs[name] = SparseBufferPattern(name, indices, groupsize, div, sourcenames, subpatterns,
 			prefix, this, protoname ? 'argproto', buffers, defname, append)
 	}
 
@@ -343,7 +343,7 @@ SparseMatrix{
 	}
 
 	addPatternGepDef{|name, groupsize=4, div=8, sourcenames, subpatterns=0, prefix, protoname, append, defnames, loader|
-		patterndefs[name] = SparseJGepPattern(name, groupsize, div, sourcenames, subpatterns, prefix, this, 
+		patterndefs[name] = SparseJGepPattern(name, groupsize, div, sourcenames, subpatterns, prefix, this,
 			protoname ? 'argproto', append, defnames, loader)
 	}
 
@@ -428,11 +428,11 @@ SparseMatrix{
 				decoder.start(efxgroup, \addAfter)
 			};
 			Server.default.sync;
-			listener = Synth.before(decoder.synth, \mfcc, [\in, decoder.bus, \th, -6.dbamp]);
-			mfccresp = OSCFunc({|ms|
-				graphics.sendSOMVector(ms[3..(ncoef+2)]);
-				onsetFunc.(ms[3..(ncoef+2)])
-			}, '/mfcc', Server.default.addr ).add;
+			// listener = Synth.before(decoder.synth, \mfcc, [\in, decoder.bus, \th, -6.dbamp]);
+			// mfccresp = OSCFunc({|ms|
+			// 	graphics.sendSOMVector(ms[3..(ncoef+2)]);
+			// 	onsetFunc.(ms[3..(ncoef+2)])
+			// }, '/mfcc', Server.default.addr ).add;
 		}.fork
 	}
 
@@ -507,15 +507,15 @@ SparseMatrix{
 			});
 			argproto[pname.asSymbol] = proto;
 		});
-		
+
 	}
 
 	preparePatternDefs{
 		this.makeEfxProto;
-		
+
 		this.addPatternCycleDef('c00', 4, this.buffers.cycles[[1, 2, 7, 14]], 'frag05', "c0");
 
-		this.addPatternSynthDef('r00', 
+		this.addPatternSynthDef('r00',
 			sourcenames: ['kpanilogo', 'yole', 'diansa', 'sorsornet'], prefix: "r0", protoname: 'r00');
 
 		this.addPatternSynthDef('r01', div: 4,
@@ -570,7 +570,7 @@ SparseMatrix{
 		);
 
 	}
-	
+
 	loadPatternDefs{|path|
 		this.makeEfxProto;
 		(Paths.devdir +/+ "lambda/supercollider/sparsematrix" +/+ path).load.(this)
@@ -586,7 +586,7 @@ SparseMatrix{
 		this.addPatternGepDef('g03', 8, 4, ['cassa', 'raboday', 'kpanilogo', 'rumba'], 1, "g03", 'g03', true,
 			defnames[(160..191)], loader );
 	}
-	
+
 	patternKeys{ ^patterndefs.keys(Array) }
 
 	collectPatternKeys{|names|
@@ -709,15 +709,15 @@ SparseMatrix{
 }
 
 SparseMatrixPattern{
-	
+
 	classvar <>twinPrimes, <>usePrimes = false, <>useTwinPrimes = false;
 
-	var <name, <indices, <groupsize, div, prefix, matrix, sourcenames, subpatterns, protoname, appendSubPatterns; 
+	var <name, <indices, <groupsize, div, prefix, matrix, sourcenames, subpatterns, protoname, appendSubPatterns;
 	var <patterns, <args, <groups, <ctrls;
 	var <previousStates, maxStateSize = 4, <size;
 
 	*new{|name, indices, groupsize, div, prefix, matrix, sourcenames, subpatterns, protoname, append=false|
-		^super.newCopyArgs(name, indices, groupsize, div, prefix, matrix, sourcenames, 
+		^super.newCopyArgs(name, indices, groupsize, div, prefix, matrix, sourcenames,
 			subpatterns, protoname, append).init
 	}
 
@@ -725,7 +725,7 @@ SparseMatrixPattern{
 		previousStates = Array.newClear(maxStateSize);
 		size = indices.size;
 	}
-	
+
 	*makePrimeFreqs{|offset=13|
 		var number, allPrimes;
 		number = offset;
@@ -734,24 +734,24 @@ SparseMatrixPattern{
 			allPrimes = allPrimes.add(number);
 			number = (number + 1).asInt.nextPrime;
 		});
-		
+
 		twinPrimes = Array();
-		
+
 		allPrimes.doAdjacentPairs({|x, y|
 			if (y - x == 2) {
 				twinPrimes = twinPrimes.addAll([x, y]);
 			}
 		});
-				
+
 	}
 
 	findNearestTwinPrime{|freq|
 		var diff, index;
 		diff = (freq - this.class.twinPrimes).abs;
 		index = diff.indexOf(diff.minItem);
-		^this.class.twinPrimes[index];		
+		^this.class.twinPrimes[index];
 	}
-	
+
 	setControls{|onFunc, ampFunc, durFunc, empFunc, names|
 		var coll;
 
@@ -781,22 +781,22 @@ SparseMatrixPattern{
 			if (empFunc.notNil) { ctr.emp = empFunc.() };
 		})
 	}
-	
+
 	setAmpDev{|pct, pat|
 		if (pat.isNil) {
 			ctrls.do({|ctr| ctr.ampdev = pct })
 		}
 		{
-			ctrls[pat].ampdev = pct	
+			ctrls[pat].ampdev = pct
 		}
 	}
-	
+
 	setDurDev{|pct, pat|
 		if (pat.isNil) {
 			ctrls.do({|ctr| ctr.durdev = pct })
 		}
 		{
-			ctrls[pat].durdev = pct	
+			ctrls[pat].durdev = pct
 		}
 	}
 
@@ -821,11 +821,11 @@ SparseMatrixPattern{
 		this.saveCurrentState;
 		ctrls = previousStates[(index + 1).clip(1, maxStateSize-1)].collect({|ctr| ctr.collect(_.())  })
 	}
-	
+
 	setEfx{|index, efx|
 		if (efx.isKindOf(Array).not) { efx = efx.bubble };
 		if (efx.size == 0) { matrix.nofxbus.bubble };
-		Pdefn((SparseMatrix.makeDefName(index, prefix)++"efx").asSymbol, 
+		Pdefn((SparseMatrix.makeDefName(index, prefix)++"efx").asSymbol,
 			efx.collect({|efxkey| matrix.efx[efxkey].args.in})
 		)
 	}
@@ -870,8 +870,8 @@ SparseMatrixPattern{
 
 	mergePatterns{
 		var merged = Array();
-		if (appendSubPatterns) 
-		{ 
+		if (appendSubPatterns)
+		{
 			merged = this.appendSubPatterns
 		}
 		{
@@ -903,7 +903,7 @@ SparseMatrixPattern{
 		groups = groups.clump(groupsize);
 
 	}
-	
+
 	appendSubPatterns{
 		var appendedPatterns = Array();
 		sourcenames.do({|sourcename|
@@ -917,11 +917,11 @@ SparseMatrixPattern{
 	makeControls{
 		ctrls = patterns.collect({  (active: 0, amp: 0, emp: 0, dur: rrand(0.01, 0.1), ampdev: 0, durdev: 0) });
 	}
-	
+
 	calculateAmp{|key|
 		^ctrls[key].amp + (ctrls[key].amp * ctrls[key].ampdev.rand * [-1, 1].choose)
 	}
-	
+
 	calculateDur{|key|
 		^ctrls[key].dur + (ctrls[key].dur * ctrls[key].durdev.rand * [-1, 1].choose)
 	}
@@ -934,7 +934,7 @@ SparseSynthPattern : SparseMatrixPattern{
 	*new{|name, indices, groupsize, div, sourcenames, subpatterns, prefix, matrix, protoname, append=false|
 		^super.new(name, indices, groupsize, div, prefix, matrix, sourcenames, subpatterns, protoname, append).makePdef
 	}
-		
+
 	makePdef{
 		var instr, argproto;
 		var combined;
@@ -945,7 +945,7 @@ SparseSynthPattern : SparseMatrixPattern{
 		combined = this.mergePatterns;
 
 		this.makePatterns(combined);
-		
+
 		this.makeControls;
 
 		argproto = ();
@@ -955,12 +955,12 @@ SparseSynthPattern : SparseMatrixPattern{
 		});
 
 		args = patterns.collect({|pat, key| argproto[key] ? argproto[\default]; });
-		
+
 		args.keysValuesDo({|patkey, argev|
 			argev['efx'] = Pdefn((patkey ++ "efx").asSymbol, argev['efx']);
 		});
-		
-		instr = ().putPairs(args.size.collect({|i| [SparseMatrix.makeDefName(i, prefix), 
+
+		instr = ().putPairs(args.size.collect({|i| [SparseMatrix.makeDefName(i, prefix),
 			SparseMatrix.makeDefName(indices[i], "d")]  }).flat);
 
 		Pdef(name, Ppar(
@@ -975,9 +975,9 @@ SparseSynthPattern : SparseMatrixPattern{
 						freq = this.class.scale.performNearestInScale(freq.cpsmidi).midicps;
 					}
 				};
-				Pbind(\instrument, instr[key], \group, matrix.group, \addAction, \addToHead, 
+				Pbind(\instrument, instr[key], \group, matrix.group, \addAction, \addToHead,
 					\delta, Pfunc({ matrix.beatdur / div }),
-					\amp, Pfunc({ this.calculateAmp(key) }), \emp, Pfunc({ ctrls[key].emp }), \out, matrix.decoder.bus, 
+					\amp, Pfunc({ this.calculateAmp(key) }), \emp, Pfunc({ ctrls[key].emp }), \out, matrix.decoder.bus,
 					\freq, freq, \dur, Pfunc({ this.calculateDur(key) }), \pat, matrix.makePattern(key, patterns[key].bubble),
 					\type, Pfunc({|ev| if (ctrls[key].active.booleanValue) { ev.pat } { \rest } }),
 					*args.asKeyValuePairs
@@ -1022,7 +1022,7 @@ SparseSynthPattern : SparseMatrixPattern{
 SparseBufferPattern : SparseMatrixPattern{
 	var <buffers;
 
-	*new{|name, indices, groupsize, div, sourcenames, subpatterns, prefix, matrix, protoname, buffers, defname, 
+	*new{|name, indices, groupsize, div, sourcenames, subpatterns, prefix, matrix, protoname, buffers, defname,
 			append=false|
 		^super.new(name, indices, groupsize, div, prefix, matrix, sourcenames, subpatterns, protoname, append)
 			.makePdef(buffers, defname)
@@ -1033,17 +1033,17 @@ SparseBufferPattern : SparseMatrixPattern{
 		patterns = ();
 		groups = Array();
 		buffers = ();
-		
+
 		combined = this.mergePatterns;
 
 		this.makePatterns(combined);
-		
+
 		patterns.keys(Array).sort.do({|key, i|
 			buffers[key] = bufs[i]
 		});
-		
+
 		this.makeControls;
-		
+
 		groups = groups.clump(groupsize);
 
 		argproto = ();
@@ -1250,9 +1250,9 @@ SparseJGepPattern : SparseMatrixPattern {
 		gepargs = ();
 
 		Routine({
-			
+
 			var t = SystemClock.seconds;
-			
+
 			defnames.do({|dname, i|
 				var grgs, key = SparseMatrix.makeDefName(i, prefix);
 				instr[key] = dname;
@@ -1268,7 +1268,7 @@ SparseJGepPattern : SparseMatrixPattern {
 				this.addGepSynthDef(dname, gepdata[i]);
 				Server.default.sync;
 			});
-			
+
 			Post << "Gep patterns init time elapsed: " << (SystemClock.seconds - t) << Char.nl;
 
 			Pdef(name, Ppar(
@@ -1278,7 +1278,7 @@ SparseJGepPattern : SparseMatrixPattern {
 					Pbind(
 						\instrument, instr[key], \group, matrix.group, \addAction, \addToHead,
 						\delta, Pfunc({ matrix.beatdur / div }),
-						\amp, Pfunc({ ctrls[key].amp }), \emp, Pfunc({ ctrls[key].emp }), 
+						\amp, Pfunc({ ctrls[key].amp }), \emp, Pfunc({ ctrls[key].emp }),
 						\out, matrix.decoder.bus,
 						\dur, Pfunc({ ctrls[key].dur }), \pat, matrix.makePattern(key, patterns[key].bubble),
 						\type, Pfunc({|ev| if (ctrls[key].active.booleanValue) { ev.pat } { \rest } }),

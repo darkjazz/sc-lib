@@ -71,15 +71,15 @@ UGepLoader{
 		file = nil;
 		^this.loadNames(defarray)
 	}
-	
-	/* 
+
+	/*
 	simple date search format: yymmdd
 	*/
 	loadByDate{|from, to|
 		var paths, dates, indices;
 		paths = (Paths.gepArchDir ++ "*").pathMatch;
 		dates = paths.collect({|path| path.basename.split($.).first.drop(15).keep(6) });
-		indices = dates.selectIndices({|date| 
+		indices = dates.selectIndices({|date|
 			var select = false;
 			if (from.notNil.and(to.isNil))
 			{
@@ -95,9 +95,9 @@ UGepLoader{
 			};
 			select
 		});
-		
+
 		paths = paths[indices];
-		
+
 		data = paths.collect({|path|
 			var gesdata, meta, defname;
 			defname = path.basename.split($.).first;
@@ -107,9 +107,9 @@ UGepLoader{
 			meta.defname = defname.asSymbol;
 			meta
 		});
-		
+
 		this.syncStats;
-		
+
 		if (headsize.notNil) {
 			data = data.select({|item| item.data.header.headsize == headsize });
 		};
@@ -121,7 +121,7 @@ UGepLoader{
 		Post << "UGep metadata loaded." << Char.nl;
 
 		^data
-		
+
 	}
 
 	syncStats{
@@ -148,45 +148,45 @@ UGepLoader{
 }
 
 JsonLoader{
-	
+
 	classvar <localIP = "127.0.0.1", <localPort = 5984;
 	classvar <remoteIP = "", remotePort = 0;
 	classvar <viewsPath = "/Users/alo/SuperCollider/gep/json/views_00.js";
-	
+
 	var <db;
-	
+
 	*new{|dbname, useLocal=true|
 		^super.new.init(dbname, useLocal)
 	}
-	
+
 	init{|dbname, useLocal|
 		db = CouchDB(NetAddr(this.class.localIP, this.class.localPort), dbname)
 	}
-	
+
 	putViewsFromFile{
 		db.putViewsFromDoc(this.class.viewsPath)
 	}
-		
+
 	getIDsByDate{|date|
 		var str, ids, defkey;
 		str = db.get("headerByDate?key=\"#\"".replace("#", date));
 		str = str.subStr((str.find("\"rows\":")+10), str.size-6) ++ "  ";
-		ids = str.split(Char.nl).collect({|id| 
+		ids = str.split(Char.nl).collect({|id|
 			id.replace("{", "(").replace("}", ")").replace("\"", "'")
-				.keep(id.size-2).interpret 
+				.keep(id.size-2).interpret
 		});
 		^ids
 	}
-	
+
 	getIDsByDateRange{|from="000000", to="999999"|
 		var str, ids, defkey;
 		str = db.get("headerByDate?'startkey=\"#\"&endkey=\"$\"'"
 			.replace("#", from).replace("$", to)
 		);
 		str = str.subStr((str.find("\"rows\":")+10), str.size-6) ++ "  ";
-		ids = str.split(Char.nl).collect({|id| 
+		ids = str.split(Char.nl).collect({|id|
 			id.replace("{", "(").replace("}", ")").replace("\"", "'")
-				.keep(id.size-2).interpret 
+				.keep(id.size-2).interpret
 		});
 		^ids
 	}
@@ -201,59 +201,69 @@ JsonLoader{
 		data.args = array[0];
 		data.headsize = array[1].asInteger;
 		data.numgenes = array[2].asInteger;
-		data.code = array[3].collect({|it| 
+		data.code = array[3].collect({|it|
 			if (it.asString.size == 1) { it.asSymbol } { it.asString.interpret }
 		});
 		data.terminals = array[4];
-		data.linker = AbstractFunction.methods.select({|method| 
+		data.linker = AbstractFunction.methods.select({|method|
 			method.name == array[5]
 		}).first;
 		^data
 	}
-	
+
 	getDefNamesByHeader{|headsize, numgenes|
 		var str, ids, defkey;
-		str = db.get("defnamesByHeader?key=\"#\"".replace("#", headsize.asString ++ numgenes.asString));
+		if (headsize.isNil.and(numgenes).isNil) {
+			str = db.get("defnamesByHeader")
+		}
+		{
+			str = db.get("defnamesByHeader?key=\"#\"".replace("#", headsize.asString ++ numgenes.asString));
+		};
 		str = str.subStr((str.find("\"rows\":")+10), str.size-6) ++ "  ";
-		ids = str.split(Char.nl).collect({|id| 
+		ids = str.split(Char.nl).collect({|id|
 			id.replace("{", "(").replace("}", ")").replace("\"", "'")
-				.keep(id.size-2).interpret 
+				.keep(id.size-2).interpret
 		});
 		^ids
 	}
-	
+
 	getDocumentByDefName{|defname|
-		var doc, data, argchrom, operators;
+		var result, doc, data, argchrom, operators;
 		operators = ['*', '/', '+', '-'];
-		doc = db.get("docByDefName?key=\"#\"".replace("#", defname));
-		doc = doc.subStr((doc.find("\"value\":") + 8), doc.size - 7)
+		result = db.get("docByDefName?key=\"#\"".replace("#", defname));
+		doc = result.subStr((result.find("\"value\":") + 8), result.size - 7)
 			.replace("{", "(").replace("}", ")").replace("\n", "").replace("\"", "'")
 			.interpret;
 		data = ();
+		data.id = doc['_id'];
 		data.defname = doc.defname;
-		data.args = doc.args.literals;
+		data.date = doc.date;
+		data.time = doc.time;
+		data.generation = doc.generation;
 		data.headsize = doc.headsize;
 		data.numgenes = doc.numgenes;
-		data.code = doc.code.collect({|it| 
+		data.code = doc.code.collect({|it|
 			if (it.asString.size == 1) { it.asSymbol } { it.asString.interpret }
 		});
-		data.terminals = doc.terminals;
-		data.linker = AbstractFunction.methods.select({|method| 
+		data.linker = AbstractFunction.methods.select({|method|
 			method.name == doc.linker
 		}).first;
+		data.methods = doc.methods.collect(_.asString).collect(_.interpret);
+		data.terminals = doc.terminals;
 		data.stats = doc.stats;
-		argchrom = ();
-		argchrom.code = doc.args.code.collect({|it| 
+		data.args = doc.args.literals;
+		data.params = ();
+		data.params.literals = doc.args.literals;
+		data.params.code = doc.args.code.collect({|it|
 			if (operators.includes(it)) {
 				AbstractFunction.methods.select({|method| method.name.asSymbol == it }).first
 			} { it.asSymbol }
 		});
-		argchrom.constants = doc.args.constants;
-		argchrom.extraDomains = doc.args.extraDomains.collect({|domain|
+		data.params.constants = doc.args.constants;
+		data.params.extraDomains = doc.args.extraDomains.collect({|domain|
 			ControlSpec(*domain)
 		});
-		data.argchrom = argchrom;
 		^data
 	}
-		
+
 }

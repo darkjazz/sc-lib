@@ -1,5 +1,5 @@
 +UGEP {
-	
+
 	draw{
 		var win, height;
 		if (colors.isNil) {
@@ -9,7 +9,7 @@
 		{
 			names = methods.collect({|ugen| ugen.name.asString.keep(4) });
 		};
-		height = this.chromosomes.size * 10 + 
+		height = this.chromosomes.size * 10 +
 			(this.chromosomes.last.generation * 10);
 		win = Window("GES population", Rect(100, 100, 450, 800))
 			.background_(Color.grey(0.1)).front;
@@ -20,8 +20,8 @@
 				var cols, ugens;
 				ugens = chrom.code.select({|codon| codon.isKindOf(Class) });
 				cols = ugens.collect({|ugen| colors[methods.indexOf(ugen)] });
-				if (currentGen == chrom.generation) 
-				{ posy = posy + 10; } 
+				if (currentGen == chrom.generation)
+				{ posy = posy + 10; }
 				{ posy = posy + 20; currentGen = chrom.generation};
 				Pen.font = Font("Inconsolata", 8);
 				cols.do({|color, x|
@@ -30,10 +30,10 @@
 					color.set;
 					Pen.fillRect(Rect(x*12+20, posy, 12, 7));
 				})
-			})	
+			})
 		};
 	}
-	
+
 	drawOrder{|indices|
 
 		var win, height;
@@ -55,8 +55,8 @@
 				chrom = this.chromosomes[ind];
 				ugens = chrom.code.select({|codon| codon.isKindOf(Class) });
 				cols = ugens.collect({|ugen| colors[methods.indexOf(ugen)] });
-				if (currentGen == chrom.generation) 
-				{ posy = posy + 10; } 
+				if (currentGen == chrom.generation)
+				{ posy = posy + 10; }
 				{ posy = posy + 20; currentGen = chrom.generation};
 				Pen.font = Font("Inconsolata", 8);
 				cols.do({|color, x|
@@ -65,11 +65,11 @@
 					color.set;
 					Pen.fillRect(Rect(x*12+20, posy, 12, 7));
 				})
-			})	
+			})
 		};
-			
+
 	}
-	
+
 	drawCompare{|indexA, indexB|
 		var ucodeA, ucodeB, maxLen, similarity, chromA, chromB;
 		if (colors.isNil) {
@@ -78,11 +78,11 @@
 		if (names.isNil)
 		{
 			names = methods.collect({|ugen| ugen.name.asString.keep(4) });
-		};		
+		};
 		chromA = this.chromosomes[indexA];
 		chromB = this.chromosomes[indexB];
-		#ucodeA, ucodeB = [chromA, chromB].collect({|chrm| 
-			chrm.code.select({|codon| codon.isKindOf(Class) }) 
+		#ucodeA, ucodeB = [chromA, chromB].collect({|chrm|
+			chrm.code.select({|codon| codon.isKindOf(Class) })
 		});
 		maxLen = max(ucodeA.size, ucodeB.size);
 		similarity = (this.calculateSimilarity(indexA, indexB)*100).round(1);
@@ -103,30 +103,30 @@
 					Pen.strokeOval(rect);
 					Pen.fillColor = Color.white;
 					Pen.stringCenteredIn(names[index], rect);
-				})			
+				})
 			});
 			Pen.font = Font("Lato Regular", 14);
-			Pen.stringInRect("Similarity: " ++ similarity.asString ++ "%", 
+			Pen.stringInRect("Similarity: " ++ similarity.asString ++ "%",
 				Rect(20, 120, 200, 100));
-		});			
+		});
 	}
-	
+
 	calculateSimilarity{|indexA, indexB|
 		var chromA, chromB;
-		var sameCount = 0, len; 
+		var sameCount = 0, len;
 		chromA = this.chromosomes[indexA];
 		chromB = this.chromosomes[indexB];
 		len = min(chromA.code.size, chromB.code.size);
 		len.do({|i|
-			if (chromA.code[i] == chromB.code[i]) 
+			if (chromA.code[i] == chromB.code[i])
 			{
 				sameCount = sameCount + 1
 			}
 		});
 		^(sameCount / max(chromA.code.size, chromB.code.size))
 	}
-	
-	drawSimilarityMatrix{|size=5|
+
+	drawDistanceMatrix{|size=5|
 		var win;
 		var winsize;
 		similarityMatrix = [];
@@ -138,7 +138,7 @@
 			similarityMatrix = similarityMatrix.add(array)
 		});
 		winsize = size*similarityMatrix.size + 20;
-		win = Window("similarity matrix", 
+		win = Window("similarity matrix",
 			Rect(100, 100, winsize, winsize)).background_(Color.grey(0.1)).front;
 		win.drawFunc = {
 			similarityMatrix.do({|row, y|
@@ -147,12 +147,12 @@
 					Pen.fillRect(Rect(x*size+10, y*size+10, size, size))
 				})
 			})
-		};	
+		};
 	}
 }
 
 +UGenExpressionTree{
-	
+
 	draw{|methods, funcColors|
 		var tree, win, view, dict, layers, size;
 		colors = funcColors;
@@ -167,8 +167,8 @@
 		drawdict = [];
 		size = 34;
 		this.addNodes(root, 0);
-		layers = maxDepth.collect({|y| 
-			drawdict.select({|ev| ev.depth == y }).size 
+		layers = maxDepth.collect({|y|
+			drawdict.select({|ev| ev.depth == y }).size
 		});
 		win = Window("tree", Rect(100, 100, 800, 600))
 			.background_(Color.grey(0.1)).front;
@@ -191,7 +191,7 @@
 					{
 						Pen.color = Color.grey(0.7);
 						from = Point(
-							x*(size+(step-size))+(step*0.5) + (size*0.5), 
+							x*(size+(step-size))+(step*0.5) + (size*0.5),
 							y*110+100 + (size*0.5)
 						);
 						to = Point(view.bounds.width*0.5, 10 + (size*0.5));
@@ -203,7 +203,7 @@
 						Pen.color = Color.grey(0.7);
 						ev.children.do({|cx|
 							from = Point(
-								x*(size+(step-size))+(step*0.5) + (size*0.5), 
+								x*(size+(step-size))+(step*0.5) + (size*0.5),
 								y*110+100 + (size*0.5)
 							);
 							to = Point(
@@ -220,7 +220,7 @@
 					colors[index].set;
 					Pen.fillOval(rect);
 					Color.grey(0.7).set;
-					Pen.strokeOval(rect);		
+					Pen.strokeOval(rect);
 					Pen.font = Font("Inconsolata", 10);
 					Pen.fillColor = Color.white;
 					Pen.stringCenteredIn(names[index], rect);
@@ -233,15 +233,15 @@
 			Pen.strokeOval(linrect);
 			Pen.fillColor = Color.white;
 			Pen.stringCenteredIn("*", linrect);
-			
+
 		}
 	}
-	
+
 	addNodes{|node, depth|
 		if (node.nodes.notNil)
 		{
 			node.nodes.do({|subnode|
-				if(subnode.isFunction) { 
+				if(subnode.isFunction) {
 					var numins = subnode.nodes.select({|it| it.isFunction });
 					drawdict = drawdict.add(
 						('ugen': subnode.value, 'depth': depth, 'children': numins.size)

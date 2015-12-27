@@ -1,25 +1,25 @@
 Rule {
-	
+
 	classvar <families;
 	var <>world, <>name, <states;
 
 	*new{|world|
 		^super.newCopyArgs(world).init.states_(2)
 	}
-	
+
 	family{
 		^this.class
 	}
-	
+
 	states_{|size|
 		states = (0..size-1)
 	}
-	
+
 	init{}
-	
+
 	*initClass{
 		families = IdentityDictionary[
-		
+
 		];
 	}
 }
@@ -28,18 +28,18 @@ Life : Rule {
 
 	classvar <rules;
 	var <births, <survivals;
-	
+
 	*newPreset{|world, name|
 		^Life(world).births_(Life.rules[name][0]).survivals_(Life.rules[name][1]).name_(name)
 	}
-	
+
 	init{
 		births = Array.fill(9, 0);
 		survivals = Array.fill(9, 0);
 		states = [0, 1];
 //		family = \life;
 	}
-	
+
 	next{
 		var worldAlive=0;
 		world.alive = 0;
@@ -52,7 +52,7 @@ Life : Rule {
 			row.do({|cell, j|
 				var alive;
 				alive = cell.n.select({|it, ind| it.history[0] == 1}).size;
-				if (cell.history[0] == 1, 
+				if (cell.history[0] == 1,
 					{cell.state_(survivals[alive])}, {cell.state_(births[alive])});
 				if (cell.state > 0, {world.alive = world.alive + 1});
 				if (cell.state != cell.history[0], {worldAlive = worldAlive + 1});
@@ -62,19 +62,19 @@ Life : Rule {
 		});
 		^worldAlive
 	}
-	
+
 	births_{|bInds|
 		bInds.do({|it|
 			births.put(it, 1)
 		})
 	}
-	
+
 	survivals_{|sInds|
 		sInds.do({|it|
 			survivals.put(it, 1)
 		})
 	}
-	
+
 	*initClass{
 		rules = IdentityDictionary[
 			\twobytwo -> [[3,6], [1,2,5]],
@@ -107,19 +107,19 @@ Life : Rule {
 }
 
 Vote : Rule{
-	
+
 	classvar <rules;
 	var <life;
-	
+
 	*newPreset{|world, name|
 		^Vote(world).life_(Vote.rules[name]).name_(name)
 	}
-	
+
 	init{
 		life = Array.fill(10, 0);
 		states = [0, 1];
 	}
-	
+
 	next{
 		var worldAlive = 0;
 		world.alive = 0;
@@ -141,13 +141,13 @@ Vote : Rule{
 		});
 		^worldAlive
 	}
-	
+
 	life_{|inds|
 		inds.do({|it|
 			life.put(it, 1)
 		})
 	}
-	
+
 	*initClass{
 		rules = IdentityDictionary[
 			\fredkin -> [1,3,5,7,9],
@@ -156,18 +156,18 @@ Vote : Rule{
 			\vote -> [5,6,7,8,9]
 		]
 	}
-	
+
 }
 
 LargerThanLife : Rule {
 
 	var <>births, <>survivals;
-	
+
 	init{
 		births = Range(3, 0);
 		survivals = Range(3, 1);
 	}
-	
+
 	next{
 		var worldAlive = 0;
 		world.alive = 0;
@@ -180,13 +180,13 @@ LargerThanLife : Rule {
 			row.do({|cell, j|
 				var alive;
 				alive = cell.n.select({|it, ind| it.history[0] == 1}).size;
-				if (cell.history[0] > 1, 
-					{if (cell.history[0] < states.size, 
-						{cell.state_(cell.history[0] + 1)}, {cell.state_(0)})}, 
-					{if (cell.history[0] == 0, 
-						{cell.state_(if (births.includes(alive), {1}, {0}))}, 
+				if (cell.history[0] > 1,
+					{if (cell.history[0] < states.size,
+						{cell.state_(cell.history[0] + 1)}, {cell.state_(0)})},
+					{if (cell.history[0] == 0,
+						{cell.state_(if (births.includes(alive), {1}, {0}))},
 						{if (survivals.includes(alive).not, {
-								if (cell.history[0] < states.size, 
+								if (cell.history[0] < states.size,
 									{cell.state_(cell.history[0] + 1)}, {cell.state_(0)})
 							}, {cell.state_(1)})
 						})
@@ -204,12 +204,12 @@ WeightedLife : Rule {
 
 	classvar <rules;
 	var <>weights, <>survivals, <>births;
-	
+
 	init{
 		survivals = Array.new;
 		births = Array.new;
 	}
-	
+
 	*newPreset{|world, name|
 		^WeightedLife(world)
 			.weights_(rules[name][0])
@@ -218,20 +218,20 @@ WeightedLife : Rule {
 			.states_(rules[name][3])
 			.name_(name)
 	}
-	
+
 	*newFromGenerations{|world, name|
 		var rule;
 		rule = Generations.rules[name];
 		^WeightedLife(world)
-		
+
 	}
-	
+
 	*newFromLife{|world, name|
 		var rule;
 		rule = Life.rules[name];
 		^WeightedLife(world)
 	}
-	
+
 	next{
 		var worldAlive = 0;
 		world.alive = 0;
@@ -244,37 +244,37 @@ WeightedLife : Rule {
 			row.do({|cell, j|
 				var alive=0;
 				if (states.size-1 < 3, {
-					cell.n.do({|it, ind| 
+					cell.n.do({|it, ind|
 						if (it.history[0] == 1, {alive = alive + weights[ind]})
 					});
-					if (cell.history[0] == 0, 
+					if (cell.history[0] == 0,
 						{
 							if (births.includes(alive), {cell.state_(1)})
-						}, 
+						},
 						{
 							if (survivals.includes(alive).not, {cell.state_(0)})
 					})
 				},{
-					if (cell.history[0] > 1, 
+					if (cell.history[0] > 1,
 						{
-							if (cell.history[0] < states.size, 
-								{cell.state_(cell.history[0] + 1)}, {cell.state_(0)})}, 
+							if (cell.history[0] < states.size,
+								{cell.state_(cell.history[0] + 1)}, {cell.state_(0)})},
 						{
-							cell.n.do({|it, ind| 
+							cell.n.do({|it, ind|
 								if (it.history[0] == 1, {alive = alive + weights[ind]})
 							});
-							if (cell.history[0] == 0, 
+							if (cell.history[0] == 0,
 							{
 								if (births.includes(alive), {cell.state_(1)})
-							}, 
+							},
 							{
 								if (survivals.includes(alive).not, {
-									if (cell.history[0] < states.size, 
+									if (cell.history[0] < states.size,
 										{cell.state_(cell.history[0] + 1)}, {cell.state_(0)})
 								})
 							})
 						}
-					)	
+					)
 				});
 				if (cell.state > 0, {world.alive = world.alive + 1});
 				if (cell.state != cell.history[0], {worldAlive = worldAlive + 1});				world.addToStateY(cell, j)
@@ -283,7 +283,7 @@ WeightedLife : Rule {
 		});
 		^worldAlive
 	}
-	
+
 	*initClass{
 		rules = IdentityDictionary[
 			\bensrule -> [[3,2,3,2,0,2,3,2,3], [3,5,8], [4,6,8], 2],
@@ -292,8 +292,8 @@ WeightedLife : Rule {
 			\bustle -> [[2,1,2,1,0,1,2,1,2], [2,4,5,7], [3], 4],
 			\career -> [[1,2,1,1,0,1,1,1,1], [2,3], [3], 2],
 			\cloud54 -> [[1,1,9,1,0,9,1,9,9], [2,3,9,10,19,27], [3,10,27], 2],
-			\cloud75 -> [[1,1,9,1,0,9,1,9,9], 
-						[2,3,4,10,11,13,18,21,22,27,29,30,31,36,37,38,39,40], 
+			\cloud75 -> [[1,1,9,1,0,9,1,9,9],
+						[2,3,4,10,11,13,18,21,22,27,29,30,31,36,37,38,39,40],
 						[3,10,27], 2],
 			\conway -> [[5,1,5,1,0,1,5,1,5], [2,3,6,7,10,11,15], [3,7,11,15], 2],
 			\conwaymm -> [[5,1,5,1,0,1,5,1,5], [3,6,7,10,11,15], [3,7,11,15], 2],
@@ -367,7 +367,7 @@ Generations : Rule {
 
 	classvar <rules;
 	var <births, <survivals;
-	
+
 	*newPreset{|world, name|
 		^Generations(world)
 			.births_(Generations.rules[name][0])
@@ -375,13 +375,13 @@ Generations : Rule {
 			.states_(Generations.rules[name][2])
 			.name_(name)
 	}
-	
+
 	init{
 		births = Array.fill(9, 0);
 		survivals = Array.fill(9, 0);
-//		family = \generations		
+//		family = \generations
 	}
-	
+
 	next{
 		var worldAlive = 0;
 		world.alive = 0;
@@ -394,46 +394,46 @@ Generations : Rule {
 			row.do({|cell, j|
 				var alive;
 				alive = cell.n.select({|it, ind| it.history[0] == 1}).size;
-				if (cell.history[0] > 1, 
+				if (cell.history[0] > 1,
 					{
-						if (cell.history[0] < states.size, 
+						if (cell.history[0] < states.size,
 						{
 							cell.state_(cell.history[0] + 1)
-						}, 
+						},
 						{
 							cell.state_(0)
 						})
-					}, 
+					},
 					{
-						if (cell.history[0] == 0, 
+						if (cell.history[0] == 0,
 						{
 							cell.state_(births[alive])
-						}, 
+						},
 						{
-							if (survivals[alive] == 0, 
+							if (survivals[alive] == 0,
 							{
-								if (cell.history[0] < states.size, 
+								if (cell.history[0] < states.size,
 								{
 									cell.state_(cell.history[0] + 1)
-								}, 
+								},
 								{
 									cell.state_(0)
 								})
-							}, 
+							},
 							{
 								cell.state_(1)
 							})
 						})
 					}
-				);	
+				);
 				if (cell.state == 1, {world.alive = world.alive + 1});
-				if ((cell.state != cell.history[0]).and(cell.state > 0), 
+				if ((cell.state != cell.history[0]).and(cell.state > 0),
 					{worldAlive = worldAlive + 1});
 				world.addToStateY(cell, j)
 			});
 			world.addToStateX(row, i)
 		});
-		^worldAlive	
+		^worldAlive
 	}
 
 	births_{|bInds|
@@ -441,13 +441,13 @@ Generations : Rule {
 			births.put(it, 1)
 		})
 	}
-	
+
 	survivals_{|sInds|
 		sInds.do({|it|
 			survivals.put(it, 1)
 		})
 	}
-	
+
 	*initClass{
 		rules = IdentityDictionary[
 			\banners -> [[3,4,5,7],[2,3,6,7],5],
@@ -473,6 +473,11 @@ Generations : Rule {
 			\frozenspirals -> [[2,3],[3,5,6],6],
 			\glisserati -> [[2,4,5,6,7,8],[0,3,5,6,7,8],7],
 			\glissergy -> [[2,4,5,6,7,8],[0,3,5,6,7,8],5],
+			// \lambda0 -> [[4,6,8],[3,5,7,9],8],
+			// \lambda1 -> [[4,6,8],[3,5,7,9],16],
+			// \lambda2 -> [[3,4,5],[3,4,5],17],
+			// \lambda3 -> [[4,5],[0,1,2,3,4,5],15],
+			// \lambda4 -> [[4,6],[2,3],9],
 			\lava -> [[4,5,6,7,8],[1,2,3,4,5],8],
 			\lines -> [[4,5,8],[0,1,2,3,4,5],3],
 			\livingonedge -> [[3],[3,4,5],6],
@@ -504,7 +509,7 @@ Cyclic : Rule {
 
 	classvar <rules;
 	var <>gate, <>gh;
-	
+
 	*newPreset{|world, name|
 		^Cyclic(world)
 			.gate_(rules[name][0])
@@ -512,12 +517,12 @@ Cyclic : Rule {
 			.states_(rules[name][1])
 			.name_(name)
 	}
-	
+
 	init{
 		gate = 1;
 		gh = false
 	}
-	
+
 	next{
 		var worldAlive = 0;
 		world.alive = 0;
@@ -529,30 +534,30 @@ Cyclic : Rule {
 		world.world.do({|row, i|
 			row.do({|cell, j|
 				if (gh, {
-					if (cell.history[0] == 0, { 
-						if (cell.n.select({|it, i| it.history[0] == 1}).size >= gate, 
+					if (cell.history[0] == 0, {
+						if (cell.n.select({|it, i| it.history[0] == 1}).size >= gate,
 							{cell.state_(1)})
-						}, 
+						},
 						{cell.state_(states.wrapAt(cell.history[0] + 1))
 					})
-					
-				}, 
+
+				},
 				{
 					if (
-						cell.n.select({|it, i| it.history[0] == 
+						cell.n.select({|it, i| it.history[0] ==
 							states.wrapAt(cell.history[0] + 1)}).size >= gate,
 						{cell.state = states.wrapAt(cell.history[0] + 1)})
-				
+
 				});
 				if (cell.state > 0, {world.alive = world.alive + 1});
 				if (cell.state != cell.history[0], {worldAlive = worldAlive + 1});
-				world.addToStateY(cell, j)			
+				world.addToStateY(cell, j)
 			});
 			world.addToStateX(row, i)
 		});
-		^worldAlive	
+		^worldAlive
 	}
-	
+
 	*initClass{
 		rules = IdentityDictionary[
 			\three13 -> [3, 3, {Habitat.newMoore}, false],
@@ -577,7 +582,7 @@ Cyclic : Rule {
 			\squarishM -> [2, 6, {Habitat.newMoore}, false],
 			\stripes -> [4, 5, {Habitat.newNeumann(23)}, false],
 			\turbulent -> [5, 8, {Habitat.newMoore(2)}, false]
-		]	
+		]
 	}
 }
 
@@ -597,7 +602,7 @@ Continuous : Rule {
 
 	classvar <rules;
 	var <>add, <>mul, <>weights, <>wrap;
-	
+
 	*new{|world, add = 0, mul = 1, wrap = true|
 		^super.new(world).init(add, mul, wrap)
 	}
@@ -622,13 +627,13 @@ Continuous : Rule {
 				var avg, dir = 0;
 				avg = cell.n.collect({|it, ind|
 //					dir = dir + it.lastValue;
-					it.history[0] * weights[ind] 
+					it.history[0] * weights[ind]
 				}).sum / weights.sum;
 //				dir = dir + cell.lastValue;
 				if (wrap)
 				{
-					if (cell.state > 0.5) 
-						{ avg = avg + (add * cell.state) } 
+					if (cell.state > 0.5)
+						{ avg = avg + (add * cell.state) }
 						{ avg = avg - (add * cell.state) }
 				}
 				{
@@ -656,7 +661,7 @@ Continuous2 : Rule {
 
 	classvar <rules;
 	var <>weights, <>wrap;
-	
+
 	*new{|world, wrap = true|
 		^super.new(world).init(wrap)
 	}
@@ -678,14 +683,14 @@ Continuous2 : Rule {
 			row.do({|cell, j|
 				var avg, add, dir = 0;
 				avg = cell.n.collect({|it, ind|
-					it.history[0] * weights[ind] 
+					it.history[0] * weights[ind]
 				}).sum / weights.sum;
 				add = (cell.n.collect(_.lastValue).sum + cell.value / (cell.n.size + 1))
 					.fold(0.0, 1.0);
 				if (wrap)
 				{
-					if (cell.state > 0.5) 
-						{ avg = avg + (add * cell.state) } 
+					if (cell.state > 0.5)
+						{ avg = avg + (add * cell.state) }
 						{ avg = avg - (add * cell.state) }
 				}
 				{

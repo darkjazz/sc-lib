@@ -25,7 +25,7 @@ Paths{
 			^(Paths.prefix ++ "/development")
 		}
 		{
-			^(Paths.prefix ++ "/Development")
+			^(Paths.prefix ++ "/dev")
 		}
 	}
 
