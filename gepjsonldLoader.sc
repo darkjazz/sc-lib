@@ -1,11 +1,42 @@
 JsonLDLoader : JsonLoader {
+	var <results;
+
+	loadDocumentsByDefNames{|defnamearray, doneAction|
+		var current, namestream;
+		results = ();
+		namestream = Pseq(defnamearray, 1).asStream;
+		current = namestream.next;
+		results[current] = this.getDocumentByDefName(current.asString);
+		SystemClock.sched(0.05, {
+			if (results.includesKey(current)) {
+				current = namestream.next;
+				if (current.notNil) { results[current] = this.getDocumentByDefName(current.asString) };
+			};
+			if (current.notNil) { 0.05 } { doneAction.(); nil }
+		})
+	}
+
 	getDocumentByDefName{|defname|
-		var result, doc, data, argchrom, operators;
-		operators = ['*', '/', '+', '-'];
+		var result, doc;
 		result = db.get("docByDefName?key=\"#\"".replace("#", defname));
 		doc = result.subStr((result.find("\"value\":") + 8), result.size - 7)
 			.replace(${.asString, $(.asString).replace($}.asString, $).asString).replace("\n", "").replace("\"", "'")
 			.interpret;
+		^this.unpackData(doc)
+	}
+
+	getDocumentsByHeader{|headsize, numgenes|
+		var result, rows;
+		result = db.get("docByHeader?key=\"#\"".replace("#", headsize.asString ++ numgenes.asString));
+		result = result.replace("{", "(").replace("}", ")").replace("\"", "'").replace("\n", "");
+		result = result.interpret;
+		rows = result['rows'].collect({|row| row['value'] });
+		^rows.collect({|doc| this.unpackData(doc) })
+	}
+
+	unpackData{|doc|
+		var data, operators;
+		operators = ['*', '/', '+', '-'];
 		data = ();
 		data.id = doc['_id'];
 		data.defname = doc['ges:defname'];

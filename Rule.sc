@@ -626,10 +626,8 @@ Continuous : Rule {
 			row.do({|cell, j|
 				var avg, dir = 0;
 				avg = cell.n.collect({|it, ind|
-//					dir = dir + it.lastValue;
 					it.history[0] * weights[ind]
 				}).sum / weights.sum;
-//				dir = dir + cell.lastValue;
 				if (wrap)
 				{
 					if (cell.state > 0.5)
@@ -639,11 +637,6 @@ Continuous : Rule {
 				{
 					avg = avg * mul + add
 				};
-//				if ((dir.abs  3).or(dir.abs > 6))
-//				{
-//					dir = dir * -1;
-//					cell.value_(dir);
-//				};
 				cell.state_(avg.wrap(0.0, 1.0));
 			})
 		})
@@ -707,5 +700,52 @@ Continuous2 : Rule {
 			\continuous -> 0
 		]
 	}
+
+}
+
+LimSeries : Rule {
+
+	classvar <rules;
+	var <>add, <>lim, <>func;
+
+	*new{|world, add = 0, lim = 10, funcName='zeta'|
+		^super.new(world).init(add, lim, funcName)
+	}
+
+	init{|pAdd, pLim, funcName|
+		add = pAdd;
+		lim = pLim;
+		name = \limseries;
+		func = LimSeries.rules[funcName];
+	}
+
+	next{
+		var worldAlive = 0;
+		world.alive = 0;
+		world.world.do({|row, i|
+			row.do({|cell, j|
+				cell.setHistory
+			})
+		});
+		world.world.do({|row, i|
+			row.do({|cell, j|
+				var avg, dir = 0;
+				avg = cell.n.collect({|it, ind|
+					func.(it.history[0].reciprocal, lim)
+				}).mean;
+				avg = avg + add;
+				cell.state_(avg.wrap(0.0, 1.0));
+			})
+		})
+	}
+
+	*initClass{
+		rules = IdentityDictionary[
+			\zeta -> {|zp, lim| (1..lim).collect({|num| num.pow(zp.neg) }).sum },
+			\zetaPrimes -> {|zp, lim| Array.primesN(lim, 1).collect({|num| num.pow(zp.neg) }).sum },
+			\fib -> {|zp, lim| lim.fib.collect({|num| num.pow(zp.neg) }).sum }
+		]
+	}
+
 
 }

@@ -348,7 +348,7 @@ EvolverEnvir{
 
 	}
 
-	save{|indices, save = true, fragdur|
+	save{|indices, save = true, fragdur, record = false|
 		currentEnvironment['player'] = Routine({
 			if (fragdur.isNil) { fragdur = currentEnvironment['targetBuffer'].duration };
 			indices.do({|ind, i|
@@ -362,18 +362,27 @@ EvolverEnvir{
 					currentEnvironment['params'][ind]
 				].lace(currentEnvironment['terminals'].size * 2).postln;
 				Post << "SCORE: " << currentEnvironment['gep'].at(ind).score << Char.nl;
+				savename = currentEnvironment['gep'].makeDefName(ind);
 				synth = Synth(def.name, [\amp, 0, \dur, fragdur+0.5] ++ args);
+				if (record) {
+					Server.default.prepareForRecord(
+						currentEnvironment['recordPath'] ++ savename ++ ".aiff"
+					)
+				};
 				0.2.wait;
+				if (record) { Server.default.record };
 				synth.set('amp', 0.5);
 				fragdur.wait;
 				synth.free;
 				synth = nil;
+				if (record) { Server.default.stopRecording };
 				Server.default.sync;
 				0.5.wait;
 				if (save) {
 					currentEnvironment['gep'].saveJson(ind, Pan2, Normalizer, args,
 						currentEnvironment['paramgep'].chromosomes[ind],
-						currentEnvironment['gepAnalyzer'].stats[def.name.asSymbol]
+						currentEnvironment['gepAnalyzer'].stats[def.name.asSymbol],
+						savename
 					);
 				}
 			})

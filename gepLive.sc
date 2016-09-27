@@ -886,6 +886,35 @@ JGepPlayer : GepPlayer {
 		}.fork
 	}
 
+	trigger{|index, amp=1.0, foaKind='zoom', dur=1.0, repeat=1, delta=1.0|
+		var name, defargs, ampargs;
+		if (data.isNil) {
+			data = Array.newClear(defnames.size);
+		};
+		name = defnames[index];
+		if (data[index].isNil) {
+			data[index] = loader.getPlayerDataByDefName(name)
+		};
+		Tdef(("play_gep_" ++ index).asSymbol, {
+			defargs = data[index].args;
+			ampargs = [\out, foaBus[("foa"++foaKind).asSymbol], \amp, amp];
+			Server.default.loadSynthDef(name, dir: Paths.gepDefDir);
+			Server.default.sync;
+			this.compilePanDefString(index);
+			defStrings[name.asSymbol].postln;
+			if (sendEnabled) {
+				this.sendSynthDefString(defStrings[name.asSymbol])
+			};
+			repeat.do({
+				var synth;
+				synth = GepSynth(name, defargs, group, ampargs);
+				SystemClock.sched(dur.next, { synth.free; nil });
+				delta.next.wait;
+			})
+		}).play
+
+	}
+
 	procplay{|index, amp=0.0, foaKind='zoom', section=0, procdef, procargs|
 		var name, defargs, ampargs;
 		if (data.isNil) {

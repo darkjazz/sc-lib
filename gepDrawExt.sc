@@ -1,7 +1,7 @@
 +UGEP {
 
 	draw{
-		var win, height;
+		var win, height, width;
 		if (colors.isNil) {
 			colors = methods.collect({ Color( *{1.0.rand.round(0.1)} ! 3 ) })
 		};
@@ -9,9 +9,13 @@
 		{
 			names = methods.collect({|ugen| ugen.name.asString.keep(4) });
 		};
+		width = this.chromosomes.collect({|chrom|
+			chrom.code.select({|codon| codon.isKindOf(Class) }).size
+		}).maxItem * 12 + 30;
 		height = this.chromosomes.size * 10 +
-			(this.chromosomes.last.generation * 10);
-		win = Window("GES population", Rect(100, 100, 450, 800))
+			(this.chromosomes.last.generation * 10) + 40;
+		if (height > 800) { height = 800 };
+		win = Window("GES population", Rect(100, 100, width, height))
 			.background_(Color.grey(0.1)).front;
 		win.drawFunc = {
 			var currentGen = 0;
@@ -36,7 +40,7 @@
 
 	drawOrder{|indices|
 
-		var win, height;
+		var win, height, width;
 		if (colors.isNil) {
 			colors = methods.collect({ Color( *{1.0.rand.round(0.1)} ! 3 ) })
 		};
@@ -107,7 +111,7 @@
 			});
 			Pen.font = Font("Lato Regular", 14);
 			Pen.stringInRect("Similarity: " ++ similarity.asString ++ "%",
-				Rect(20, 120, 200, 100));
+				Rect(20, 160, 200, 100));
 		});
 	}
 
@@ -138,7 +142,7 @@
 			similarityMatrix = similarityMatrix.add(array)
 		});
 		winsize = size*similarityMatrix.size + 20;
-		win = Window("similarity matrix",
+		win = Window("distance matrix",
 			Rect(100, 100, winsize, winsize)).background_(Color.grey(0.1)).front;
 		win.drawFunc = {
 			similarityMatrix.do({|row, y|

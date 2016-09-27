@@ -1,10 +1,11 @@
 MikroGeen{
 
 	classvar <>archPath = "/Users/alo/Data/mikro/sets/";
+	classvar <>dbname = "ges_ld_00";
 
 	var nclusters, timeQuant, headsize, numgenes, <metadata, datasize = 20, <clusters;
-	var <durSet, <freqSet, <ampSet, <intervalSet, <clusterSet, <envSet;
-	var <eventData, <allEvents, <currentEvent, <defclusters, <group;
+	var <durSet, <freqSet, <ampSet, <intervalSet, <clusterSet, <envSet, <loader;
+	var <eventData, <allEvents, <currentEvent, <defclusters, <group, <headers;
 	var player, <globalbus, <dynsynth, <currentSequence, <currentSource;
 
 	*new{|nclusters, timeQuant, defdir, headsize, numgenes|
@@ -15,19 +16,25 @@ MikroGeen{
 
 //		Server.default.loadDirectory(defdir ? UGenExpressionTree.defDir);
 		/* data.stats can either be an Event or as of 2014 an Array */
-		
+
+		loader = JsonLDLoader(MikroGeen.dbname);
 		if (headsize.notNil.and(numgenes.notNil))
 		{
-			metadata = UGepLoader(headsize, numgenes).load
+			headers = loader.getDefNamesByHeader(headsize, numgenes);
 		}
 		{
-			metadata = UGenExpressionTree.loadMetadataFromDir.select({|data|
-				data.stats.isKindOf(Event)
-			}).select({|data|
-				(data.stats.mfcc.size == datasize).and(data.stats.amp.mean <= 1.0)
-					.and(data.stats.mfcc.collect(_.mean).sum.isNaN.not)
-			})
+			// metadata = UGenExpressionTree.loadMetadataFromDir.select({|data|
+			// 	data.stats.isKindOf(Event)
+			// }).select({|data|
+			// 	(data.stats.mfcc.size == datasize).and(data.stats.amp.mean <= 1.0)
+			// 	.and(data.stats.mfcc.collect(_.mean).sum.isNaN.not)
+			// })
 		};
+
+		headers.do({|header|
+			Server.default.loadSynthDef(header['value'], dir: defdir ?
+				Paths.gepDefDir )
+		});
 
 		{
 			SynthDef(\dynamics, {|out, in, amp, ra, rt, er, tl|
@@ -66,11 +73,6 @@ MikroGeen{
 
 			Server.default.sync;
 
-			metadata.do({|data|
-				Server.default.loadSynthDef(data.defname, dir: defdir ?
-					Paths.gepDefDir )
-			});
-
 		}.fork;
 
 		durSet = MarkovSet();
@@ -82,7 +84,22 @@ MikroGeen{
 
 		timeQuant = timeQuant ? (2**6).reciprocal;
 
-		nclusters = nclusters ? 64;
+		if (nclusters.isNil) {
+			nclusters = (metadata.size * 0.5).sqrt.asInt;
+		};
+
+		metadata = Array();
+
+	}
+
+	loadData{
+		Tdef('loadData', {
+			headers.do({|header|
+				var data;
+				data = loader.getDocumentByDefName(header['value']);
+				metadata = metadata.add(data)
+			})
+		}).play
 	}
 
 	updateClusters{

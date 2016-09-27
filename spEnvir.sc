@@ -34,9 +34,9 @@ SpEnvir{
 					matrix.loadPatternDefs(currentEnvironment[\patdefs]);
 					Post << "pattern definitions loaded.." << Char.nl;
 					1.wait;
-					currentEnvironment[\loader] = JsonLoader(currentEnvironment[\dbname]);
+					currentEnvironment[\loader] = JsonLDLoader(currentEnvironment[\dbname]);
 					currentEnvironment[\defnames] = currentEnvironment[\loader]
-					.getIDsByDateRange("151105", "151106")
+					.getIDsByDateRange("160801", "999999")
 					.collect({|def| def['value'].first });
 					Post << "ges synth def names loaded.." << Char.nl;
 					1.wait;
@@ -50,7 +50,7 @@ SpEnvir{
 					currentEnvironment[\defs] = matrix.patterndefs;
 					Post << "audio activated, pdefs initialized.." << Char.nl;
 					this.startServerMonitor;
-					{ MasterEQ(currentEnvironment[\channels]); Server.default.scope; }.defer;
+					{ MasterEQ(currentEnvironment[\channels]); Server.default.scope(2); }.defer;
 				}).play
 			};
 

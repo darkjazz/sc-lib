@@ -3,6 +3,13 @@
 		var next, primes;
 		primes = Array();
 		next = lo.nextPrime;
+		if (lo.isPrime)
+		{
+			primes = primes.add(lo);
+		}
+		{
+			primes = primes.add(next);
+		};
 		while ({next < hi},
 		{
 			next = (next + 1).nextPrime;
@@ -10,24 +17,56 @@
 		});
 		^primes
 	}
-	
+
 	*primesN{|num = 5, lo = 1|
 		var next = lo.nextPrime;
-		^Array.fill(num, {  
+		^Array.fill(num, {
 			var now = next;
 			next = (next + 1).nextPrime;
 			now
 		})
 	}
+
+	*primesNN{|num, hi|
+		var next = hi.prevPrime;
+		^Array.fill(num, {
+			var now = next;
+			next = (next - 1).prevPrime;
+			now
+		})
+	}
+
+	*primeSeries{|count, start, step|
+		var next, coll;
+		if (start.isPrime) {
+			next = start;
+		}
+		{
+			if (step > 0) {
+				next = (start+1).nextPrime;
+			}
+			{
+				next = (start-1).prevPrime;
+			}
+		};
+		coll = Array.with(next);
+		(count - 1).do({|i|
+			if (step > 0)
+			{ next = Array.primesN(step+1, next).last }
+			{ next = Array.primesNN(step.neg-1, next).last };
+			coll = coll.add(next);
+		});
+		^coll
+	}
 }
 
 + Collection {
-ÊÊÊ removeDups {
-ÊÊÊ ÊÊÊ var result;
-ÊÊÊ ÊÊÊ result = this.species.new(this.size);
-ÊÊÊ ÊÊÊ this.do({ arg item;
-ÊÊÊ ÊÊÊ ÊÊÊ result.includes(item).not.if({ result.add(item) });
-ÊÊÊ ÊÊÊ });
-ÊÊÊ ÊÊÊ ^result
-ÊÊÊ }
+ï¿½ï¿½ï¿½ removeDups {
+ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ var result;
+ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ result = this.species.new(this.size);
+ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ this.do({ arg item;
+ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ result.includes(item).not.if({ result.add(item) });
+ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ });
+ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ^result
+ï¿½ï¿½ï¿½ }
 }

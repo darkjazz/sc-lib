@@ -43,25 +43,25 @@ Paths{
 	*matrixdefs{
 		if (thisProcess.platform.name == 'linux')
 		{
-			^(Paths.prefix ++ "/development/lambda/supercollider/sparsematrix/linux/sparsedefs.scd")
+			^(Paths.devdir ++ "/lambda/supercollider/sparsematrix/linux/sparsedefs.scd")
 		}
 		{
-			^(Paths.prefix ++ "/Development/lambda/supercollider/sparsematrix/sparsedefs.scd")
+			^(Paths.devdir ++ "/lambda/supercollider/sparsematrix/sparsedefs.scd")
 		}
 	}
 
 	*skismdefs{
 		if (thisProcess.platform.name == 'linux')
 		{
-			^(Paths.prefix ++ "/development/lambda/supercollider/sparsematrix/skismdefs.scd")
+			^(Paths.devdir ++ "/lambda/supercollider/sparsematrix/skismdefs.scd")
 		}
 		{
-			^(Paths.prefix ++ "/Development/lambda/supercollider/sparsematrix/skismdefs.scd")
+			^(Paths.devdir ++ "/lambda/supercollider/sparsematrix/skismdefs.scd")
 		}
 	}
 
 	*matrixbufs{
-		^(Paths.prefix ++ "/sounds/sparsematrix/")
+		^(Paths.prefix ++ "/snd/sparsematrix/")
 	}
 
 	*gepArchDir{

@@ -3,7 +3,7 @@ UGEP : GEP {
 	classvar <fileExt = "gepdata";
 	classvar <fileNamePrefix = "gep";
 
-	var <colors, <similarityMatrix, <names, <jsonWriter;
+	var <>colors, <similarityMatrix, <names, <jsonWriter;
 	var <>dbname = "ges_00";
 
 	*new{|populationSize, numgenes, headsize, ugens, terminals, linker, forceArgs|
@@ -214,10 +214,11 @@ UGEP : GEP {
 		archive.writeClose;
 	}
 
-	saveJson{|index, panner, limiter, args, pchrom, features|
+	saveJson{|index, panner, limiter, args, pchrom, features, name|
 		var data, defname, chrom;
 		if (jsonWriter.isNil) { jsonWriter = JsonWriter(dbname) };
 		defname = this.makeDefName(index);
+		if (name.notNil) { defname = name };
 		chrom = this.chromosomes[index];
 		data = this.buildDict(defname, chrom, args, pchrom, features);
 		this.saveSynthDef(chrom, defname, panner, limiter);

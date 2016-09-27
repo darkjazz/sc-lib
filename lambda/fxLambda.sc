@@ -1,26 +1,26 @@
 FxLambda{
-	
+
 	var decoder, graphics, nano, args, loops, loopstreams, fxdef, efxsynth, mapSynths, fxsynths, fxReady=false;
 	var group, freqs, nano, accActive, accControl, oscfncs, rotation, efxbus, gepnames, <gepdefs, gepsynths;
 	var <>accMin, <>accMax, <>bpm=0;
-	
+
 	*new{|decoder, graphics, nano|
 		^super.newCopyArgs(decoder, graphics, nano).init
 	}
-	
+
 	init{
 		var loadstruct;
-				
+
 		if (decoder.isNil) {
 			decoder = FoaDecoder();
 		};
-		
+
 		if (graphics.isNil) {
 			graphics = CinderApp();
 		};
-		
+
 		loadstruct = (
-			detloop: (1..16), 
+			detloop: (1..16),
 			fbloop: (0..7),
 			monooop: [3, 4, 5, 6, 15, 22, 33, 36],
 			sume: [27, 28, 3, 4, 7, 8, 12, 13],
@@ -28,25 +28,25 @@ FxLambda{
 			tehis: [15, 19, 21, 23, 25, 28, 40, 42],
 			fxloop: [0, 11, 22, 23, 24, 25, 26, 27]
 		);
-		
+
 		loops = loadstruct.collect({|inds, key|
-			("/Users/alo/sounds/fx_loops/" ++ key.asString ++ "*").pathMatch[inds].collect({|path|
+			("/Users/alo/snd/fx_loops/" ++ key.asString ++ "*").pathMatch[inds].collect({|path|
 				Buffer.read(Server.default, path)
 			})
 		});
 
 		loops['detloop2'] = loops['detloop'].drop(8);
 		loops['detloop'] = loops['detloop'].keep(8);
-		
+
 		loopstreams = 4.collect({
 			(
 				stream: Pseq([
-					'detloop', 'detloop2', 'fbloop', 'monooop', 
+					'detloop', 'detloop2', 'fbloop', 'monooop',
 					'sume', 'nime', 'tehis', 'fxloop'], inf
 				).asStream
 			)
 		});
-		
+
 		loopstreams.do({|ev|
 			ev['current'] = ev['stream'].next
 		});
@@ -90,8 +90,8 @@ FxLambda{
 				yang: ControlSpec(-pi, pi),
 				zang: ControlSpec(-pi, pi)
 			)
-		)).add;	
-		
+		)).add;
+
 		SynthDef('verb', {|out, in, rtime, damp=0.5, inbw=0.5, spr=20, dry=0.0, early, tail, amp, fbamp = 0.01|
 			var sig, input, actr, fb;
 			input = In.ar(in);
@@ -101,12 +101,12 @@ FxLambda{
 			Out.ar(out, FoaEncode.ar(sig, FoaEncoderMatrix.newStereo) * amp);
 		}).add;
 
-		this.initGepDefs;		
-				
-		this.mapNANO;	
-		
+		this.initGepDefs;
+
+		this.mapNANO;
+
 	}
-	
+
 	initGepDefs{
 
 		SynthDef(\procgen, {|out, in, amp|
@@ -118,10 +118,10 @@ FxLambda{
 			tum = LFNoise2.kr(bf[2].explin(0.001, 1.0, 0.5, 20.0)).range(-pi, pi);
 			bf = FoaTransform.ar(bf, 'rtt', rot, til, tum );
 			Out.ar(out, bf)
-		}).add;		
-		
+		}).add;
+
 		gepdefs = Array.newClear(4);
-		
+
 		gepnames = [
 			'gep_gen000_023_120524_202530',
 			'gep_gen000_040_120526_001019',
@@ -152,14 +152,14 @@ FxLambda{
 			'gep_gen005_095_120621_134612',
 			'gep_gen006_019_120523_223408'
 		].collect(_.asString);
-		
+
 		args = ();
-		
+
 		gepnames.do({|name|
 			Server.default.loadSynthDef(name, dir: Paths.gepDefDir );
 			args[name] = UGenExpressionTree.loadMetadata(name.asSymbol).args
 		});
-		
+
 		gepnames.clump(gepnames.size/4).do({|arr, i|
 			var def;
 			def = ();
@@ -171,13 +171,13 @@ FxLambda{
 				def: def
 			)
 		});
-		
+
 		gepdefs.do({|ev|
 			ev['current'] = ev['stream'].next
 		});
-		
+
 	}
-	
+
 	mapSynths{|values|
 		var states = values.clump(8);
 		if (fxsynths.notNil) {
@@ -189,26 +189,26 @@ FxLambda{
 			})
 		}
 	}
-	
+
 	prepare{
 		Routine({
 			graphics.open;
 			2.wait;
 			decoder.start;
-			Server.default.sync;		
+			Server.default.sync;
 			group = Group.before(decoder.synth);
 			efxbus = Bus.audio;
 			Server.default.sync;
-			efxsynth = Synth.tail(group, 'verb', [\out, decoder.bus, \in, efxbus, \rtime, 3.0, 
+			efxsynth = Synth.tail(group, 'verb', [\out, decoder.bus, \in, efxbus, \rtime, 3.0,
 				\early, 0.8, \tail, 1.5, \amp, 0.0
 			]);
 			freqs = Array.geom(8, 0.125, 55/34);
 			fxsynths = 8.collect({|i|
 				(
 				active: false,
-				synth: Synth.newPaused(\zone01wrp, [\out, decoder.bus, \amp, 0, \efx, efxbus, \gate, 1.0, 
-					\aamp, 0.5, \eamp, 0.0, \dur, 1.0, \buf, loops['detloop'][i], \str, 0, \end, 1.0, 
-					\wrp, 0.001, \frq, 1.0, \rate, freqs@i, \wsz, 0.1, \dns, rrand(2, 10), \rnd, 0.01, 
+				synth: Synth.newPaused(\zone01wrp, [\out, decoder.bus, \amp, 0, \efx, efxbus, \gate, 1.0,
+					\aamp, 0.5, \eamp, 0.0, \dur, 1.0, \buf, loops['detloop'][i], \str, 0, \end, 1.0,
+					\wrp, 0.001, \frq, 1.0, \rate, freqs@i, \wsz, 0.1, \dns, rrand(2, 10), \rnd, 0.01,
 					\doneAction, 2] ).setn(\del, [0.0, 0.001, 0.002, 0.003], group)
 				)
 			});
@@ -233,11 +233,11 @@ FxLambda{
 			2.wait;
 			graphics.queryStates(QueryStates.sides2D(graphics.world.sizeX, 4), {|msg|
 				this.mapSynths(msg.drop(1))
-			});		
+			});
 			"f(x) initialized".postln;
 		}).play
 	}
-	
+
 	cleanup{
 		graphics.stopQuery;
 		graphics.stopRotation;
@@ -268,13 +268,13 @@ FxLambda{
 			nil
 		})
 	}
-	
+
 	performSynthAction{|index|
 		var args;
 		if (gepsynths[index]['active']) {
 			if ( gepsynths[index]['synth'].isNil ) {
 				args = gepdefs[index]['def'][gepdefs[index]['current']];
-				gepsynths[index]['synth'] = Synth.before(gepsynths[index]['proc'], gepdefs[index]['current'], 
+				gepsynths[index]['synth'] = Synth.before(gepsynths[index]['proc'], gepdefs[index]['current'],
 					[\out, gepsynths[index]['bus']] ++ this.scaleArgsToBeat(args)
 				)
 			}
@@ -284,9 +284,9 @@ FxLambda{
 				gepsynths[index]['synth'].free;
 				gepsynths[index]['synth'] = nil
 			}
-		}		
+		}
 	}
-	
+
 	scaleArgsToBeat{|args|
 		if (bpm > 0) {
 			^Event.newFrom(args).collect({|value| value.roundFreq(1, this.calcBeatDur)  }).asKeyValuePairs;
@@ -294,17 +294,17 @@ FxLambda{
 			^args
 		}
 	}
-	
+
 	calcBeatDur{ ^(bpm/60).reciprocal }
-		
-	mapNANO{	
-	
+
+	mapNANO{
+
 		var addspec, interspec, ampspec, decspec;
 		addspec = ControlSpec(0.001, 0.999, \cos);
 		interspec = ControlSpec(1, 24, 'lin', 1);
 		ampspec = FaderWarp();
 		decspec = ControlSpec(1.0, 2.0);
-				
+
 		nano.knobs[0][0].action = {|knob|
 			var map;
 			map = nano.buttons[0][0].value.asInt;
@@ -314,7 +314,7 @@ FxLambda{
 			{
 				graphics.setPattern(0, 0, knob.value, map, map, 0.6, 0.8, 1.0);
 			}
-		}; 
+		};
 		nano.knobs[0][1].action = {|knob|
 			var map;
 			map = nano.buttons[0][1].value.asInt;
@@ -324,7 +324,7 @@ FxLambda{
 			{
 				graphics.setPattern(1, 0, knob.value, map, map, 0.9, 0.1, 0.4);
 			}
-		}; 
+		};
 		nano.knobs[0][2].action = {|knob|
 			var map;
 			map = nano.buttons[0][2].value.asInt;
@@ -355,67 +355,67 @@ FxLambda{
 				graphics.setPattern(4, 0, knob.value, map, map, 1.0, 1.0, 0.3);
 			}
 		};
-		
+
 		nano.knobs[0][5].action = {|knob|
-			graphics.setAdd( addspec.map(knob.value)); 
+			graphics.setAdd( addspec.map(knob.value));
 		};
 		nano.knobs[0][6].action = {|knob|
-			graphics.setInterpolation(1, interspec.map(knob.value).asInt); 
+			graphics.setInterpolation(1, interspec.map(knob.value).asInt);
 		};
 		nano.knobs[0][7].action = {|knob|
-			graphics.setBackground(knob.value, knob.value, knob.value + 0.05); 
+			graphics.setBackground(knob.value, knob.value, knob.value + 0.05);
 		};
 		nano.knobs[0][8].action = {|knob|
 			decoder.synth.set(\amp, decspec.map(knob.value))
 		};
-		
+
 		nano.sliders[0][0].action = {|slider|
 			if (fxsynths.notNil) {
-				fxsynths[[0, 1]].do({|ev| 
+				fxsynths[[0, 1]].do({|ev|
 					ev.active = slider.value > 0.1;
 					ev['synth'].run(ev.active);
-					ev['synth'].set('amp', ampspec.map(slider.value) ) 
+					ev['synth'].set('amp', ampspec.map(slider.value) )
 				})
 			}
 		};
-	
+
 		nano.sliders[0][1].action = {|slider|
 			if (fxsynths.notNil) {
-				fxsynths[[2, 3]].do({|ev| 
+				fxsynths[[2, 3]].do({|ev|
 					ev.active = slider.value > 0.1;
 					ev['synth'].run(ev.active);
-					ev['synth'].set('amp', ampspec.map(slider.value) ) 
+					ev['synth'].set('amp', ampspec.map(slider.value) )
 				})
 			}
 		};
-	
+
 		nano.sliders[0][2].action = {|slider|
 			if (fxsynths.notNil) {
-				fxsynths[[4, 5]].do({|ev| 
+				fxsynths[[4, 5]].do({|ev|
 					ev.active = slider.value > 0.1;
 					ev['synth'].run(ev.active);
-					ev['synth'].set('amp', ampspec.map(slider.value) ) 
+					ev['synth'].set('amp', ampspec.map(slider.value) )
 				})
 			}
 		};
-	
+
 		nano.sliders[0][3].action = {|slider|
 			if (fxsynths.notNil) {
-				fxsynths[[6, 7]].do({|ev| 
+				fxsynths[[6, 7]].do({|ev|
 					ev.active = slider.value > 0.1;
 					ev['synth'].run(ev.active);
-					ev['synth'].set('amp', ampspec.map(slider.value) ) 
+					ev['synth'].set('amp', ampspec.map(slider.value) )
 				})
 			}
 		};
-		
+
 		nano.sliders[0][4].action = {|slider|
 			efxsynth.set(\amp, ampspec.map(slider.value))
 		};
-		
+
 		nano.sliders[0][5].action = {|slider|
 			if (gepsynths.notNil) {
-				gepsynths[0]['proc'].set('amp', ampspec.map(slider.value) ); 
+				gepsynths[0]['proc'].set('amp', ampspec.map(slider.value) );
 				gepsynths[0]['active'] = slider.value > 0.1;
 				this.performSynthAction(0);
 			}
@@ -444,12 +444,12 @@ FxLambda{
 				this.performSynthAction(3);
 			}
 		};
-		
+
 		nano.buttons[0][0].action = {|btn|
 			var map, alpha;
 			map = btn.value.asInt;
 			alpha = nano.knobs[0][0].value;
-			if (alpha > 0.1) {			
+			if (alpha > 0.1) {
 				graphics.setPattern(0, 1, alpha, map, map, 0.6, 0.8, 1.0);
 			}
 			{
@@ -462,7 +462,7 @@ FxLambda{
 			var map, alpha;
 			map = btn.value.asInt;
 			alpha = nano.knobs[0][1].value;
-			if (alpha > 0.1) {				
+			if (alpha > 0.1) {
 				graphics.setPattern(1, 1, alpha, map, map, 0.9, 0.1, 0.4);
 			}
 			{
@@ -475,7 +475,7 @@ FxLambda{
 			var map, alpha;
 			map = btn.value.asInt;
 			alpha = nano.knobs[0][2].value;
-			if (alpha > 0.1) {			
+			if (alpha > 0.1) {
 				graphics.setPattern(2, 1, alpha, map, map, 0.8, 0.8, 0.85);
 			}
 			{
@@ -488,7 +488,7 @@ FxLambda{
 			var map, alpha;
 			map = btn.value.asInt;
 			alpha = nano.knobs[0][3].value;
-			if (alpha > 0.1) {			
+			if (alpha > 0.1) {
 				graphics.setPattern(3, 1, alpha, map, map, 0.6, 0.8, 0.8);
 			}
 			{
@@ -514,7 +514,7 @@ FxLambda{
 			if (btn.value == 0) {
 				gepdefs[0]['current'] = gepdefs[0]['stream'].next;
 				if (gepsynths[0]['active'] and: { gepsynths[0]['synth'].notNil }) {
-					gepsynths[0]['synth'] = Synth.replace(gepsynths[0]['synth'], gepdefs[0]['current'],  
+					gepsynths[0]['synth'] = Synth.replace(gepsynths[0]['synth'], gepdefs[0]['current'],
 						[\out, gepsynths[0]['bus']] ++ gepdefs[0]['def'][gepdefs[0]['current']]
 					)
 				}
@@ -525,7 +525,7 @@ FxLambda{
 			if (btn.value == 0) {
 				gepdefs[1]['current'] = gepdefs[1]['stream'].next;
 				if (gepsynths[1]['active'] and: { gepsynths[1]['synth'].notNil }) {
-					gepsynths[1]['synth'] = Synth.replace(gepsynths[1]['synth'], gepdefs[1]['current'],  
+					gepsynths[1]['synth'] = Synth.replace(gepsynths[1]['synth'], gepdefs[1]['current'],
 						[\out, gepsynths[1]['bus']] ++ gepdefs[1]['def'][gepdefs[1]['current']]
 					)
 				}
@@ -536,7 +536,7 @@ FxLambda{
 			if (btn.value == 0) {
 				gepdefs[2]['current'] = gepdefs[2]['stream'].next;
 				if (gepsynths[2]['active'] and: { gepsynths[2]['synth'].notNil }) {
-					gepsynths[2]['synth'] = Synth.replace(gepsynths[2]['synth'], gepdefs[2]['current'],  
+					gepsynths[2]['synth'] = Synth.replace(gepsynths[2]['synth'], gepdefs[2]['current'],
 						[\out, gepsynths[2]['bus']] ++ gepdefs[2]['def'][gepdefs[2]['current']]
 					)
 				}
@@ -547,14 +547,14 @@ FxLambda{
 			if (btn.value == 0) {
 				gepdefs[3]['current'] = gepdefs[3]['stream'].next;
 				if (gepsynths[3]['active'] and: { gepsynths[3]['synth'].notNil }) {
-					gepsynths[3]['synth'] = Synth.replace(gepsynths[3]['synth'], gepdefs[3]['current'],  
+					gepsynths[3]['synth'] = Synth.replace(gepsynths[3]['synth'], gepdefs[3]['current'],
 						[\out, gepsynths[3]['bus']] ++ gepdefs[3]['def'][gepdefs[3]['current']]
 					)
 				}
 			}
 		};
 
-		
+
 		nano.buttons[0][9].action = {|btn|
 			if (btn.value == 0) {
 				if (fxsynths.notNil) {
@@ -565,7 +565,7 @@ FxLambda{
 				}
 			}
 		};
-	
+
 		nano.buttons[0][10].action = {|btn|
 			if (btn.value == 0) {
 				if (fxsynths.notNil) {
@@ -576,7 +576,7 @@ FxLambda{
 				}
 			}
 		};
-	
+
 		nano.buttons[0][11].action = {|btn|
 			if (btn.value == 0) {
 				if (fxsynths.notNil) {
@@ -587,7 +587,7 @@ FxLambda{
 				}
 			}
 		};
-	
+
 		nano.buttons[0][12].action = {|btn|
 			if (btn.value == 0) {
 				if (fxsynths.notNil) {
@@ -598,32 +598,32 @@ FxLambda{
 				}
 			}
 		};
-		
+
 		nano.buttons[0][19].action = {|btn|
 			if (btn.value == 1 and: { fxReady.not }) {
 				this.prepare();
 			}
 		};
-		
+
 		nano.buttons[0][22].action = {|btn|
 			if (btn.value == 0) {
 				this.cleanup
 			}
-		}	
-	
-			
+		}
+
+
 	}
-	
+
 	mapiPhone{
 		accActive = false;
-		accControl = (vals: [0.0, 0.0, 0.0], rates:[0.0, 0.0, 0.0], 
+		accControl = (vals: [0.0, 0.0, 0.0], rates:[0.0, 0.0, 0.0],
 			vec: [0.0, 0.0, 0.0], loc: [40.0, 0.0, 0.0],
 			min: -20.0, max: 20.0
-		);	
-		
+		);
+
 		accMin = 20.0;
 		accMax = 200.0;
-		
+
 		oscfncs = (
 			acc: OSCFunc({|msg|
 				if (accActive) {
@@ -632,11 +632,11 @@ FxLambda{
 					accControl['vec'] = accControl['vec'] + accControl['rates'];
 					accControl['loc'] = (accControl['loc'] + accControl['vec'])
 						.clip(accControl['min'], accControl['max']);
-					graphics.setViewpoint(accControl['loc'][0], accControl['loc'][1], accControl['loc'][2], 
+					graphics.setViewpoint(accControl['loc'][0], accControl['loc'][1], accControl['loc'][2],
 						0.0, 0.0, 0.0)
 				};
 			}, '/accxyz'),
-			
+
 			push1: OSCFunc({
 				accControl['min'] = (accControl['min'] + 5.0).clip(accMin.neg, accMax.neg);
 				accControl['max'] = (accControl['max'] - 5.0).clip(accMin, accMax);
@@ -648,10 +648,10 @@ FxLambda{
 			toggle1: OSCFunc({|msg|
 				accActive = msg[1].booleanValue;
 				if (accActive.not) {
-					rotation = Rotation(rrand(40.0, 80.0), rrand(0.001, 0.01), rrand(40.0, 80.0), 
+					rotation = Rotation(rrand(40.0, 80.0), rrand(0.001, 0.01), rrand(40.0, 80.0),
 						rrand(60.0, 120.0), 2pi.rand, rrand(0.001, 0.01), 2pi.rand, rrand(0.001, 0.01));
 					graphics.setCameraRotation(rotation, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
-					graphics.rotateCamera;	
+					graphics.rotateCamera;
 				}
 				{
 					graphics.stopRotation;
@@ -662,8 +662,8 @@ FxLambda{
 				accControl['min'] = value.neg;
 				accControl['max'] = value;
 			}, '/fxone/fader')
-		);	
+		);
 	}
-	
-	
+
+
 }
