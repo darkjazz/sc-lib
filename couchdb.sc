@@ -1,11 +1,14 @@
 CouchDB {
 
+	classvar <ip = "127.0.0.1";
+	classvar <port = 5984;
+
 	const <pwdfile = "/usr/local/etc/pwd.lock";
 
-	var <>netAddr, <>db;
+	var <>netAddr, <>db, <>viewdir;
 	var cmd = "curl", getcmd = "-X GET", putcmd = "-X PUT", prefix="http://";
 
-	*new{|addr, db| ^super.newCopyArgs(addr, db) }
+	*new{|addr, db, viewdir="application"| ^super.newCopyArgs(addr, db, viewdir) }
 
 	*startServer{
 		("echo " ++ CouchDB.pwdfile.load ++ " | sudo -S systemctl start couchdb.service").unixCmd;
@@ -43,10 +46,22 @@ CouchDB {
 
 	get{|view|
 		var get;
-		get = this.getCmd +/+ db +/+ "_design/application/_view"
+		get = this.getCmd +/+ db +/+ "_design" +/+ viewdir +/+ "_view"
 			+/+ this.encodeURI(view);
 		Post << get << Char.nl;
 		^get.unixCmdGetStdOut
+	}
+
+	getParsed{|view, key="", endKey=""|
+		var query = view;
+		if (endKey.isEmpty.not.and(key.isEmpty.not)) {
+			query = query ++ "?startKey=\"%\"&endKey=\"%\"".format(key, endKey);
+		};
+		if (key.isEmpty.not.and(endKey.isEmpty)) {
+			query = query ++ "?key=\"%\"".format(key);
+		};
+		^this.get(query).parseJson
+
 	}
 
 	encodeURI{|request|
@@ -64,7 +79,7 @@ CouchDB {
 		viewstr = file.readAllString;
 		file.close;
 		viewstr = viewstr.replace("\n", "").replace("\t", "");
-		this.put("'" + viewstr + "'", "_design/application");
+		this.put("'" + viewstr + "'", "_design/" ++ viewdir);
 	}
 
 }

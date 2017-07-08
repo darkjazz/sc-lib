@@ -1,9 +1,9 @@
 SpEnvir{
 
-	var <settings, serverReplyTime = 0;
+	var <settings, <doneAction, serverReplyTime = 0;
 
-	*new{|settings|
-		^super.newCopyArgs(settings).init
+	*new{|settings, doneAction|
+		^super.newCopyArgs(settings, doneAction).init
 	}
 
 	init{
@@ -49,8 +49,12 @@ SpEnvir{
 					Pdef('matrix').play;
 					currentEnvironment[\defs] = matrix.patterndefs;
 					Post << "audio activated, pdefs initialized.." << Char.nl;
-					this.startServerMonitor;
-					{ MasterEQ(currentEnvironment[\channels]); Server.default.scope(2); }.defer;
+					//this.startServerMonitor;
+					{
+						MasterEQ(currentEnvironment[\channels]);
+						Server.default.scope(matrix.decoder.numChannels);
+					}.defer;
+					doneAction.(this)
 				}).play
 			};
 

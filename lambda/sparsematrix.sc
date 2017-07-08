@@ -88,12 +88,7 @@ SparseMatrix{
 			this.loadDefFuncs;
 
 			defpath.load;
-
-			Server.default.sync;
-
-			skismDefs = skismDefPath.load;
-
-			skismDefs.do(_.add);
+			this.loadSkismDefs;
 
 			Server.default.sync;
 
@@ -138,7 +133,7 @@ SparseMatrix{
 
 			efx = (
 				efx0: ( def: \rev00, args: (rtime: Pbrown(2.0, 3.0, 0.1,inf), hf: Pn(1.0))),
-				efx1: ( def: \rev01, args: (room: 10, rtime: 8, damp: 0.5, bw: 0.5,
+				efx1: ( def: \rev01, args: (room: 80, rtime: 1.5, damp: 0.5, bw: 0.5,
 					spr: 15, dry: 0, early: 1.0, tail: 0.7)
 				),
 				efx2: ( def: \rev02, args: (room: 20, rtime: 6,
@@ -235,7 +230,7 @@ SparseMatrix{
 
 			argproto['bufproto'] = argproto['argproto'].collect({|args|
 				args.collect(_.())
-				.putPairs((rate: Array.geom(7, 0.25, 2**(1/5)).choose).asKeyValuePairs)
+				.putPairs((rate: Prand([-1, 1], inf)).asKeyValuePairs)
 			});
 
 			patterndefs = ();
@@ -260,6 +255,16 @@ SparseMatrix{
 
 	}
 
+	loadSkismDefs{|loadPath|
+		if (loadPath.isNil) {
+			skismDefs = skismDefPath.load;
+		}
+		{
+			skismDefs = loadPath.load;
+		};
+		skismDefs.do(_.add);
+	}
+
 	loadDefFuncs{
 		deffuncs = this.class.funcdefpath.load;
 		deffuncs.collect({|fnc, i|
@@ -276,10 +281,14 @@ SparseMatrix{
 			.collect({|path| Buffer.read(Server.default, path) });
 		buffers.cycles = (Paths.matrixbufs +/+ "cycle*").pathMatch
 			.collect({|path| Buffer.read(Server.default, path) });
-		buffers.evo = (Paths.matrixbufs +/+ "ges/*").pathMatch
-			.collect({|path| Buffer.read(Server.default, path) });
+		buffers.evo = (Paths.soundDir +/+ "evolver/gep*").pathMatch.keep(128)
+		    .collect({|path| Buffer.read(Server.default, path) });
+		// buffers.evo = (Paths.matrixbufs +/+ "ges/*").pathMatch
+		// .collect({|path| Buffer.read(Server.default, path) });
 		buffers.msk = (Paths.matrixbufs +/+ "msk*").pathMatch
 			.collect({|path| Buffer.read(Server.default, path) });
+		buffers.boc = (Paths.soundDir +/+ "bocca/samples/*").pathMatch
+		    .collect({|path| Buffer.read(Server.default, path) });
 		Server.default.sync;
 		Post << "matrix buffers loaded.." << Char.nl;
 	}
@@ -354,6 +363,14 @@ SparseMatrix{
 	addPatternGepDef{|name, groupsize=4, div=8, sourcenames, subpatterns=0, prefix, protoname, append, defnames, loader|
 		patterndefs[name] = SparseJGepPattern(name, groupsize, div, sourcenames, subpatterns, prefix, this,
 			protoname ? 'argproto', append, defnames, loader)
+	}
+
+	addPatternMelodyDef{|name, indices, groupsize=4, div=8, sourcenames, subpatterns=0, prefix, protoname, append, defname, melody|
+		patterndefs[name] = SparseMelodyPattern(name, indices, groupsize, div, sourcenames, subpatterns, prefix, this, protoname ? 'argproto', append, defname, melody);
+	}
+
+	addPatternChordDef{|name, groupsize, div, prefix, protoname, defname, freqs, inds, amp, dur|
+		patterndefs[name] = SparseChordPattern(name, groupsize, div, prefix, this, protoname, defname, freqs, inds, amp, dur)
 	}
 
 	makeAmpPattern{|sourcename|
@@ -437,11 +454,11 @@ SparseMatrix{
 				decoder.start(efxgroup, \addAfter)
 			};
 			Server.default.sync;
-			// listener = Synth.before(decoder.synth, \mfcc, [\in, decoder.bus, \th, -6.dbamp]);
-			// mfccresp = OSCFunc({|ms|
-			// 	graphics.sendSOMVector(ms[3..(ncoef+2)]);
-			// 	onsetFunc.(ms[3..(ncoef+2)])
-			// }, '/mfcc', Server.default.addr ).add;
+			listener = Synth.before(decoder.synth, \mfcc, [\in, decoder.bus, \th, -6.dbamp]);
+			mfccresp = OSCFunc({|ms|
+				graphics.sendSOMVector(ms[3..(ncoef+2)]);
+				onsetFunc.(ms[3..(ncoef+2)])
+			}, '/mfcc', Server.default.addr ).add;
 		}.fork
 	}
 
@@ -465,6 +482,31 @@ SparseMatrix{
 		});
 		args[\out] = decoder.bus;
 		args[\in] = decoder.bus;
+		args[\amp] = 0.0;
+		args[\bps] = bps;
+		if (def.metadata.includesKey(\grainEnvBuf)) {
+			args[\grainEnvBuf] = grainEnvs[def.metadata.grainEnvBuf]
+		};
+		skismSynths[name] = Synth.tail(efxgroup, def.name, args.asKeyValuePairs);
+		if (def.metadata.includesKey(\envbufnums)) {
+			skismSynths[name].setn(\envbufnums, grainEnvs.collect(_.bufnum))
+		};
+		if (def.metadata.includesKey(\buffers)) {
+			skismSynths[name].setn(\bufnums, def.metadata.buffers)
+		}
+
+	}
+
+	activateBoccaSynth{|name, bus|
+		var def, args, ctrbus;
+		Post << "activating " << name << Char.nl;
+		def = skismDefs.select({|sdf| sdf.name.asString == name.asString }).first;
+		args = ();
+		def.metadata.specs.keysValuesDo({|argname, argvalue|
+			args[argname] = argvalue.default
+		});
+		args[\out] = decoder.bus;
+		args[\in] = bus;
 		args[\amp] = 0.0;
 		args[\bps] = bps;
 		if (def.metadata.includesKey(\grainEnvBuf)) {
@@ -769,6 +811,13 @@ SparseMatrixPattern{
 		^this.class.twinPrimes[index];
 	}
 
+	setControl{|name, active, amp, dur, emp|
+		ctrls[name].active = active;
+		ctrls[name].amp = amp;
+		ctrls[name].dur = dur;
+		ctrls[name].emp = emp;
+	}
+
 	setControls{|onFunc, ampFunc, durFunc, empFunc, names|
 		var coll;
 
@@ -815,6 +864,15 @@ SparseMatrixPattern{
 		{
 			ctrls[pat].durdev = pct
 		}
+	}
+
+	activate{|onFunc|
+		this.saveCurrentState;
+
+		ctrls.do({|ctr|
+			ctr.active = onFunc.();
+		})
+
 	}
 
 	setGroups{|indices, onFunc, ampFunc, durFunc, empFunc|
@@ -1036,6 +1094,105 @@ SparseSynthPattern : SparseMatrixPattern{
 
 }
 
+SparseMelodyPattern : SparseMatrixPattern{
+
+	*new{|name, indices, groupsize, div, sourcenames, subpatterns, prefix, matrix, protoname, append=false, defname, melody|
+		^super.new(name, indices, groupsize, div, prefix, matrix, sourcenames, subpatterns, protoname, append).makePdef(defname, melody)
+	}
+
+	makePdef{|defname, melody|
+		var argproto, combined;
+		patterns = ();
+		groups = Array();
+
+		combined = this.mergePatterns;
+
+		this.makePatterns(combined);
+
+		this.makeControls;
+
+		groups = groups.clump(groupsize);
+
+		argproto = ();
+
+		matrix.argproto[protoname].keysValuesDo({|key, val|
+			argproto[key.asString.replace("p", prefix).asSymbol] = val
+		});
+
+		args = patterns.collect({|pat, key| argproto[key] ? argproto[\default]; });
+
+		args.keysValuesDo({|patkey, argev|
+			argev['efx'] = Pdefn((patkey ++ "efx").asSymbol, argev['efx']);
+		});
+
+		Pdef(name, Ppar(
+			args.collect({|args, key|
+				Pbind(\instrument, defname, \group, matrix.group, \addAction, \addToHead,
+					\delta, Pfunc({ matrix.beatdur / div }), \emp, Pfunc({ ctrls[key].emp }),
+					\amp, Pfunc({ ctrls[key].amp }), \out, matrix.decoder.bus, \freq, melody,
+					\dur, Pfunc({ ctrls[key].dur }), \pat, matrix.makePattern(key, patterns[key].bubble),
+					\type, Pfunc({|ev| if (ctrls[key].active.booleanValue) { ev.pat } { \rest } }),
+					*args.asKeyValuePairs
+				)
+			}).values
+		));
+
+	}
+
+	changePattern{|sourcenames, subpatterns=0, size=32, groupsize=4|
+		var combined = Array();
+		sourcenames.bubble.flat.do({|name|
+			var sub;
+			combined = combined ++ SparseMatrix.sparsePatterns[name];
+			if (subpatterns > 0) {
+				sub = SparseMatrix.sparseObjects[name].makeSubPatterns(subpatterns).subpatterns;
+				sub.do({|subpat|
+					combined = combined ++ subpat
+				})
+			}
+		});
+		patterns = ();
+		groups = Array();
+
+		combined.keep(size).do({|seq, i|
+			var key;
+			key = SparseMatrix.makeDefName(i, prefix);
+			patterns[key] = seq;
+			groups = groups.add(key);
+		});
+
+		groups = groups.clump(groupsize);
+
+		patterns.keysValuesDo({|key, pat|
+			matrix.makePattern(key, pat.bubble)
+		})
+
+	}
+
+}
+
+SparseChordPattern : SparseMatrixPattern {
+	*new{|name, groupsize, div, prefix, matrix, protoname, defname, freqs, inds, amp, dur|
+		^super.new(name, nil, groupsize, div, prefix, matrix, nil, nil, protoname, nil).makePdef(defname, freqs, inds, amp, dur)
+	}
+
+	makePdef{|defname, freqs, inds, amp, dur|
+
+		ctrls = (active: 0, amp: 0.0, dur: 0.01, emp: 0.0);
+
+		Pdef(name, Pbind(
+			'instrument', defname, 'efx', Pdefn((name ++ "efx").asSymbol, matrix.nofxbus),
+			'az', 0, 'el', 0, 'env', matrix.envs.perc01, 'freqs', freqs, 'inds', inds,
+			'type', Pfunc({|ev| if (ctrls.active.booleanValue) { \note } { \rest } }),
+			'dur', dur * Pfunc({ ctrls.dur }), 'amp', amp * Pfunc({ ctrls.amp }),
+			'group', matrix.group, 'addAction', \addToHead,
+			'delta', Pfunc({ matrix.beatdur / div }), 'emp', Pfunc({ ctrls.emp }),
+			'out', matrix.decoder.bus
+		))
+	}
+
+}
+
 SparseBufferPattern : SparseMatrixPattern{
 	var <buffers;
 
@@ -1114,10 +1271,6 @@ SparseBufferPattern : SparseMatrixPattern{
 		})
 
 	}
-
-}
-
-SparseChordPattern : SparseMatrixPattern {
 
 }
 

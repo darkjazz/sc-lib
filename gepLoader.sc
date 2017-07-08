@@ -152,6 +152,7 @@ JsonLoader{
 	classvar <localIP = "127.0.0.1", <localPort = 5984;
 	classvar <remoteIP = "", remotePort = 0;
 	classvar <viewsPath = "/Users/alo/SuperCollider/gep/json/views_00.js";
+	classvar <>viewDir = "application";
 
 	var <db;
 
@@ -160,7 +161,7 @@ JsonLoader{
 	}
 
 	init{|dbname, useLocal|
-		db = CouchDB(NetAddr(this.class.localIP, this.class.localPort), dbname)
+		db = CouchDB(NetAddr(this.class.localIP, this.class.localPort), dbname, JsonLoader.viewDir)
 	}
 
 	putViewsFromFile{

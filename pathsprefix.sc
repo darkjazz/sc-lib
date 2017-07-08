@@ -60,6 +60,10 @@ Paths{
 		}
 	}
 
+	*noisefunkDir{
+		^(Paths.devdir ++ "/lambda/supercollider/noisefunk")
+	}
+
 	*matrixbufs{
 		^(Paths.prefix ++ "/snd/sparsematrix/")
 	}
@@ -82,7 +86,7 @@ Paths{
 	}
 
 	*soundDir{
-		^(Paths.prefix +/+ "sounds")
+		^(Paths.prefix +/+ "snd")
 	}
 
 }

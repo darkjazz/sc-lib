@@ -4,7 +4,7 @@ CinderApp{
 	var args, oscPrefix = "/lambda/", <patternLib, <boidPatternLib, settings, symmetry;
 	var <queryFunc, <world;
 
-	*new{|screenX=800, screenY=600, fps=32, scAddr, ciAddr, mode=0, path, numPatterns=40, numBoidPatterns=6|
+	*new{|screenX=800, screenY=600, fps=32, scAddr, ciAddr, mode=0, path, numPatterns=40, numBoidPatterns=7|
 		^super.newCopyArgs(screenX, screenY, fps, scAddr, ciAddr, mode, path).init(numPatterns, numBoidPatterns);
 	}
 
@@ -320,6 +320,13 @@ CinderApp{
 		queryFunc = OSCFunc({|ms|
 			oscFunc.(ms)
 		}, "/lambda/world/states")
+	}
+
+	queryAliveStates{|oscFunc|
+		this.sendMsg("world/query/alive");
+		queryFunc = OSCFunc({|ms|
+			oscFunc.(ms)
+		}, "/lambda/world/faderstates")
 	}
 
 	stopQuery{

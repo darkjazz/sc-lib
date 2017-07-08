@@ -1,4 +1,4 @@
-PenDisplay{
+CellsWindow{
 
 	var <>world, <>rule, <colors, <cellSize, <>speed, <window;
 	var genCount, ruleFamily, cells, go, <reset, task, world, count=0;
@@ -108,7 +108,7 @@ PenDisplay{
 
 		};
 
-		window.drawHook = {
+		window.drawFunc = {
 			var sp;
 			world.world.do({|row, i|
 				row.do({|cell, j|

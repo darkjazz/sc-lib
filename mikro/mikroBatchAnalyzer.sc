@@ -1,34 +1,34 @@
 MikroBatchAnalyzer{
-	
-	var paths, libpath, ncoef, bus, buffer, analyzer, synth, pathstream;
-	
-	var <decodepath = "/Users/alo/sounds/decode/";
-	
+
+	var <paths, libpath, ncoef, bus, buffer, analyzer, synth, pathstream;
+
+	var <decodepath = "/Users/alo/snd/decode/";
+
 	*new{|paths, libpath, ncoef=20|
 		^super.newCopyArgs(paths, libpath, ncoef).init
 	}
-	
+
 	init{
-		
+
 		MikroData.savePath = libpath ? MikroData.savePath;
-		
+
 		bus = Bus.audio(Server.default);
-		
+
 		SynthDef(\input, {|out, buf|
 			var sig;
 			sig = PlayBuf.ar(1, buf, doneAction: 2);
 			Out.ar(out, sig)
 		}).add;
-		
+
 		SynthDef(\input2, {|out, buf|
 			var sig;
 			sig = Mix(PlayBuf.ar(2, buf, doneAction: 2));
 			Out.ar(out, sig)
-		}).add;	
-		
-		pathstream = Pseq(paths).asStream;	
+		}).add;
+
+		pathstream = Pseq(paths).asStream;
 	}
-	
+
 	process{
 		var origPath, tempPath, split;
 		origPath = pathstream.next;
@@ -36,7 +36,7 @@ MikroBatchAnalyzer{
 		if (origPath.notNil)
 		{
 			split = origPath.basename.split($.);
-			if (split.last == "mp3") 
+			if (split.last == "mp3")
 			{
 				this.convertMP3(origPath)						}
 			{
@@ -44,10 +44,10 @@ MikroBatchAnalyzer{
 			};
 		}
 		{
-			Post << "Batch process completed." << Char.nl; 
+			Post << "Batch process completed." << Char.nl;
 		}
 	}
-	
+
 	analyze{|path|
 		Routine({
 			buffer = Buffer.read(Server.default, path);
@@ -68,18 +68,19 @@ MikroBatchAnalyzer{
 			}, '/n_end', Server.default.addr).oneShot;
 		}).play
 	}
-	
+
 	convertMP3{|path|
 		var tmpPath;
 		tmpPath = decodepath ++ (path.basename.split($.)[0]) ++ ".wav";
 		if ((MP3.lamepath + "--decode" + "\"" ++ path ++ "\"" + tmpPath).systemCmd == 0)
 		{
-			this.analyze(tmpPath);
+			// this.analyze(tmpPath);
+			Post << tmpPath << Char.nl;
 		}
 		{
 			("MP3: unable to read file:" + path).warn;
-			("rm" + tmpPath).unixCmd;		
-		};	
+			("rm" + tmpPath).unixCmd;
+		};
 	}
 
 	convertM4A{|path|
@@ -89,6 +90,6 @@ MikroBatchAnalyzer{
 		converter.convert({
 			this.analyze(tmpPath);
 		})
-	}	
-	
+	}
+
 }
