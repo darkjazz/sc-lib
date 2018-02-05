@@ -18,6 +18,18 @@
 		^primes
 	}
 
+	*twinPrimes{|lo = 1, hi = 20000|
+		var allPrimes, twinPrimes;
+		allPrimes = Array.primes(lo, hi);
+
+		allPrimes.doAdjacentPairs({|x, y|
+			if (y - x == 2) {
+				twinPrimes = twinPrimes.addAll([x, y]);
+			}
+		});
+		^twinPrimes
+	}
+
 	*primesN{|num = 5, lo = 1|
 		var next = lo.nextPrime;
 		^Array.fill(num, {

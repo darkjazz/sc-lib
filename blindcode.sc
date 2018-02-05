@@ -7,7 +7,7 @@ Bc{
 	}
 
 	init{
-		var action, settings = ( ncoef: 20, rate: 20, headsize: 14, numgenes: 4, quant: 2, screenX: 1024, screenY: 768, mode: 1, decoderType: 'stereo', bpm: 141, channels: 2, foa: #[zoom,push], dbname: "ges_ld_00", patdefs: "patternDefsAppendLnx.scd", initPdefs: ['r00', 'r01', 'r02', 'b03', 'b04', 'b05', 'b06'], worldDim: 21, ip: "127.0.0.1");
+		var action, settings = ( ncoef: 20, rate: 20, headsize: 14, numgenes: 4, quant: 2, screenX: 1024, screenY: 768, mode: 1, decoderType: 'stereo', 'localDecoder': true, bpm: 141, channels: 2, foa: #[zoom,push], dbname: "ges_ld_00", patdefs: "patternDefsAppendLnx.scd", initPdefs: ['r00', 'r01', 'r02', 'b03', 'b04', 'b05', 'b06'], worldDim: 21, ip: "127.0.0.1");
 
 		action = {
 			var buf;

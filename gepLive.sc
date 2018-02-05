@@ -558,6 +558,12 @@ GepPlayer{
 				Out.ar(out, input * amp)
 			}).add;
 
+			SynthDef(\gep_record, {|in, amp, buf|
+				var input;
+				input = Mix(In.ar(in, 2)) * amp;
+				RecordBuf.ar(input, buf, loop: 0, doneAction: 2);
+			}).add;
+
 		}.fork
 	}
 
@@ -789,7 +795,8 @@ GepPlayer{
 }
 
 JGepPlayer : GepPlayer {
-	var <defnames, <loader;
+	var <loader, <defnames, indexstream;
+	var <>recordBuf, <>headerFormat, <>sampleFormat, <>recordDir;
 
 	*new{|decoder, graphics, dbname|
 		^super.new(decoder: decoder, graphics: graphics).initLoader(dbname)
@@ -1042,6 +1049,56 @@ JGepPlayer : GepPlayer {
 		if (target.isNil) { target = decoder };
 		^Synth.before(target, defname, [\out, out, \amp, amp, \dur, dur])
 			.setn('env', env).setn('gepargs', args)
+	}
+
+	prepareForRecord{|headerFormat="aiff", sampleFormat="int24", recordDir|
+		this.headerFormat = headerFormat;
+		this.sampleFormat = sampleFormat;
+		if (recordDir.isNil) {
+			recordDir = thisProcess.platform.recordingsDir;
+		};
+	}
+
+	record{|amp=1.0, dur=5.0|
+		var index = indexstream.next;
+		Tdef('gep_record').clear;
+		if (index.notNil) {
+			Tdef('gep_record', {
+				var writepath;
+				if ((headerFormat.isNil).or(sampleFormat.isNil)) { this.prepareForRecord };
+				if (recordBuf.isNil) {
+					recordBuf = Buffer.alloc(Server.default, dur * Server.default.sampleRate);
+					Server.default.sync;
+				};
+				this.play(index, 0.0);
+				1.0.wait;
+				Synth.tail(group, 'gep_record', ['in', foaBus['foazoom'],
+					'amp', 1.0, 'buf', recordBuf]
+				);
+				this.set(index, amp);
+				dur.wait;
+				this.free(index);
+				Server.default.sync;
+				writepath = this.recordDir +/+ this.defnames[index] ++ "." ++ this.headerFormat;
+				recordBuf.write(writepath, this.headerFormat, this.sampleFormat);
+				Post << "Wrote " << writepath << Char.nl;
+				Server.default.sync;
+				this.record(amp, dur);
+			}).play
+		}
+		{
+			"Recording finished".postln;
+		}
+	}
+
+	recordAll{|amp=1.0, dur=5.0|
+		indexstream = Pseq(this.data.selectIndices(_.notNil)).asStream;
+		this.record(amp, dur);
+	}
+
+	recordOne{|index, amp=1.0, dur=5.0|
+		indexstream = Pseq(index.bubble).asStream;
+		this.record(amp, dur);
 	}
 
 }

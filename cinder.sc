@@ -2,7 +2,7 @@ CinderApp{
 
 	var <screenX, <screenY, <fps, <scAddr, <ciAddr, <mode, <appPath;
 	var args, oscPrefix = "/lambda/", <patternLib, <boidPatternLib, settings, symmetry;
-	var <queryFunc, <world;
+	var <queryFunc, <world, <oscdefs;
 
 	*new{|screenX=800, screenY=600, fps=32, scAddr, ciAddr, mode=0, path, numPatterns=40, numBoidPatterns=7|
 		^super.newCopyArgs(screenX, screenY, fps, scAddr, ciAddr, mode, path).init(numPatterns, numBoidPatterns);
@@ -22,6 +22,7 @@ CinderApp{
 // 		interp = ( 'NONE': 0, 'LINEAR': 1, 'COSINE': 2 ); // interp count
 		settings = ('rule': 0, 'add': 0.005, 'symmetry': 4, 'interp': [0, 1], 'background': (0.0 ! 3));
 		world = (sizeX: 0, sizeY: 0, sizeZ: 0, vectorSize: 0);
+		oscdefs = [];
 	}
 
 	makeArgumentString{
@@ -316,23 +317,64 @@ CinderApp{
 	}
 
 	queryStates{|indexArray, oscFunc|
+		var key = 'states';
 		this.sendMsg("world/query/states", *indexArray);
-		queryFunc = OSCFunc({|ms|
+		OSCdef(key, {|ms|
 			oscFunc.(ms)
-		}, "/lambda/world/states")
+		}, "/lambda/world/states");
+		oscdefs = oscdefs.add(key);
+	}
+
+	queryGenStates{|indexArray, oscFunc|
+		var key = 'states';
+		this.sendMsg("world/query/states", *indexArray);
+		OSCdef(key, {|ms|
+			oscFunc.(ms)
+		}, "/lambda/world/faderstates");
+		oscdefs = oscdefs.add(key);
 	}
 
 	queryAliveStates{|oscFunc|
+		var key = 'alive';
 		this.sendMsg("world/query/alive");
-		queryFunc = OSCFunc({|ms|
+		OSCdef(key, {|ms|
 			oscFunc.(ms)
-		}, "/lambda/world/faderstates")
+		}, "/lambda/world/alive");
+		oscdefs = oscdefs.add(key);
+	}
+
+	queryCoordsByState{|minState=1, maxState=1, oscFunc|
+		var key = 'coords';
+		this.sendMsg("world/query/coords", minState, maxState);
+		OSCdef(key, {|ms|
+			oscFunc.(ms)
+		}, "/lambda/world/coords");
+		oscdefs = oscdefs.add(key);
+	}
+
+	unpackCoords{|ms|
+		var coords;
+		coords = ms.drop(1).clump(2).collect({|tup|
+			var enc, state, x, y, z;
+			enc = tup[0];
+			state = tup[1];
+			x = (enc/pow(~size, 2)).asInt;
+			y = (enc/~size).asInt%~size;
+			z = enc%~size;
+			('x': x, 'y': y, 'z': z, 'state': state)
+		});
+		^coords
 	}
 
 	stopQuery{
 		queryFunc.disable;
 		queryFunc = nil;
 		this.sendMsg("world/query/stop");
+	}
+
+	clearQueryDef{|key|
+		OSCdef(key).clear;
+		OSCdef(key).free;
 	}
 
 	putStatesFunction{|id, func|
@@ -507,7 +549,7 @@ QueryStates{
 	}
 
 	*indicesAsInt{|coords, sizex, sizey|
-		^coords[0]*sizex+coords[1]*sizey+coords[2]
+		^(coords[0]*sizex+coords[1]*sizey+coords[2]).asInt
 	}
 
 

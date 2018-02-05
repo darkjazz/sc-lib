@@ -1,7 +1,11 @@
 GESBufferLoader{
+	var <paths, <buffers;
 	const <gesBufferPath = "~/snd/evolver/";
 	const numChannels = 1;
-	var <paths, <buffers;
+
+	*new{|paths|
+		^super.newCopyArgs(paths).preload;
+	}
 
 	loadByDate{|start="000000", end="999999"|
 		paths = (GESBufferLoader.gesBufferPath ++ "*").pathMatch.select({|path|
@@ -14,7 +18,7 @@ GESBufferLoader{
 			};
 			(date >= start).and(date <= end)
 		});
-		buffers = Array.newClear(paths.size)
+		this.preload;
 	}
 
 	size{ ^buffers.size }
@@ -32,6 +36,7 @@ GESBufferLoader{
 	}
 
 	preload{
+		buffers = Array.newClear(paths.size);
 		paths.do({|path, i|
 			buffers[i] = Buffer.readChannel(Server.default, path, channels: [0])
 		})

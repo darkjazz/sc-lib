@@ -18,7 +18,10 @@ SpEnvir{
 
 			1.wait;
 
-			currentEnvironment[\decoder] = FoaDecoder(decoderType: currentEnvironment[\decoderType]);
+			currentEnvironment[\decoder] = FoaDecoder(
+				currentEnvironment[\localDecoder],
+				currentEnvironment[\decoderType]
+			);
 			addr = NetAddr(settings['ip'], 7000);
 			currentEnvironment[\graphics] = CinderApp(
 				currentEnvironment[\screenX],

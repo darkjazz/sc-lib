@@ -1,7 +1,7 @@
 SparseMatrix{
 
 	classvar <>allPatterns, <>patterns12, <>patterns16, <>sparseObjects, <>sparsePatterns;
-	classvar <>funcdefpath;
+	classvar <>funcdefpath, <>patternDb;
 
 	var <decoder, <graphics, <quant, <ncoef, <envs, <buffers, <>group, <>efxgroup, <nofxbus, <bpm, <bps, <beatdur;
 	var <rDB, <efx, <efxamps, <patterndefs, <argproto, <deffuncs, codewindow, <listener, <mfccresp;
@@ -12,19 +12,31 @@ SparseMatrix{
 
 	var <>eventLibName = "lib003", eventData, <freqSet, <durSet, <ampSet;
 
-	*initClass{ funcdefpath = Paths.devdir +/+ "lambda/supercollider/sparsematrix/deffuncs01.scd" }
+	*initClass{
+		funcdefpath = Paths.devdir +/+ "lambda/supercollider/sparsematrix/deffuncs01.scd";
+		patternDb = "rhythm_patterns";
+	}
 
 	*new{|decoder, graphics, quant=2, ncoef=8, action|
 		^super.newCopyArgs(decoder, graphics, quant, ncoef).init(action)
 	}
 
 	*makeSparsePatterns{|quant|
-		SparseMatrix.allPatterns = DjembeLib.convertAll(quant);
+		var loader = PatternReader(Noisefunk.pattern_db);
+		SparseMatrix.allPatterns = loader.loadAll;
+		// SparseMatrix.allPatterns = DjembeLib.convertAll(quant);
 		SparseMatrix.patterns12 = SparseMatrix.allPatterns.select({|pat|
 			(pat.first.size / quant) % 6 == 0
 		});
 		SparseMatrix.patterns16 = SparseMatrix.allPatterns.select({|pat, name|
 			SparseMatrix.patterns12.keys.includes(name).not
+		});
+		// add a time step to have prime number steps
+		SparseMatrix.patterns12 = SparseMatrix.patterns12.collect({|pat, key|
+			pat.collect({|instr| instr ++ [0]  })
+		});
+		SparseMatrix.patterns16 = SparseMatrix.patterns16.collect({|pat, key|
+			pat.collect({|instr| instr ++ [0]  })
 		});
 		SparseMatrix.sparseObjects = SparseMatrix.allPatterns.collect(
 			SparsePattern(_)).collect(_.makeSparse
@@ -281,14 +293,18 @@ SparseMatrix{
 			.collect({|path| Buffer.read(Server.default, path) });
 		buffers.cycles = (Paths.matrixbufs +/+ "cycle*").pathMatch
 			.collect({|path| Buffer.read(Server.default, path) });
-		buffers.evo = (Paths.soundDir +/+ "evolver/gep*").pathMatch.keep(128)
+		buffers.evo = (Paths.soundDir +/+ "evolver/perc/*").pathMatch
+		    .collect({|path| Buffer.read(Server.default, path, 0, Server.default.sampleRate * 4) });
+		buffers.dnb = (Paths.soundDir +/+ "dnb_samples/*").pathMatch
+			.collect({|path| Buffer.read(Server.default, path) });
+		buffers.lctr = (Paths.soundDir +/+ "lctrnc_loops/*").pathMatch
 		    .collect({|path| Buffer.read(Server.default, path) });
 		// buffers.evo = (Paths.matrixbufs +/+ "ges/*").pathMatch
 		// .collect({|path| Buffer.read(Server.default, path) });
-		buffers.msk = (Paths.matrixbufs +/+ "msk*").pathMatch
-			.collect({|path| Buffer.read(Server.default, path) });
-		buffers.boc = (Paths.soundDir +/+ "bocca/samples/*").pathMatch
-		    .collect({|path| Buffer.read(Server.default, path) });
+		// buffers.msk = (Paths.matrixbufs +/+ "msk*").pathMatch
+		// .collect({|path| Buffer.read(Server.default, path) });
+		// buffers.boc = (Paths.soundDir +/+ "bocca/samples/*").pathMatch
+		// .collect({|path| Buffer.read(Server.default, path) });
 		Server.default.sync;
 		Post << "matrix buffers loaded.." << Char.nl;
 	}
