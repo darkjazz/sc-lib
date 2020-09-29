@@ -320,6 +320,27 @@ EvolverEnvir{
 
 	}
 
+	playOne{|index|
+		var synth, args, def, fragdur;
+		fragdur = currentEnvironment['targetBuffer'].duration;
+		index = index + 2;
+		def = currentEnvironment['defs'][index];
+		currentEnvironment['gep'].at(index).asUgenExpressionTree
+		.asSynthDefString(def.name.asSymbol, Pan2, Normalizer, false).postln;
+		args =  [
+			currentEnvironment['terminals'],
+			currentEnvironment['params'][index]
+		].lace(currentEnvironment['terminals'].size * 2).postln;
+		Tdef('playOne', {
+			synth = Synth(def.name, [\amp, 0.0, \dur, fragdur+0.5] ++ args);
+			0.2.wait;
+			synth.set('amp', 0.5);
+			(fragdur + rrand(0.5, 1.0)).wait;
+			synth.free;
+			synth = nil;
+		}).play
+	}
+
 	play{
 		currentEnvironment['player'] = Routine({
 			var fragdur = currentEnvironment['targetBuffer'].duration;

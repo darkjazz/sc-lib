@@ -1,6 +1,6 @@
 GEP{
 	var <populationSize, <numgenes, <headsize, <methods, <terminals, <linker, <forceArgs, <>methodRatio;
-	var <tailsize, <chromosomes;
+	var <tailsize, <chromosomes, <genesize;
 	var <>mutationRate = 0.05, <>recombinationRate = 0.3, <>transpositionRate = 0.1, <>rootTranspositionRate = 0.1;
 	var <>geneRecombinationRate = 0.1, <>geneTranspositionRate = 0.1, fitnessFuncs;
 	var <generationCount = 0;
@@ -12,6 +12,7 @@ GEP{
 	init{
 		forceArgs = forceArgs ? ();
 		tailsize = headsize * (this.maxNumberOfArgs - 1) + 1;
+		genesize = headsize + tailsize;
 		this.randInitChromosomes;
 		fitnessFuncs = Array();
 	}

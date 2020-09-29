@@ -421,6 +421,18 @@ CinderApp{
 
 	unmapCodePanel{ this.sendMsg("livecode/map", 0) }
 
+	setCodePanelFont{|name, size|
+		this.sendMsg("livecode/font", name.asString, size.asInt)
+	}
+
+	setCodePanelColor{|red, green, blue|
+		this.sendMsg("livecode/fontcolor", red.asFloat, green.asFloat, blue.asFloat)
+	}
+
+	mapImage{ this.sendMsg("livecode/mapimage", 1) }
+
+	unmapImage{ this.sendMsg("livecode/mapimage", 0) }
+
 	setCodePanelFade{|value|
 		this.sendMsg("livecode/fadeTime", value.asInt)
 	}

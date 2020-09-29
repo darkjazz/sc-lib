@@ -70,6 +70,14 @@
 		});
 		^coll
 	}
+
+	primeNeighbors{|numNeighbors=1, center|
+		var coll = Array.newClear(numNeighbors*2+1);
+		coll[(coll.size/2).floor] = center;
+		numNeighbors.do({|i|
+
+		})
+	}
 }
 
 + Collection {

@@ -372,4 +372,34 @@ SpEnvir{
 		settings = ( ncoef: 20, rate: 20, headsize: 14, numgenes: 4, quant: 2, screenX: 1024, screenY: 768, mode: 1, decoderType: 'stereo', bpm: 140, channels: 2, foa: #[zoom,push], dbname: "ges_02", patdefs: "patternDefsAppend.scd", initPdefs: ['r00', 'r01', 'r02', 'b02'], worldDim: 17);
 	}
 
+	playWarp{|name, def, buf, pargs, delta|
+		var args, synth;
+		if (currentEnvironment[\warpSynths].isNil) {
+			currentEnvironment[\warpSynths] = ()
+		};
+		args = [\out, currentEnvironment[\decoder].bus, \buf, buf];
+		synth = Synth.tail(currentEnvironment[\matrix].group, def, args);
+		currentEnvironment[\warpSynths][name] = synth;
+		this.setPwarp(name, pargs, synth.nodeID);
+	}
+
+	setWarp{|name, args|
+		currentEnvironment[\warpSynths][name].set(*args)
+	}
+
+	setPwarp{|name, pargs, delta, synthID|
+		var argnames = pargs.select({|it, i| i.even });
+		delta = currentEnvironment[\matrix].beatdur * delta;
+		Pdef(name, Pbind( \type, \set, \id, synthID, \delta, Pn(delta, inf),
+				\args, argnames, *pargs
+			)
+		).play
+	}
+
+	freeWarp{|name|
+		currentEnvironment[\warpSynths][name].free;
+		currentEnvironment[\warpSynths][name] = nil;
+		Pdef(name).clear;
+	}
+
 }

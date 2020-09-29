@@ -3,6 +3,8 @@ PatternReader{
 	classvar <dbname = "rhythm_patterns";
 	classvar <viewdir = "views";
 	classvar <>view = "unraveled_by_name";
+	classvar <>dnbview = "dnb_by_name";
+	classvar <>dubview = "dubstep_patterns";
 
 	var dbname, db, allPatterns;
 
@@ -27,6 +29,30 @@ PatternReader{
 			}));
 			^pattern
 		}
+	}
+
+	loadDnB{
+		var response;
+		response = db.getParsed(this.class.dnbview);
+		allPatterns = ();
+		response["rows"].do({|row|
+			allPatterns[row["key"].asSymbol] = row["value"].collect({|pat|
+				pat.collect(_.asFloat)
+			});
+		})
+		^allPatterns
+	}
+
+	loadDub{
+		var response;
+		response = db.getParsed(this.class.dubview);
+		allPatterns = ();
+		response["rows"].do({|row|
+			allPatterns[row["key"].asSymbol] = row["value"].collect({|pat|
+				pat.collect(_.asFloat)
+			});
+		})
+		^allPatterns
 	}
 
 	loadAll{

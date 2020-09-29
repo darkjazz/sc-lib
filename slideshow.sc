@@ -1,5 +1,5 @@
 SlideShow{
-	var paths, width, height, title, <window, <index = 0, <>bookmarks, current;
+	var <paths, width, height, title, <window, <index = 0, <>bookmarks, current;
 	*new{|paths, width, height, title="..::.."|
 		^super.newCopyArgs(paths, width, height, title)
 	}
@@ -38,7 +38,7 @@ SlideShow{
 		if (index < paths.size)
 		{
 		 	index = index + 1;
-			window.view.backgroundImage_(Image(paths[index]).width_(width).height_(height))
+			window.view.backgroundImage_(Image(paths[index]).setSize(width, height, \keepAspectRatio))
 		}
 	}
 
@@ -46,7 +46,7 @@ SlideShow{
 		if (index > 0)
 		{
 		 	index = index - 1;
-			window.view.backgroundImage_(Image(paths[index]))
+			window.view.backgroundImage_(Image(paths[index]).setSize(width, height, \keepAspectRatio))
 		}
 	}
 

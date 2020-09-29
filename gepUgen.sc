@@ -151,6 +151,7 @@ UGEP : GEP {
 
 	setTailSize{
 		tailsize = headsize * (this.maxNumberOfArgs - 1) + 1;
+		genesize = headsize + tailsize;
 	}
 
 	randInitValidChromosomes{

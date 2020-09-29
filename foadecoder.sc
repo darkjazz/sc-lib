@@ -1,14 +1,19 @@
 FoaDecoder{
 
-	var <isLocal, <bus, <synth, <isRunning = false, <decoder;
+	var <isLocal, <>offset, <bus, <synth, <isRunning = false, <decoder;
 
-	*new{|isLocal=true, decoderType='quad', normalize=false|
-		^super.newCopyArgs(isLocal).init(decoderType, normalize)
+	*new{|isLocal=true, decoderType='quad', normalize=false, offset = 0|
+		^super.newCopyArgs(isLocal, offset).init(decoderType, normalize)
 	}
 
 	init{|decoderType, normalize|
 		bus = Bus.audio(Server.default, 4);
-		this.makeSynthDef(decoderType, normalize);
+		if (decoderType=='c&r') {
+			this.makeCRDecoder
+		}
+		{
+			this.makeSynthDef(decoderType, normalize);
+		}
 	}
 
 	makeSynthDef{|decoderType, normalize|
@@ -27,7 +32,7 @@ FoaDecoder{
 					Server.default.sync;
 				}
 				{ decoderType == 'binaural' } {
-					"Making uhj decoder".inform;
+					"Making binaural decoder".inform;
 					decoder = FoaDecoderKernel.newCIPIC;
 					Server.default.sync
 				}
@@ -45,10 +50,10 @@ FoaDecoder{
 				};
 				SynthDef(\decoder, {|amp=1|
 					if (normalize) {
-						Out.ar(0, FoaDecode.ar(Normalizer.ar(In.ar(bus, 4), 0.95) * amp, decoder))
+						Out.ar(offset, FoaDecode.ar(Normalizer.ar(In.ar(bus, 4), 0.95) * amp, decoder))
 					}
 					{
-						Out.ar(0, FoaDecode.ar(Limiter.ar(In.ar(bus, 4), 0.95) * amp, decoder))
+						Out.ar(offset, FoaDecode.ar(Limiter.ar(In.ar(bus, 4), 0.95) * amp, decoder))
 					}
 				}).add
 			}.fork
@@ -56,14 +61,32 @@ FoaDecoder{
 		{
 			SynthDef(\decoder, {|amp=1|
 				if (normalize) {
-					Out.ar(0, Normalizer.ar(In.ar(bus, 4), 0.95) * amp)
+					Out.ar(offset, Normalizer.ar(In.ar(bus, 4), 0.95) * amp)
 				}
 				{
-					Out.ar(0, Limiter.ar(In.ar(bus, 4), 0.95) * amp)
+					Out.ar(offset, Limiter.ar(In.ar(bus, 4), 0.95) * amp)
 				}
 			}).add
 		}
 
+	}
+
+	makeCRDecoder{
+		var coords = this.calculateCRSetup;
+		SynthDef(\decoder, {|amp=1, loamp=1|
+			var w, x, y, z;
+			#w, x, y, z = Limiter.ar(In.ar(bus, 4), 0.95) * amp;
+			Out.ar(0, BFDecode1.ar1(w, x, y, z,
+				coords['azimuth'],
+				coords['elevation'],
+				coords['distance'].maxItem,
+				coords['distance']
+			) ++ ([w, w]*loamp))
+			// Out.ar(0, BFDecode1.ar(w, x, y, z,
+			// 	coords['azimuth'],
+			// 	coords['elevation']
+			// ) ++ ([w, w]*loamp))
+		}).add
 	}
 
 	start{|target=1, addAction='addToHead'|
@@ -127,14 +150,59 @@ FoaDecoder{
 		Pdef(\test).clear;
 	}
 
+	calculateCRSetup{
+		var coordinates, cartesian;
+		cartesian = [
+			[-1705, 2375, -1510],
+			[1705, 2375, -1510],
+			[1705, -2375, -1510],
+			[-1705, -2375, -1510],
+			[-1705, 0, 0],
+			[0, 2375, 0],
+			[1705, 0, 0],
+			[0, -2375, 0],
+			[-1705, -2375, 1664],
+			[-1705, 2375, 1664],
+			[1705, 2375, 1664],
+			[1705, -2375, 1664],
+			[0,0,1664]
+		];
+
+		coordinates = ();
+		coordinates['azimuth'] = [];
+		coordinates['elevation'] = [];
+		coordinates['distance'] = [];
+
+		cartesian.do({|arr|
+			var spherical = Cartesian.new(
+				arr[0]/1000.0,
+				arr[1]/1000.0,
+				arr[2]/1000.0
+			).asSpherical;
+			coordinates['azimuth']  = coordinates['azimuth'].add(spherical.theta);
+			coordinates['elevation'] = coordinates['elevation'].add(spherical.phi);
+			coordinates['distance'] = coordinates['distance'].add(spherical.rho);
+		});
+
+		coordinates['azimuth'] = [
+			-0.30180907074951, 0.30180907074951, 0.69819092925049, -0.69819092925049,
+			-0.5, 0, 0.5, 1,
+			-0.69819092925049, -0.30180907074951, 0.30180907074951, 0.69819092925049
+		];
+
+		^coordinates
+
+	}
+
 }
 
 FoaDiffuser {
 	*ar{|input, numFrames=1024, rate=20.0|
 		var fft, aformat;
-		if (input.asArray.size > 1) { input = Mix(input) };
 		fft = FFT(LocalBuf(numFrames), input);
-		aformat = Array.fill(4, { IFFT(PV_Diffuser(fft, Dust.ar(rate))) });
+		aformat = Array.fill(4, {|i|
+			IFFT(PV_Diffuser(fft.bubble.flat.wrapAt(i), Dust.ar(rate)))
+		});
 		^FoaEncode.ar(aformat, FoaEncoderMatrix.newAtoB)
 	}
 }

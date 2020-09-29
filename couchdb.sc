@@ -64,6 +64,24 @@ CouchDB {
 
 	}
 
+	view{|name, designdoc, key, startKey, endKey|
+		var query;
+		this.viewdir = designdoc;
+		if ((endKey.notNil).and(startKey.notNil)) {
+			query = "?startKey=\"%\"&endKey=\"%\"".format(startKey, endKey);
+		};
+		if ((endKey.isNil).and(startKey.notNil)) {
+			query = "?startKey=\"%\"".format(startKey);
+		};
+		if ((endKey.notNil).and(startKey.isNil)) {
+			query = "?endKey=\"%\"".format(endKey);
+		};
+		if (key.notNil) {
+			query = "?key=\"%\"".format(key);
+		};
+		^this.get(name ++ query).parseJson
+	}
+
 	encodeURI{|request|
 		var dict, ret;
 		dict = ("\"": "%22");

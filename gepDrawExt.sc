@@ -11,8 +11,8 @@
 		};
 		width = this.chromosomes.collect({|chrom|
 			chrom.code.select({|codon| codon.isKindOf(Class) }).size
-		}).maxItem * 12 + 30;
-		height = this.chromosomes.size * 10 +
+		}).maxItem + numgenes * 12 + 30;
+		height = this.chromosomes.size - 2 * 10 +
 			(this.chromosomes.last.generation * 10) + 40;
 		if (height > 800) { height = 800 };
 		win = Window("GES population", Rect(100, 100, width, height))
@@ -20,20 +20,90 @@
 		win.drawFunc = {
 			var currentGen = 0;
 			var posy = 10;
-			this.chromosomes.do({|chrom, y|
+			this.chromosomes.drop(2).do({|chrom, y|
 				var cols, ugens;
-				ugens = chrom.code.select({|codon| codon.isKindOf(Class) });
-				cols = ugens.collect({|ugen| colors[methods.indexOf(ugen)] });
+				ugens = chrom.code.clump(genesize).collect({|gene|
+					gene.select({|codon| codon.isKindOf(Class) })
+				});
+				cols = [];
+				ugens.do({|gene|
+					cols = cols.addAll(gene.collect({|ugen| colors[methods.indexOf(ugen)] }));
+					cols = cols.add(Color.yellow);
+				});
 				if (currentGen == chrom.generation)
 				{ posy = posy + 10; }
 				{ posy = posy + 20; currentGen = chrom.generation};
 				Pen.font = Font("Inconsolata", 8);
-				cols.do({|color, x|
-					Pen.fillColor = Color.grey(0.8);
-					Pen.stringInRect(y.asString.padLeft(2), Rect(10, posy, 10, 7));
+				Pen.fillColor = Color.grey(0.8);
+				Pen.stringInRect(y.asString.padLeft(2), Rect(10, posy, 10, 7));
+				cols.keep(cols.size-1).do({|color, x|
 					color.set;
-					Pen.fillRect(Rect(x*12+20, posy, 12, 7));
+					if (color == Color.yellow) {
+						Pen.fillRect(Rect(x*12+20 + 3, posy + 2, 6, 3))
+					}
+					{
+						Pen.fillRect(Rect(x*12+20, posy, 12, 7))
+					};
 				})
+			})
+		};
+	}
+
+	drawScroll{
+		var win, scroll, view, viewheight, width, size, ugens, genes;
+		if (colors.isNil) {
+			colors = methods.collect({ Color( *{1.0.rand.round(0.1)} ! 3 ) })
+		};
+		if (names.isNil)
+		{
+			names = methods.collect({|ugen| ugen.name.asString.keep(4) });
+		};
+		ugens = this.chromosomes.collect(_.code).collect(_.select(_.isKindOf(Class)));
+		size = 960 / ugens.collect(_.size).maxItem;
+		genes = this.chromosomes.collect({|chrm|
+			chrm.code.clump(genesize).collect({|gene|
+				gene.select({|codon| codon.isKindOf(Class) }).size
+			})
+		});
+		viewheight = this.chromosomes.size - 2 * size +
+		(this.chromosomes.last.generation * size) + 40;
+		win = Window("GES", Rect(100, 100,
+			1000, 600)).front;
+		scroll = ScrollView(win, Rect(0, 0, win.bounds.width, win.bounds.height));
+		view = UserView(scroll, Rect(0, 0, win.bounds.width, viewheight))
+		.background_(Color.grey(1.0));
+		view.drawFunc = {
+			ugens.do({|uarr, y|
+				var posy, sum = 0;
+				posy = y*(size + 10)+20;
+				Pen.font = Font("Inconsolata", 12);
+				uarr.do({|ugen, x|
+					var rect, index, color;
+					index = methods.indexOf(ugen);
+					color = colors[index];
+					color.set;
+					rect = Rect(x*size+20, posy, size, size);
+					Pen.fillOval(rect);
+					Color.grey(0.7).set;
+					Pen.strokeOval(rect);
+					Pen.fillColor = Color.white;
+					Pen.stringCenteredIn(names[index], rect);
+				});
+				genes[y].keep(genes[y].size-1).do({|gsize, x|
+					var rect;
+					Color.yellow.set;
+					sum = sum + gsize;
+					rect = Rect(
+						sum*size+20-(size*0.33/2),
+						y*(size+10)+(size*0.4)+20,
+						size*0.33, size*0.2);
+					Pen.fillRect(rect);
+					Color.black.set;
+					Pen.strokeRect(rect);
+				});
+				Pen.font = Font("Inconsolata", 10);
+				Pen.fillColor = Color.grey(0.8);
+				Pen.stringInRect(y.asString.padLeft(2), Rect(10, posy, 10, 7));
 			})
 		};
 	}
@@ -75,7 +145,7 @@
 	}
 
 	drawCompare{|indexA, indexB|
-		var ucodeA, ucodeB, maxLen, similarity, chromA, chromB;
+		var ucodeA, ucodeB, genesA, genesB, maxLen, similarity, chromA, chromB;
 		if (colors.isNil) {
 			colors = methods.collect({ Color( *{1.0.rand.round(0.1)} ! 3 ) })
 		};
@@ -83,10 +153,17 @@
 		{
 			names = methods.collect({|ugen| ugen.name.asString.keep(4) });
 		};
+		indexA = indexA + 2;
+		indexB = indexB + 2;
 		chromA = this.chromosomes[indexA];
 		chromB = this.chromosomes[indexB];
 		#ucodeA, ucodeB = [chromA, chromB].collect({|chrm|
 			chrm.code.select({|codon| codon.isKindOf(Class) })
+		});
+		#genesA, genesB = [chromA, chromB].collect({|chrm|
+			chrm.code.clump(genesize).collect({|gene|
+				gene.select({|codon| codon.isKindOf(Class) }).size
+			})
 		});
 		maxLen = max(ucodeA.size, ucodeB.size);
 		similarity = (this.calculateSimilarity(indexA, indexB)*100).round(1);
@@ -107,6 +184,19 @@
 					Pen.strokeOval(rect);
 					Pen.fillColor = Color.white;
 					Pen.stringCenteredIn(names[index], rect);
+				})
+			});
+			[genesA, genesB].do({|gene, y|
+				var sum = 0;
+				gene.keep(gene.size-1).do({|gsize, x|
+					var rect;
+					Color.yellow.set;
+					sum = sum + gsize;
+					rect = Rect(sum*size+20-(size*0.33/2), y*(size+10)+(size*0.4)+20,
+						size*0.33, size*0.2);
+					Pen.fillRect(rect);
+					Color.black.set;
+					Pen.strokeRect(rect);
 				})
 			});
 			Pen.font = Font("Lato Regular", 14);
@@ -153,6 +243,10 @@
 			})
 		};
 	}
+
+	drawUGenTree{|index, ugens|
+		this.chromosomes[index+2].asUgenExpressionTree.draw(ugens, this.colors)
+	}
 }
 
 +UGenExpressionTree{
@@ -175,7 +269,7 @@
 			drawdict.select({|ev| ev.depth == y }).size
 		});
 		win = Window("tree", Rect(100, 100, 800, 600))
-			.background_(Color.grey(0.1)).front;
+			.background_(Color.grey(1.0)).front;
 		view = UserView(win, Rect(0, 0, win.view.bounds.width, win.view.bounds.height));
 		view.clearOnRefresh = false;
 		view.drawFunc = {
