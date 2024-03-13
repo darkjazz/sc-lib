@@ -60,7 +60,7 @@ CouchDB {
 		if (key.isEmpty.not.and(endKey.isEmpty)) {
 			query = query ++ "?key=\"%\"".format(key);
 		};
-		^this.get(query).parseJson
+		^this.get(query).parseJSON
 
 	}
 
@@ -79,7 +79,7 @@ CouchDB {
 		if (key.notNil) {
 			query = "?key=\"%\"".format(key);
 		};
-		^this.get(name ++ query).parseJson
+		^this.get(name ++ query).parseJSON
 	}
 
 	encodeURI{|request|

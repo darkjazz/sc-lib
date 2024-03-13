@@ -10,7 +10,13 @@ JsonLDLoader : JsonLoader {
 		SystemClock.sched(0.05, {
 			if (results.includesKey(current)) {
 				current = namestream.next;
-				if (current.notNil) { results[current] = this.getDocumentByDefName(current.asString) };
+				try {
+					if (current.notNil) {
+						results[current] = this.getDocumentByDefName(current.asString)
+					}
+				} {
+					Post << "ERROR retrieving " << current << Char.nl
+				}
 			};
 			if (current.notNil) { 0.05 } { doneAction.(); nil }
 		})
@@ -22,7 +28,12 @@ JsonLDLoader : JsonLoader {
 		doc = result.subStr((result.find("\"value\":") + 8), result.size - 7)
 			.replace(${.asString, $(.asString).replace($}.asString, $).asString).replace("\n", "").replace("\"", "'")
 			.interpret;
-		^this.unpackData(doc)
+		if (doc.notNil) {
+			^this.unpackData(doc)
+		}
+		{
+			^()
+		}
 	}
 
 	getDocumentsByHeader{|headsize, numgenes|

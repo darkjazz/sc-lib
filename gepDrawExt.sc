@@ -71,7 +71,7 @@
 			1000, 600)).front;
 		scroll = ScrollView(win, Rect(0, 0, win.bounds.width, win.bounds.height));
 		view = UserView(scroll, Rect(0, 0, win.bounds.width, viewheight))
-		.background_(Color.grey(1.0));
+		.background_(Color.grey(0.0));
 		view.drawFunc = {
 			ugens.do({|uarr, y|
 				var posy, sum = 0;
@@ -269,7 +269,7 @@
 			drawdict.select({|ev| ev.depth == y }).size
 		});
 		win = Window("tree", Rect(100, 100, 800, 600))
-			.background_(Color.grey(1.0)).front;
+			.background_(Color.grey(0.0)).front;
 		view = UserView(win, Rect(0, 0, win.view.bounds.width, win.view.bounds.height));
 		view.clearOnRefresh = false;
 		view.drawFunc = {

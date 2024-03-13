@@ -46,7 +46,12 @@ Paths{
 			^(Paths.devdir ++ "/lambda/supercollider/sparsematrix/linux/sparsedefs.scd")
 		}
 		{
-			^(Paths.devdir ++ "/lambda/supercollider/sparsematrix/sparsedefs.scd")
+			if ((currentEnvironment['ambiOrder'].notNil).and(currentEnvironment['ambiOrder'] > 1)) {
+				^(Paths.devdir ++ "/lambda/supercollider/sparsematrix/sparsedefs_hoa.scd")
+			}
+			{
+				^(Paths.devdir ++ "/lambda/supercollider/sparsematrix/sparsedefs.scd")
+			}
 		}
 	}
 
@@ -56,8 +61,17 @@ Paths{
 			^(Paths.devdir ++ "/lambda/supercollider/sparsematrix/skismdefs.scd")
 		}
 		{
-			^(Paths.devdir ++ "/lambda/supercollider/sparsematrix/skismdefs.scd")
+			if ((currentEnvironment['ambiOrder'].notNil).and(currentEnvironment['ambiOrder'] > 1)) {
+				^(Paths.devdir ++ "/lambda/supercollider/sparsematrix/skismdefs_hoa.scd")
+			}
+			{
+				^(Paths.devdir ++ "/lambda/supercollider/sparsematrix/skismdefs.scd")
+			}
 		}
+	}
+
+	*matrixDir{
+		^(Paths.devdir ++ "/lambda/supercollider/sparsematrix")
 	}
 
 	*noisefunkDir{

@@ -323,7 +323,6 @@ EvolverEnvir{
 	playOne{|index|
 		var synth, args, def, fragdur;
 		fragdur = currentEnvironment['targetBuffer'].duration;
-		index = index + 2;
 		def = currentEnvironment['defs'][index];
 		currentEnvironment['gep'].at(index).asUgenExpressionTree
 		.asSynthDefString(def.name.asSymbol, Pan2, Normalizer, false).postln;
@@ -364,7 +363,8 @@ EvolverEnvir{
 					Server.default.sync;
 					rrand(0.5, 1.0).wait;
 				}
-			})
+			});
+			"player finished...".postln;
 		}).play
 
 	}
@@ -386,12 +386,17 @@ EvolverEnvir{
 				savename = currentEnvironment['gep'].makeDefName(ind);
 				synth = Synth(def.name, [\amp, 0, \dur, fragdur+0.5] ++ args);
 				if (record) {
+					currentEnvironment['mostRecentSavePath'] = currentEnvironment['recordPath'] ++ savename
+					++ ".aiff";
 					Server.default.prepareForRecord(
 						currentEnvironment['recordPath'] ++ savename ++ ".aiff"
-					)
+					);
+					Server.default.sync;
 				};
-				0.2.wait;
-				if (record) { Server.default.record };
+				if (record) {
+					Server.default.record;
+					Server.default.sync
+				};
 				synth.set('amp', 0.5);
 				fragdur.wait;
 				synth.free;
@@ -406,7 +411,8 @@ EvolverEnvir{
 						savename
 					);
 				}
-			})
+			});
+			"Save finished...".postln;
 		}).play
 	}
 

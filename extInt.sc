@@ -14,6 +14,6 @@
 
 +Float{
 	nearestPrime{|preferNext=true|
-		^this.asInt.nearestPrime(preferNext)
+		^this.asInteger.nearestPrime(preferNext)
 	}
 }

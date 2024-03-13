@@ -83,15 +83,15 @@ UGepLoader{
 			var select = false;
 			if (from.notNil.and(to.isNil))
 			{
-				select = (date.asInt >= from.asInt)
+				select = (date.asInteger >= from.asInteger)
 			};
 			if (from.isNil.and(to.notNil))
 			{
-				select = (date.asInt <= to.asInt)
+				select = (date.asInteger <= to.asInteger)
 			};
 			if (from.notNil.and(to.notNil))
 			{
-				select = (date.asInt >= from.asInt).and(date.asInt <= to.asInt)
+				select = (date.asInteger >= from.asInteger).and(date.asInteger <= to.asInteger)
 			};
 			select
 		});
@@ -220,7 +220,7 @@ JsonLoader{
 		{
 			str = db.get("defnamesByHeader?key=\"#\"".replace("#", headsize.asString ++ numgenes.asString));
 		};
-		str = str.subStr((str.find("\"rows\":")+10), str.size-6) ++ "  ";
+		str = str[((str.find("\"rows\":")+10)..str.size-6)].join("") ++ "  ";
 		ids = str.split(Char.nl).collect({|id|
 			id.replace("{", "(").replace("}", ")").replace("\"", "'")
 				.keep(id.size-2).interpret

@@ -603,14 +603,15 @@ Continuous : Rule {
 	classvar <rules;
 	var <>add, <>mul, <>weights, <>wrap;
 
-	*new{|world, add = 0, mul = 1, wrap = true|
-		^super.new(world).init(add, mul, wrap)
+	*new{|world, add = 0, mul = 1, weights, wrap = true|
+		^super.new(world).set(add, mul, weights, wrap)
 	}
 
-	init{|pAdd, pMul, pWrap|
+	set{|pAdd, pMul, pWeights, pWrap|
 		add = pAdd;
 		mul = pMul;
 		wrap = pWrap;
+		weights = pWeights.normalizeSum;
 		name = \continuous;
 	}
 

@@ -97,7 +97,7 @@ MadmomFeatureLib{
 FeatureSet{
 	classvar <keys;
 
-	var <beats, <chords, <notes, <key, <tempo, <chordIntervals;
+	var <beats, <chords, <notes, <key, <tempo, <chordIntervals, <noteIntervals;
 	var <chordsHMM, <intervalsHMM;
 
 	*new{|json|
@@ -126,7 +126,15 @@ FeatureSet{
 	}
 
 	collectNoteFreqs{
-		^notes.collect(_.midicps)
+		^notes.collect(_.note).collect(_.asInt).collect(_.midicps)
+	}
+
+	collectNoteIntervals{
+		noteIntervals = Array();
+		notes.collect(_.start).asFloat.doAdjacentPairs({|a, b|
+			noteIntervals = noteIntervals.add(b - a)
+		});
+		^noteIntervals
 	}
 
 	collectChordEnums{

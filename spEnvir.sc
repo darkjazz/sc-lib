@@ -1,6 +1,6 @@
 SpEnvir{
 
-	var <settings, <doneAction, serverReplyTime = 0;
+	var <settings, <doneAction, serverReplyTime = 0, <tempoWindow, <scopeWindow;
 
 	*new{|settings, doneAction|
 		^super.newCopyArgs(settings, doneAction).init
@@ -16,12 +16,20 @@ SpEnvir{
 
 			CouchDB.startServer;
 
-			1.wait;
+			0.5.wait;
 
-			currentEnvironment[\decoder] = FoaDecoder(
-				currentEnvironment[\localDecoder],
-				currentEnvironment[\decoderType]
-			);
+			if ((currentEnvironment['ambiOrder'].notNil).and(currentEnvironment['ambiOrder'] > 1)) {
+				currentEnvironment[\decoder] = HoaSpDecoder(
+					currentEnvironment['ambiOrder'],
+					currentEnvironment[\decoderType]
+				)
+			}
+			{
+				currentEnvironment[\decoder] = FoaDecoder(
+					currentEnvironment[\localDecoder],
+					currentEnvironment[\decoderType]
+				)
+			};
 			addr = NetAddr(settings['ip'], 7000);
 			currentEnvironment[\graphics] = CinderApp(
 				currentEnvironment[\screenX],
@@ -46,16 +54,34 @@ SpEnvir{
 					currentEnvironment[\matrix].setBPM(currentEnvironment[\bpm]);
 					currentEnvironment[\player].setBPM(currentEnvironment[\bpm]);
 					matrix.prepareAudio;
-					Pdef('matrix', Ppar(currentEnvironment['initPdefs'].collect({|name|
-						Pdef(name)
-					}))).quant(64);
-					Pdef('matrix').play;
+					Pdef('w00', Ppar(( {|i| Pdef(("w" ++ i.asString).asSymbol) } ! 5 )));
+					// currentEnvironment['initPdefs'] = currentEnvironment['initPdefs'].add('w00');
+					// Pdef('matrix', Ppar(currentEnvironment['initPdefs'].collect({|name|
+					// 	Pdef(name)
+					// }))).quant(64);
+					// Pdef('matrix').play;
 					currentEnvironment[\defs] = matrix.patterndefs;
 					Post << "audio activated, pdefs initialized.." << Char.nl;
+					currentEnvironment[\gespaths] = (Paths.soundDir +/+ "evolver/wrp/*").pathMatch;
+					currentEnvironment[\kvbufs] = GESBufferLoader([]);
+					currentEnvironment[\kvbufs].loadLoops(
+						Paths.matrixDir +/+ "sets/{--kurivari-gep-synths--}.scd",
+						Paths.matrixDir +/+ "sets/{--kurivari-gep-loops--}.scd"
+					);
+					Server.default.sync;
+					Post << "kurivari {" << currentEnvironment[\kvbufs].size << "}" <<  Char.nl;
+					currentEnvironment[\mesabufs] = GESBufferLoader([]);
+					currentEnvironment[\mesabufs].loadLoops(
+						Paths.matrixDir +/+ "sets/___ei_saa_aru_synths.scd",
+						Paths.matrixDir +/+ "sets/mesa-loops.scd"
+					);
+					Server.default.sync;
+					Post << "mesa {" << currentEnvironment[\mesabufs].size << "}" <<  Char.nl;
 					//this.startServerMonitor;
+					this.makeTempoWindow;
 					{
-						MasterEQ(currentEnvironment[\channels]);
-						Server.default.scope(matrix.decoder.numChannels);
+						MasterEQ(matrix.decoder.numChannels);
+						scopeWindow = Server.default.scope(matrix.decoder.numChannels);
 					}.defer;
 					doneAction.(this)
 				}).play
@@ -334,7 +360,7 @@ SpEnvir{
 			key = currentEnvironment[\chordset].next(key)
 		});
 		currentEnvironment[\chordfreqs] = chords.collect({|key|
-			currentEnvironment[\uchords][key].collect(_.asInt).collect(_.prevPrime)
+			currentEnvironment[\uchords][key].collect(_.asInteger).collect(_.prevPrime)
 		});
 		dur = currentEnvironment[\chordloader].chords.choose.getDur.round(1/16);
 		currentEnvironment[\chorddurs] = length.collect({
@@ -372,34 +398,119 @@ SpEnvir{
 		settings = ( ncoef: 20, rate: 20, headsize: 14, numgenes: 4, quant: 2, screenX: 1024, screenY: 768, mode: 1, decoderType: 'stereo', bpm: 140, channels: 2, foa: #[zoom,push], dbname: "ges_02", patdefs: "patternDefsAppend.scd", initPdefs: ['r00', 'r01', 'r02', 'b02'], worldDim: 17);
 	}
 
-	playWarp{|name, def, buf, pargs, delta|
+	playWarp{|name, def, buf, pargs, delta, iamp=0, rate=1|
 		var args, synth;
 		if (currentEnvironment[\warpSynths].isNil) {
 			currentEnvironment[\warpSynths] = ()
 		};
-		args = [\out, currentEnvironment[\decoder].bus, \buf, buf];
+		args = [\out, currentEnvironment[\decoder].bus, \buf, buf, \amp, 1.0,
+			\iamp, iamp, \rate, rate];
 		synth = Synth.tail(currentEnvironment[\matrix].group, def, args);
+		if (currentEnvironment[\warpSynths][name].notNil) {
+			this.freeWarp(name)
+		};
 		currentEnvironment[\warpSynths][name] = synth;
-		this.setPwarp(name, pargs, synth.nodeID);
+		this.setPwarp(name, pargs, delta)
+	}
+
+	playParWarp{|name, def, buf, pargslist, iamp=0, rate=1, playPdef=true|
+		var args, synth, pdef;
+		if (currentEnvironment[\warpSynths].isNil) {
+			currentEnvironment[\warpSynths] = ()
+		};
+		args = [\out, currentEnvironment[\decoder].bus, \buf, buf, \amp, 1.0,
+			\iamp, iamp, \rate, rate];
+		synth = Synth.tail(currentEnvironment[\matrix].group, def, args);
+		if (currentEnvironment[\warpSynths][name].notNil) {
+			this.freeWarp(name)
+		};
+		currentEnvironment[\warpSynths][name] = synth;
+		pdef = Pdef(name,
+			Ppar(
+				pargslist.collect({|pargs|
+					this.makePbind(name, pargs)
+				})
+			)
+		);
+		if (playPdef) {
+			pdef.play
+		}
 	}
 
 	setWarp{|name, args|
 		currentEnvironment[\warpSynths][name].set(*args)
 	}
 
-	setPwarp{|name, pargs, delta, synthID|
-		var argnames = pargs.select({|it, i| i.even });
+	setPwarp{|name, pargs, delta|
+		var synthID, argnames = pargs.select({|it, i| i.even });
+		synthID = currentEnvironment[\warpSynths][name].nodeID;
 		delta = currentEnvironment[\matrix].beatdur * delta;
-		Pdef(name, Pbind( \type, \set, \id, synthID, \delta, Pn(delta, inf),
-				\args, argnames, *pargs
-			)
-		).play
+		pargs = [\type, \set, \id, synthID, \delta, Pn(delta, inf),
+			\args, argnames ] ++ pargs;
+		Pdef(name, Pbind(*pargs)).play
+	}
+
+	makePbind{|name, pargs, delta=nil|
+		var synthID, argnames = pargs.select({|it, i| i.even });
+		synthID = currentEnvironment[\warpSynths][name].nodeID;
+		if (delta.notNil) {
+			delta = currentEnvironment[\matrix].beatdur * delta;
+			pargs = [\type, \set, \id, synthID, \delta, Pn(delta, inf), \args, argnames ] ++ pargs
+		}
+		{
+			pargs = [\type, \set, \id, synthID, \args, argnames ] ++ pargs
+		}
+		^Pbind(*pargs)
 	}
 
 	freeWarp{|name|
+		Pdef(name).clear;
 		currentEnvironment[\warpSynths][name].free;
 		currentEnvironment[\warpSynths][name] = nil;
-		Pdef(name).clear;
+	}
+
+	setPatInd{|key, ind, active, amp, dur, emp|
+		currentEnvironment[\matrix].defsAt(key).setControlAtIndex(ind, active, amp, dur, emp)
+	}
+
+	setPat{|key, active=nil, ampRange=nil, durRange=nil, efxAmp=0|
+		var activeFunc, ampFunc, durFunc;
+		if (active.notNil) {
+			activeFunc = { [0, 1].wchoose([1.0-active, active]) }
+		};
+		if (ampRange.notNil) {
+			ampFunc = { exprand(ampRange.first, ampRange.last) }
+		};
+		if (durRange.notNil) {
+			durFunc = { exprand(durRange.first, durRange.last) }
+		};
+		currentEnvironment[\matrix].defsAt(key).setControls(
+			activeFunc,
+			ampFunc,
+			durFunc,
+			efxAmp
+		)
+	}
+
+	getPat{|key|
+		^currentEnvironment[\matrix].defsAt(key)
+	}
+
+	makeTempoWindow{
+		defer {
+			tempoWindow = TextView(bounds: Rect(5, 5, 200, 60)).front;
+			tempoWindow.background = Color.grey(0.1);
+			tempoWindow.font = Font("Inconsolata", 53, true);
+			tempoWindow.onClose = {
+				currentEnvironment['matrix'].removeBeatfunc('bpmwin')
+			}
+		};
+		currentEnvironment['matrix'].addBeatfunc('bpmwin', {|bps|
+			defer {
+				tempoWindow.string = (bps * 60).round(0.001).asString;
+				tempoWindow.stringColor = Color.green;
+			}
+		})
 	}
 
 }

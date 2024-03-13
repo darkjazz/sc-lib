@@ -103,7 +103,7 @@ UGEP : GEP {
 		});
 		excludeUGenList = excludeUGenList ? [];
 		selection = selection.select({|data|
-			excludeUGenList.collect({|class| data.code.includes(class) }).asInt.sum == 0
+			excludeUGenList.collect({|class| data.code.includes(class) }).asInteger.sum == 0
 		});
 		methods = [];
 		terminals = [];
@@ -300,7 +300,7 @@ UGenExpressionTree : ExpressionTree {
 
 	decode{
 		var code;
-		code = chrom.code.clump((chrom.code.size/chrom.numGenes).asInt);
+		code = chrom.code.clump((chrom.code.size/chrom.numGenes).asInteger);
 		root = UGepNode(\root, Array.fill(chrom.numGenes, {|i|
 			var argindex = 1, array;
 			gene = code.at(i);
@@ -656,7 +656,7 @@ UGepPlayer{
 
 	fade{|start=0, end=0, time=1, interval=0.1|
 		var value, incr, numSteps;
-		numSteps = (time/interval).asInt;
+		numSteps = (time/interval).asInteger;
 		incr = end - start / numSteps;
 		value = start;
 		Routine({

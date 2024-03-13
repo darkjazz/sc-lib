@@ -149,7 +149,7 @@ ChordNote{
 	var <midinote, <start, <duration;
 
 	*new{|note, start, dur|
-		^super.newCopyArgs(note.asInt, start.asFloat, dur.asFloat)
+		^super.newCopyArgs(note.asInteger, start.asFloat, dur.asFloat)
 	}
 
 	asFreq{ ^midinote.midicps }

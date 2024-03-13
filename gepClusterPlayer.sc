@@ -2,7 +2,7 @@ ClusterPlayer{
 
 	const dbname = "ges_ld_00";
 	var <date, <player, <defnames, <nclusters, <docs, <kmeans, <coefs, <assignments;
-	var <nearest, <clusters, <guictr, <win, <limits;
+	var <nearest, <clusters, <guictr, <win, <limits, <loader;
 
 	*new{|date|
 		^super.newCopyArgs(date).init
@@ -17,7 +17,8 @@ ClusterPlayer{
 	}
 
 	loadDocs{
-		var result, loader = JsonLDLoader(dbname);
+		var result;
+		loader = JsonLDLoader(dbname);
 		result = loader.getIDsByDateRange(date);
 		defnames = result.collect({|thing| thing['value'].first });
 		loader.loadDocumentsByDefNames(defnames, {

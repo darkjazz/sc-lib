@@ -1,17 +1,19 @@
 FoaDecoder{
 
-	var <isLocal, <>offset, <bus, <synth, <isRunning = false, <decoder;
+	var <isLocal, <>offset, <bus, <synth, <isRunning = false, <decoder, <type = 'foa';
+	var <hoaChannels, <kind;
 
 	*new{|isLocal=true, decoderType='quad', normalize=false, offset = 0|
 		^super.newCopyArgs(isLocal, offset).init(decoderType, normalize)
 	}
 
 	init{|decoderType, normalize|
-		bus = Bus.audio(Server.default, 4);
-		if (decoderType=='c&r') {
-			this.makeCRDecoder
+		if ((decoderType=='3o').or(decoderType=='4o').or(decoderType=='5o')) {
+			kind = decoderType;
+			this.makeHoabDecoder(decoderType, normalize)
 		}
 		{
+			bus = Bus.audio(Server.default, 4);
 			this.makeSynthDef(decoderType, normalize);
 		}
 	}
@@ -71,22 +73,50 @@ FoaDecoder{
 
 	}
 
-	makeCRDecoder{
-		var coords = this.calculateCRSetup;
-		SynthDef(\decoder, {|amp=1, loamp=1|
-			var w, x, y, z;
-			#w, x, y, z = Limiter.ar(In.ar(bus, 4), 0.95) * amp;
-			Out.ar(0, BFDecode1.ar1(w, x, y, z,
-				coords['azimuth'],
-				coords['elevation'],
-				coords['distance'].maxItem,
-				coords['distance']
-			) ++ ([w, w]*loamp))
-			// Out.ar(0, BFDecode1.ar(w, x, y, z,
-			// 	coords['azimuth'],
-			// 	coords['elevation']
-			// ) ++ ([w, w]*loamp))
-		}).add
+	makeHoabDecoder{|decoderType='3o', normalize|
+		"Making hoa decoder".inform;
+		case
+		{ decoderType == '3o' } {
+			hoaChannels = 16;
+		}
+		{ decoderType == '4o' } {
+			hoaChannels = 25;
+		}
+		{ decoderType == '5o' } {
+			hoaChannels = 36;
+		};
+		bus = Bus.audio(Server.default, hoaChannels);
+		if (isLocal) {
+			Post << "making local " << decoderType << " HOA decoder" << Char.nl;
+			SynthDef(\decoder, {|amp=1|
+				var dels = [ 4.93, 4.93, 4.9, 4.83, 4.7, 4.75, 4.96, 5.04, 6.55, 5.95, 6.44, 6, 5, 5, 5, 5, 3, 1 ] / 343;
+				if (normalize)
+				{
+					Out.ar(offset, Normalizer.ar(
+						DelayL.ar(
+							DecodeAmbi3O.ar(
+								In.ar(bus, hoaChannels),
+								'emta'),
+						dels, dels),
+					0.97) * amp)
+				}
+				{
+					Out.ar(offset, Limiter.ar(DecodeAmbi3O.ar(In.ar(bus, hoaChannels), 'emta'), 0.97) * amp)
+				}
+			}).add
+		}
+		{
+			SynthDef(\decoder, {|amp=1|
+				if (normalize) {
+					Out.ar(offset, Normalizer.ar(In.ar(bus, hoaChannels), 0.97) * amp)
+				}
+				{
+					Out.ar(offset, Limiter.ar(In.ar(bus, hoaChannels), 0.97) * amp)
+				}
+			}).add
+
+		}
+
 	}
 
 	start{|target=1, addAction='addToHead'|
@@ -108,9 +138,20 @@ FoaDecoder{
 		isRunning = false;
 	}
 
-	numChannels{ ^decoder.numChannels }
-
-	type{ ^decoder.kind }
+	numChannels{
+		if ((decoder.class == FoaDecoderKernel).or(decoder.class == FoaDecoderMatrix))
+		{
+			^decoder.numChannels
+		}
+		{
+			if (isLocal) {
+				^17
+			}
+			{
+				^hoaChannels
+			}
+		}
+	}
 
 	test{
 		{
@@ -150,50 +191,6 @@ FoaDecoder{
 		Pdef(\test).clear;
 	}
 
-	calculateCRSetup{
-		var coordinates, cartesian;
-		cartesian = [
-			[-1705, 2375, -1510],
-			[1705, 2375, -1510],
-			[1705, -2375, -1510],
-			[-1705, -2375, -1510],
-			[-1705, 0, 0],
-			[0, 2375, 0],
-			[1705, 0, 0],
-			[0, -2375, 0],
-			[-1705, -2375, 1664],
-			[-1705, 2375, 1664],
-			[1705, 2375, 1664],
-			[1705, -2375, 1664],
-			[0,0,1664]
-		];
-
-		coordinates = ();
-		coordinates['azimuth'] = [];
-		coordinates['elevation'] = [];
-		coordinates['distance'] = [];
-
-		cartesian.do({|arr|
-			var spherical = Cartesian.new(
-				arr[0]/1000.0,
-				arr[1]/1000.0,
-				arr[2]/1000.0
-			).asSpherical;
-			coordinates['azimuth']  = coordinates['azimuth'].add(spherical.theta);
-			coordinates['elevation'] = coordinates['elevation'].add(spherical.phi);
-			coordinates['distance'] = coordinates['distance'].add(spherical.rho);
-		});
-
-		coordinates['azimuth'] = [
-			-0.30180907074951, 0.30180907074951, 0.69819092925049, -0.69819092925049,
-			-0.5, 0, 0.5, 1,
-			-0.69819092925049, -0.30180907074951, 0.30180907074951, 0.69819092925049
-		];
-
-		^coordinates
-
-	}
-
 }
 
 FoaDiffuser {
@@ -205,4 +202,74 @@ FoaDiffuser {
 		});
 		^FoaEncode.ar(aformat, FoaEncoderMatrix.newAtoB)
 	}
+}
+
+HoaSpDecoder{
+	var <order, <decoderType, <numChannels, <numBusChannels, <bus, <decoder;
+	var <synth, <isRunning = false, <directions, <delays, <gains, <distances;
+	var <type = 'hoa';
+	*new{|order=5, decoderType|
+		^super.newCopyArgs(order, decoderType).init
+	}
+
+	init{
+		{
+			numBusChannels = (
+				3: 16,
+				4: 25,
+				5: 36
+			)[order];
+			bus = Bus.audio(Server.default, numBusChannels);
+			if (decoderType == 'binaural') {
+				numChannels = 2;
+				HOABinaural.loadbinauralIRs(Server.default);
+				HOABinaural.loadHeadphoneCorrections(Server.default);
+				Server.default.sync;
+				SynthDef(\decoder, {|amp=1|
+					var hoa;
+					hoa = HoaNFCtrl.ar(In.ar(bus, numBusChannels), AtkHoa.refRadius, 3.25, order);
+					Out.ar(0, HOABinaural.ar(order, hoa * amp))
+				}).add
+			}
+			{
+				numChannels = 23;
+				directions = [
+					[22.5, -22.5, -67.5, -112.5, -157.5, 157.5, 112.5, 67.5, 0.0, -90.0, 180.0, 90.0, 23.0, -23.0, -157.0, 157.0, 0.0, 0.0, -60.0, -120.0, 180.0, 120.0, 60.0],
+					[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 30.0, 30.0, 30.0, 30.0, 53.0, 53.0, 53.0, 53.0, 90.0, -11.0, -15.0, -15.0, -11.0, -15.0, -15.0]
+				].flop.degrad;
+				delays = [0.5, 0.354167, 7.1875, 7.520833, 0.833333, 0.833333, 6.75, 6.583333, 0.0, 8.125, 1.708333, 7.666667, 9.4375, 9.5625, 9.770833, 9.6875, 12.645833, 3.541667, 9.291667, 9.625, 5.104167, 9.25, 9.083333] * 0.001;
+				distances =  (6.41 / 343) - delays * (6.41 / 343);
+				gains = [-3.838411, -3.161154, -5.262777, -3.552501, -4.144597, -3.231475, -3.58058, -2.144974, -3.237421, -5.819212, -5.507934, -7.193305, -6.04261, -5.971529, -8.458384, -8.827554, -14.312817, 0.0, -6.787363, -5.077706, -4.872296, -6.427014, -4.582825].dbamp;
+				SynthDef(\decoder, {|amp=1|
+					var hoa, output, sub, bf;
+					bf = In.ar(bus, numBusChannels);
+					hoa = HoaDecodeMatrix.ar(
+						bf,
+						HoaMatrixDecoder.newModeMatch(directions, order: order)
+					);
+					hoa = DegreeDist.ar(hoa, distances) * gains;
+					sub = Mix.ar(bf) * 0.001;
+					Out.ar(0, hoa[(0..16)] );
+					Out.ar(17, bf[0]*0.1);
+					Out.ar(18, hoa[(17..22)])
+				}).add
+			}
+		}.fork
+	}
+
+	start{|target=1, addAction='addToHead'|
+		if (isRunning.not) {
+			synth = Synth(\decoder, target: target, addAction: addAction);
+			isRunning = true;
+		}
+		{
+			"Decoder is already running!".inform
+		}
+	}
+
+	free{
+		synth.free;
+		isRunning = false;
+	}
+
 }

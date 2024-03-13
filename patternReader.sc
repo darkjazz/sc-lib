@@ -25,7 +25,7 @@ PatternReader{
 		{
 			response = db.getParsed(this.class.view, patternName);
 			pattern = (response["rows"][0]["key"]: response["rows"][0]["value"].collect({|pat|
-				pat.collect(_.asInt)
+				pat.collect(_.asInteger)
 			}));
 			^pattern
 		}
@@ -61,7 +61,7 @@ PatternReader{
 		allPatterns = ();
 		response["rows"].do({|row|
 			allPatterns[row["key"].asSymbol] = row["value"].collect({|pat|
-				pat.collect(_.asInt)
+				pat.collect(_.asInteger)
 			});
 		})
 		^allPatterns

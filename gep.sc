@@ -403,7 +403,7 @@ ExpressionTree{
 
 	decode{
 		var code;
-		code = chrom.code.clump((chrom.code.size/chrom.numGenes).asInt);
+		code = chrom.code.clump((chrom.code.size/chrom.numGenes).asInteger);
 		root = GepNode(\root, Array.fill(chrom.numGenes, {|i|
 			var argindex = 1, array;
 			gene = code.at(i);

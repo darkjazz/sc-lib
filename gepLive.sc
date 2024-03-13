@@ -340,7 +340,7 @@ LiveGenetic{
 
 	fade{|name, start=0, end=0, time=1, interval=0.1|
 		var value, incr, numSteps;
-		numSteps = (time/interval).asInt;
+		numSteps = (time/interval).asInteger;
 		incr = end - start / numSteps;
 		value = start;
 		Routine({
@@ -528,7 +528,11 @@ GepPlayer{
 									Dust.kr(20.0)
 								)
 							)
-						}), FoaEncoderMatrix.newAtoB
+						}),
+						FoaEncoderMatrix.newDirections(
+							Array.fill(4, { [rrand(-pi, pi), rrand(-pi, pi)] }),
+							0.5
+						)
 					);
 					tf = FoaTransform.ar(bf, kind,
 						LFNoise1.kr(ar).range(-pi/2, pi/2),
@@ -834,7 +838,7 @@ JGepPlayer : GepPlayer {
 							IFFT(
 								PV_Diffuser( FFT( LocalBuf(1024), Limiter.ar(input[i])*amp), Dust.kr(20.0))
 							)
-						}), FoaEncoderMatrix.newAtoB
+						}), FoaEncoderMatrix.newDirections([[25, 0], [105, 0], [205, 0], [295, 0]].degrad, 1.0)
 					);
 					tf = FoaTransform.ar(bf, kind, angle, theta, phi);
 					tf = FoaTransform.ar(tf, 'rtt', rox, roy, roz);

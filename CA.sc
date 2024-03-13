@@ -72,11 +72,11 @@ CA{
 		var binrule;
 		if (world.isKindOf(OneDWorld).not, {^"CA world is not a OneDWorld".inform});
 		previous = Array.fill(world.size, {|i| Cell(world.at(i).state)});
-		binrule = rule.asFloat.decbin(2**(2*radius+1));
+		binrule = rule.asDigits(2, 2**(2*radius+1)).reverse;
 
 		world.do({arg item, i;
 			item.state_(binrule.at(Array.fill(radius*2+1, {|j|
-				wrapOptions.at(wrap).value(i+j-radius)}).bindec.asInt))
+				wrapOptions.at(wrap).value(i+j-radius)}).convertDigits(2).asInteger))
 		})
 
 	}

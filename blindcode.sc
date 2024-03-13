@@ -124,9 +124,11 @@ Dj{
 
 }
 
-Pb : Pbindef{ }
+Pb : Pbind{ }
 
 Pd : Pdef{ }
+
+Pdn : Pdefn{ }
 
 Pp : Ppar{ }
 
@@ -142,3 +144,10 @@ Sd : SynthDef{ }
 
 Nd : Ndef { }
 
+Bjk : Bjorklund { }
+
+Eucl{
+	*new{|k, n|
+		^Bjk(k, n).collect({|n| if (n.booleanValue) { \note } { \rest} })
+	}
+}

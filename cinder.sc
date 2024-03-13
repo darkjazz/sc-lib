@@ -70,7 +70,7 @@ CinderApp{
 		world.sizeY = sizeY;
 		world.sizeZ = sizeZ;
 		world.vectorSize = vectorSize;
-		this.sendMsg("world/init", sizeX.asInt, sizeY.asInt, sizeZ.asInt, vectorSize.asInt)
+		this.sendMsg("world/init", sizeX.asInteger, sizeY.asInteger, sizeZ.asInteger, vectorSize.asInteger)
 	}
 
 	resetWorld{|left, bottom, front, width, height, depth, random=false, includeAllStates=false, aliveRatio|
@@ -222,13 +222,13 @@ CinderApp{
 	}
 
 	sendPattern{|index|
-		this.sendMsg("graphics/pattern", index.asInt, *this.collectPatternArgs(index))
+		this.sendMsg("graphics/pattern", index.asInteger, *this.collectPatternArgs(index))
 	}
 
 	sendBoidPattern{|index, active, mapIndex|
 		boidPatternLib[index].active = active;
 		boidPatternLib[index].mapIndex = mapIndex;
-		this.sendMsg("graphics/boidpattern", index.asInt, active.asInt, mapIndex.asInt)
+		this.sendMsg("graphics/boidpattern", index.asInteger, active.asInteger, mapIndex.asInteger)
 	}
 
 	sendSOMVector{|vector|
@@ -249,7 +249,7 @@ CinderApp{
 			var value;
 			value = patternLib[index][name];
 			if (types[i] == \i) {
-				value.asInt
+				value.asInteger
 			}
 			{
 				value.asFloat
@@ -258,7 +258,7 @@ CinderApp{
 	}
 
 	setInterpolation{|type, length|
-		this.sendMsg("world/interpl", type.asInt, length.asInt)
+		this.sendMsg("world/interpl", type.asInteger, length.asInteger)
 	}
 
 	rotate{|rotx, roty, rotz, angle|
@@ -358,8 +358,8 @@ CinderApp{
 			var enc, state, x, y, z;
 			enc = tup[0];
 			state = tup[1];
-			x = (enc/pow(~size, 2)).asInt;
-			y = (enc/~size).asInt%~size;
+			x = (enc/pow(~size, 2)).asInteger;
+			y = (enc/~size).asInteger%~size;
 			z = enc%~size;
 			('x': x, 'y': y, 'z': z, 'state': state)
 		});
@@ -402,7 +402,7 @@ CinderApp{
 	}
 
 	setBoidCam{|attachEye=false, lookAtCentroid=false|
-		this.sendMsg("graphics/boidcam", attachEye.asInt, lookAtCentroid.asInt)
+		this.sendMsg("graphics/boidcam", attachEye.asInteger, lookAtCentroid.asInteger)
 	}
 
 	sendCodeLine{|line|
@@ -422,7 +422,7 @@ CinderApp{
 	unmapCodePanel{ this.sendMsg("livecode/map", 0) }
 
 	setCodePanelFont{|name, size|
-		this.sendMsg("livecode/font", name.asString, size.asInt)
+		this.sendMsg("livecode/font", name.asString, size.asInteger)
 	}
 
 	setCodePanelColor{|red, green, blue|
@@ -434,11 +434,11 @@ CinderApp{
 	unmapImage{ this.sendMsg("livecode/mapimage", 0) }
 
 	setCodePanelFade{|value|
-		this.sendMsg("livecode/fadeTime", value.asInt)
+		this.sendMsg("livecode/fadeTime", value.asInteger)
 	}
 
 	setSymmetry{|sym|
-		this.sendMsg("world/symmetry", sym.asInt ? 0)
+		this.sendMsg("world/symmetry", sym.asInteger ? 0)
 	}
 
 	quit{
@@ -561,7 +561,7 @@ QueryStates{
 	}
 
 	*indicesAsInt{|coords, sizex, sizey|
-		^(coords[0]*sizex+coords[1]*sizey+coords[2]).asInt
+		^(coords[0]*sizex+coords[1]*sizey+coords[2]).asInteger
 	}
 
 

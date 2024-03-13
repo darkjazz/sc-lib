@@ -4,7 +4,7 @@ CellsWindow{
 	var genCount, ruleFamily, cells, go, <reset, task, world, count=0;
 	var ruleBox, rclass, keys, <>group, <>numValues=1, <>showValues=false, <currentValues;
 	var fast, slow, rules;
-	var <>maxGens = inf, numAlive, display, statesx, statesy, <>drawFunc;
+	var <>maxGens = inf, numAlive, display, statesx, statesy, <>drawFunc, <>speedFunc;
 
 	*new{|world, rule, colors, cellSize=5, speed=0.2, window, bgc|
 		^super.newCopyArgs(world, rule, colors, cellSize, speed, window).init(bgc)
@@ -81,13 +81,16 @@ CellsWindow{
 			.states_([["faster", Color.white, Color.black]])
 			.font_(Font("Verdana", 9))
 			.action_({
-				if (speed > 0.01, {speed = speed - 0.05})
+				if (speed > 0.01, {speed = speed - 0.05});
+			    speedFunc.(speed)
+
 			});
 		slow = Button(window, Rect(245, 25, 40, 20))
 			.states_([["slower", Color.white, Color.black]])
 			.font_(Font("Verdana", 9))
 			.action_({
-				if (speed < 1, {speed = speed + 0.05})
+				if (speed < 1, {speed = speed + 0.05});
+			    speedFunc.(speed)
 			});
 
 		display = CompositeView(window, Rect(80, 50, cellSize*world.size, cellSize*world.size));
