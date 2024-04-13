@@ -26,6 +26,10 @@ UGEP : GEP {
 		^super.new(list.size, numgenes, headsize, nil, nil, linker).fillFromList(list)
 	}
 
+	*newRandomFromDb{|populationSize, numgenes, headsize, linker, start, end|
+		^super.new(populationSize, numgenes, headsize, nil, nil, linker).fillFromDb(start, end)
+	}
+
 	init{
 		this.setTailSize;
 		this.randInitChromosomes;
@@ -147,6 +151,26 @@ UGEP : GEP {
 		chromosomes = list.collect({|code|
 			GEPChromosome(code, terminals, numgenes, linker)
 		});
+	}
+
+	fillFromDb{|start, end|
+		var db, docs, loader;
+		loader = JsonLDLoader();
+		db = MongoDb();
+		this.setTailSize;
+		this.dbname = dbname;
+		docs = db.getDocumentsByDate(start, end, populationSize);
+		Post << "DOCS: " << docs.size << Char.nl;
+		chromosomes = docs.collect({|doc, i|
+			var data = loader.unpackData(doc);
+			terminals = data.terminals;
+			data.methods.do({|ugen|
+				if (methods.includes(ugen).not) {
+					methods = methods.add(ugen)
+				}
+			});
+			GEPChromosome(data.code, data.terminals, numgenes, linker)
+		})
 	}
 
 	setTailSize{

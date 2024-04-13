@@ -152,6 +152,55 @@ EvolverEnvir{
 
 	}
 
+	initializeRandomDbPopulation{
+
+		currentEnvironment['gep'] = UGEP.newRandomFromDb(
+			settings.populationSize,
+			settings.numgenes,
+			settings.headsize,
+			AbstractFunction.methods.select({|meth| meth.name == '*' }).first,
+			"231101",
+			"231201"
+		);
+
+		currentEnvironment['gep'].mutationRate = settings['mutationRate'];
+		currentEnvironment['gep'].recombinationRate = settings['recombinationRate'];
+		currentEnvironment['gep'].transpositionRate = settings['transpositionRate'];
+		currentEnvironment['gep'].rootTranspositionRate = settings['rootTranspositionRate'];
+		currentEnvironment['gep'].geneRecombinationRate = settings['geneRecombinationRate'];
+		currentEnvironment['gep'].geneTranspositionRate = settings['geneTranspositionRate'];
+
+		currentEnvironment['paramgep'] = GEP(
+			settings.populationSize,
+			currentEnvironment['terminals'].size,
+			5,
+			['*', '-', '+', '/'].collect({|opname|
+				AbstractFunction.methods.select({|meth| meth.name == opname }).first
+			}),
+			['w', 'x', 'y', 'z'],
+			Array.class.methods.select({|mth| mth.name == 'with' }).first
+		);
+
+		currentEnvironment['maps'] = #[unipolar, bipolar, freq, lofreq, midfreq, widefreq].collect({|name|
+			ControlSpec.specs[name]
+		});
+
+		currentEnvironment['paramgep'].chromosomes.do({|chrom|
+			chrom.fillConstants(currentEnvironment['paramgep'].terminals.size, { rrand(0.0, 1.0) });
+			currentEnvironment['terminals'].size.do({
+				chrom.addExtraDomain(currentEnvironment['maps'].choose)
+			})
+		});
+
+		currentEnvironment['paramgep'].mutationRate = settings['mutationRate'];
+		currentEnvironment['paramgep'].recombinationRate = settings['recombinationRate'];
+		currentEnvironment['paramgep'].transpositionRate = settings['transpositionRate'];
+		currentEnvironment['paramgep'].rootTranspositionRate = settings['rootTranspositionRate'];
+		currentEnvironment['paramgep'].geneRecombinationRate = settings['geneRecombinationRate'];
+		currentEnvironment['paramgep'].geneTranspositionRate = settings['geneTranspositionRate'];
+
+	}
+
 	extractTargetFeatures{|path|
 
 		Routine({
