@@ -205,55 +205,75 @@ FoaDiffuser {
 }
 
 HoaSpDecoder{
-	var <order, <decoderType, <numChannels, <numBusChannels, <bus, <decoder;
+	var <order, <decoderType, <path, <numChannels, <numBusChannels, <bus, <decoder;
 	var <synth, <isRunning = false, <directions, <delays, <gains, <distances;
 	var <type = 'hoa';
-	*new{|order=5, decoderType|
-		^super.newCopyArgs(order, decoderType).init
+	*new{|order=5, decoderType, path|
+		^super.newCopyArgs(order, decoderType, path).init
 	}
 
 	init{
+		numBusChannels = (
+			3: 16,
+			4: 25,
+			5: 36
+		)[order];
+		bus = Bus.audio(Server.default, numBusChannels);
+		if (decoderType == 'binaural') {
+			this.initBinaural
+		}
 		{
-			numBusChannels = (
-				3: 16,
-				4: 25,
-				5: 36
-			)[order];
-			bus = Bus.audio(Server.default, numBusChannels);
-			if (decoderType == 'binaural') {
-				numChannels = 2;
-				HOABinaural.loadbinauralIRs(Server.default);
-				HOABinaural.loadHeadphoneCorrections(Server.default);
-				Server.default.sync;
-				SynthDef(\decoder, {|amp=1|
-					var hoa;
-					hoa = HoaNFCtrl.ar(In.ar(bus, numBusChannels), AtkHoa.refRadius, 3.25, order);
-					Out.ar(0, HOABinaural.ar(order, hoa * amp))
-				}).add
-			}
-			{
-				numChannels = 23;
-				directions = [
-					[22.5, -22.5, -67.5, -112.5, -157.5, 157.5, 112.5, 67.5, 0.0, -90.0, 180.0, 90.0, 23.0, -23.0, -157.0, 157.0, 0.0, 0.0, -60.0, -120.0, 180.0, 120.0, 60.0],
-					[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 30.0, 30.0, 30.0, 30.0, 53.0, 53.0, 53.0, 53.0, 90.0, -11.0, -15.0, -15.0, -11.0, -15.0, -15.0]
-				].flop.degrad;
-				delays = [0.5, 0.354167, 7.1875, 7.520833, 0.833333, 0.833333, 6.75, 6.583333, 0.0, 8.125, 1.708333, 7.666667, 9.4375, 9.5625, 9.770833, 9.6875, 12.645833, 3.541667, 9.291667, 9.625, 5.104167, 9.25, 9.083333] * 0.001;
-				distances =  (6.41 / 343) - delays * (6.41 / 343);
-				gains = [-3.838411, -3.161154, -5.262777, -3.552501, -4.144597, -3.231475, -3.58058, -2.144974, -3.237421, -5.819212, -5.507934, -7.193305, -6.04261, -5.971529, -8.458384, -8.827554, -14.312817, 0.0, -6.787363, -5.077706, -4.872296, -6.427014, -4.582825].dbamp;
-				SynthDef(\decoder, {|amp=1|
-					var hoa, output, sub, bf;
-					bf = In.ar(bus, numBusChannels);
-					hoa = HoaDecodeMatrix.ar(
-						bf,
-						HoaMatrixDecoder.newModeMatch(directions, order: order)
-					);
-					hoa = DegreeDist.ar(hoa, distances) * gains;
-					sub = Mix.ar(bf) * 0.001;
-					Out.ar(0, hoa[(0..16)] );
-					Out.ar(17, bf[0]*0.1);
-					Out.ar(18, hoa[(17..22)])
-				}).add
-			}
+			this.initFromFile
+		}
+	}
+
+	initBinaural{
+		{
+			numChannels = 2;
+			HOABinaural.loadbinauralIRs(Server.default);
+			HOABinaural.loadHeadphoneCorrections(Server.default);
+			Server.default.sync;
+			SynthDef(\decoder, {|amp=1|
+				var hoa;
+				hoa = HoaNFCtrl.ar(In.ar(bus, numBusChannels), AtkHoa.refRadius, 3.25, order);
+				Out.ar(0, HOABinaural.ar(order, hoa * amp))
+			}).add
+		}.fork
+	}
+
+	initFromFile{
+		{
+			var config, speakers;
+			config = path.parseJSONFile;
+			speakers = config["LoudspeakerLayout"]["Loudspeakers"]
+			.select({|speaker|
+				speaker["IsImaginary"] == "false"
+			});
+			numChannels = speakers.size;
+			directions = speakers.collect({|speaker|
+				Array.with(speaker["Azimuth"].asFloat, speaker["Elevation"].asFloat)
+			}).degrad;
+			distances = speakers.collect({|speaker|
+				speaker["Radius"].asFloat
+			});
+			gains = speakers.collect({|speaker|
+				speaker["Gain"].asFloat
+			});
+			Server.default.sync;
+			SynthDef(\decoder, {|amp=1, subamp=0.01|
+				var hoa, output, sub, bf;
+				bf = In.ar(bus, numBusChannels);
+				hoa = HoaDecodeMatrix.ar(
+					bf,
+					HoaMatrixDecoder.newModeMatch(directions, order: order)
+				);
+				hoa = DegreeDist.ar(hoa, distances) * gains;
+				Out.ar(0, hoa);
+			}).add;
+			Post << "Hoa decoder order: " << order << Char.nl;
+			Post << "Decoder config loaded from " << path << Char.nl;
+			Post << "Directions: " << directions.size << "  " << directions << Char.nl;
+			Post << "Distances: " << distances.size << "  " << distances << Char.nl;
 		}.fork
 	}
 
@@ -265,6 +285,24 @@ HoaSpDecoder{
 		{
 			"Decoder is already running!".inform
 		}
+	}
+
+	runChannelCheck{|channels, dur=1.0, amp=0.5|
+		Tdef(\channelcheck, {
+			var chstr = Pseq(channels, inf).asStream;
+			loop({
+				this.channelCheck(chstr.next, dur, amp);
+				dur.wait;
+			})
+		}).play
+	}
+
+	channelCheck{|channel, dur=1, amp=0.5|
+		SynthDef(\check, {
+			var sig;
+			sig = Dust.ar(pi**pi*pi) * amp;
+			Out.ar(channel, sig * EnvGen.kr(Env.perc, timeScale: 0.3, doneAction: 2))
+		}).play
 	}
 
 	free{

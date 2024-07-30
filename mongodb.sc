@@ -102,10 +102,15 @@ MongoDb{
 		^dict["documents"]
 	}
 
-	getDocuments{|start, end, limit|
+	getDocuments{|start, end, numgenes, headsize, limit|
 		var re, query, cmd, docs;
 		query = ("collection": "ges_ld_00", "database": "gep", "dataSource": "gep");
-		query["filter"] = ("ges:date": ("$gte": start, "$lte": end));
+		if (start.notNil) {
+			query["filter"] = ("ges:date": ("$gte": start, "$lte": end));
+		}
+		{
+			query["filter"] = ("ges:environment.ges:headsize": headsize, "ges:environment.ges:numgenes": numgenes)
+		};
 		query["limit"] = limit;
 		cmd = curlCmd ++ "--data-raw '%'".format(query.asJSON);
 		re = cmd.unixCmdGetStdOut;
@@ -131,19 +136,23 @@ MongoDb{
 			method.name == doc["ges:environment"]["ges:linker"]["ges:name"].asSymbol
 		}).first;
 		data.methods = doc["ges:environment"]["ges:methods"].collect(_.asString).collect(_.interpret);
-		data.terminals = doc["ges:environment"]["ges:terminals"];
+		data.terminals = doc["ges:environment"]["ges:terminals"].collect(_.asSymbol);
 		data.stats = doc["ges:features"];
-		data.args = doc["ges:parameters"]["ges:literals"];
+		data.args = doc["ges:parameters"]["ges:literals"].collect({|it|
+			if (it.size == 1) { it.asSymbol } { it.asFloat }
+		});
 		data.params = ();
-		data.params.literals = doc["ges:parameters"]["ges:literals"];
+		data.params.literals = doc["ges:parameters"]["ges:literals"].collect({|it|
+			if (it.size == 1) { it.asSymbol } { it.asFloat }
+		});
 		data.params.code = doc["ges:parameters"]["ges:genome"].collect({|it|
 			if (operators.includes(it.asSymbol)) {
 				AbstractFunction.methods.select({|method| method.name.asSymbol == it.asSymbol }).first
 			} { it.asSymbol }
 		});
-		data.params.constants = doc["ges:parameters"]["ges:constants"];
+		data.params.constants = doc["ges:parameters"]["ges:constants"].collect(_.asFloat);
 		data.params.extraDomains = doc["ges:parameters"]["ges:extra_domains"].collect({|ev|
-			ControlSpec(ev["ges:minimum_value"], ev["ges:maximum_value"], ev["ges:warp"].asSymbol)
+			ControlSpec(ev["ges:minimum_value"].asInteger, ev["ges:maximum_value"].asInteger, ev["ges:warp"].asSymbol)
 		});
 		^data
 	}

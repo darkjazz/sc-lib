@@ -21,7 +21,8 @@ SpEnvir{
 			if ((currentEnvironment['ambiOrder'].notNil).and(currentEnvironment['ambiOrder'] > 1)) {
 				currentEnvironment[\decoder] = HoaSpDecoder(
 					currentEnvironment['ambiOrder'],
-					currentEnvironment[\decoderType]
+					currentEnvironment['decoderType'],
+					currentEnvironment['decoderFilePath']
 				)
 			}
 			{

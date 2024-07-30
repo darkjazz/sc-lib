@@ -172,13 +172,13 @@ SparseMatrix{
 
 
 			efx = (
-				efx0: ( def: \rev00, args: (rtime: Pbrown(2.0, 3.0, 0.1,inf), hf: Pn(1.0))),
-				efx1: ( def: \rev01, args: (room: 80, rtime: 1.5, damp: 0.5, bw: 0.5,
+				// efx0: ( def: \rev00, args: (rtime: Pbrown(2.0, 3.0, 0.1,inf), hf: Pn(1.0))),
+				efx1: ( def: \rev01, args: (room: 20, rtime: 2.7, damp: 0.5, bw: 0.5,
 					spr: 15, dry: 0, early: 1.0, tail: 0.7)
 				),
-				efx2: ( def: \rev02, args: (room: 20, rtime: 6,
+				efx2: ( def: \rev02, args: (room: 40, rtime: 4.7,
 					wsz: Prand([0.02,0.06,0.1,0.2],inf),
-					pch:Prand(Array.geom(24,1.0,2**(1/24)).reverse.keep(10),inf),
+					pch: Prand(Array.geom(24,1.0,2**(1/24)).reverse.keep(10),inf),
 					pds: Pwrand([0,Pwhite(0.1, 0.5, 1)],[0.7, 0.3],inf),
 					tds: Pwrand([0,Pwhite(0.1, 0.5, 1)],[0.7, 0.3],inf) )
 				),
@@ -186,9 +186,9 @@ SparseMatrix{
 					pch: Pwrand(Array.geom(24, 0.5, 2**(3/24))[(0..23).select(_.isPrime)],
 						Array.geom(9, 1.0, 2**(1/9)).normalizeSum, inf ),
 					room: 8, rtime: 4, ramp: 0.2 )
-				),
-				efx4: (def: \del01, args: (del: Pfunc({ beatdur / 2 }), dec: Pfunc({ beatdur * 4 }) )),
-				efx5: ( def: \del02, args: ( rtime: 10, del: Pfunc({ beatdur }), dec: Pfunc({ beatdur }) ))
+				)
+				// efx4: (def: \del01, args: (del: Pfunc({ beatdur / 2 }), dec: Pfunc({ beatdur * 4 }) )),
+				// efx5: ( def: \del02, args: ( rtime: 10, del: Pfunc({ beatdur }), dec: Pfunc({ beatdur }) ))
 			).keysValuesDo({|name, ev|
 				ev[\args][\delta] = Pfunc({ beatdur });
 				ev[\args][\in] = Bus.audio;
@@ -1363,6 +1363,10 @@ SparseBufferPattern : SparseMatrixPattern{
 
 		args = patterns.collect({|pat, key| argproto[key] ? argproto[\default]; });
 
+		args.keysValuesDo({|patkey, argev|
+			argev['efx'] = Pdefn((patkey ++ "efx").asSymbol, argev['efx']);
+		});
+
 		Pdef(name, Ppar(
 			args.collect({|args, key|
 				Pbind(\instrument, defname, \group, matrix.group, \addAction, \addToHead,
@@ -1443,6 +1447,10 @@ SparseDubPattern : SparseMatrixPattern{
 		});
 
 		args = patterns.collect({|pat, key| argproto[key] ? argproto[\default]; });
+
+		args.keysValuesDo({|patkey, argev|
+			argev['efx'] = Pdefn((patkey ++ "efx").asSymbol, argev['efx']);
+		});
 
 		Pdef(name, Ppar(
 			args.collect({|args, key|

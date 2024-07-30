@@ -26,8 +26,8 @@ UGEP : GEP {
 		^super.new(list.size, numgenes, headsize, nil, nil, linker).fillFromList(list)
 	}
 
-	*newRandomFromDb{|populationSize, numgenes, headsize, linker, start, end|
-		^super.new(populationSize, numgenes, headsize, nil, nil, linker).fillFromDb(start, end)
+	*newRandomFromDb{|populationSize, numgenes, headsize, linker|
+		^super.new(populationSize, numgenes, headsize, nil, nil, linker).fillFromDb
 	}
 
 	init{
@@ -153,24 +153,24 @@ UGEP : GEP {
 		});
 	}
 
-	fillFromDb{|start, end|
+	fillFromDb{
 		var db, docs, loader;
-		loader = JsonLDLoader();
 		db = MongoDb();
-		this.setTailSize;
-		this.dbname = dbname;
-		docs = db.getDocumentsByDate(start, end, populationSize);
-		Post << "DOCS: " << docs.size << Char.nl;
-		chromosomes = docs.collect({|doc, i|
-			var data = loader.unpackData(doc);
-			terminals = data.terminals;
+		docs = db.getDocuments(numgenes: numgenes, headsize: headsize, limit: populationSize * 2);
+		docs = docs.scramble;
+		Post << "RETRIEVED DOCS FROM MONGO: " << docs.size << Char.nl;
+		methods = [];
+		terminals = docs.first.terminals;
+		chromosomes = populationSize.collect({
+			var data = docs.pop;
 			data.methods.do({|ugen|
 				if (methods.includes(ugen).not) {
 					methods = methods.add(ugen)
 				}
 			});
 			GEPChromosome(data.code, data.terminals, numgenes, linker)
-		})
+		});
+		this.setTailSize;
 	}
 
 	setTailSize{

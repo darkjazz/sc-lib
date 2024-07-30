@@ -159,8 +159,8 @@ EvolverEnvir{
 			settings.numgenes,
 			settings.headsize,
 			AbstractFunction.methods.select({|meth| meth.name == '*' }).first,
-			"231101",
-			"231201"
+			"231115",
+			"231215"
 		);
 
 		currentEnvironment['gep'].mutationRate = settings['mutationRate'];
@@ -169,6 +169,8 @@ EvolverEnvir{
 		currentEnvironment['gep'].rootTranspositionRate = settings['rootTranspositionRate'];
 		currentEnvironment['gep'].geneRecombinationRate = settings['geneRecombinationRate'];
 		currentEnvironment['gep'].geneTranspositionRate = settings['geneTranspositionRate'];
+
+		currentEnvironment['terminals'] = currentEnvironment['gep'].terminals;
 
 		currentEnvironment['paramgep'] = GEP(
 			settings.populationSize,
@@ -198,6 +200,8 @@ EvolverEnvir{
 		currentEnvironment['paramgep'].rootTranspositionRate = settings['rootTranspositionRate'];
 		currentEnvironment['paramgep'].geneRecombinationRate = settings['geneRecombinationRate'];
 		currentEnvironment['paramgep'].geneTranspositionRate = settings['geneTranspositionRate'];
+
+		currentEnvironment['gep'].dbname = settings['dbname'];
 
 	}
 

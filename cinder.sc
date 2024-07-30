@@ -1,11 +1,11 @@
 CinderApp{
 
-	var <screenX, <screenY, <fps, <scAddr, <ciAddr, <mode, <appPath;
+	var <screenX, <screenY, <fps, <scAddr, <ciAddr, <mode, <appPath, <fullScreen;
 	var args, oscPrefix = "/lambda/", <patternLib, <boidPatternLib, settings, symmetry;
 	var <queryFunc, <world, <oscdefs;
 
-	*new{|screenX=800, screenY=600, fps=32, scAddr, ciAddr, mode=0, path, numPatterns=40, numBoidPatterns=7|
-		^super.newCopyArgs(screenX, screenY, fps, scAddr, ciAddr, mode, path).init(numPatterns, numBoidPatterns);
+	*new{|screenX=800, screenY=600, fps=32, scAddr, ciAddr, mode=0, path, fullScreen=false, numPatterns=40, numBoidPatterns=7|
+		^super.newCopyArgs(screenX, screenY, fps, scAddr, ciAddr, mode, path, fullScreen).init(numPatterns, numBoidPatterns);
 	}
 
 	init{|numPatterns, numBoidPatterns|
@@ -35,7 +35,8 @@ CinderApp{
 			'-remote': scAddr.hostname,
 			'-outport': scAddr.port,
 			'-inport': ciAddr.port,
-			'-wmode': mode
+			'-wmode': mode,
+			'-full': fullScreen.asInteger
 		);
 
 		args.keysValuesDo({|key, val|
