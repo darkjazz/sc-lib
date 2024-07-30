@@ -1,6 +1,6 @@
 GESBufferLoader{
 	var <paths, <buffers, <loops;
-	const <gesBufferPath = "/Users/alo/snd/evolver/";
+	const <gesBufferPath = "/Users/kurivari/snd/evolver/";
 	const numChannels = 1;
 
 	*new{|paths|

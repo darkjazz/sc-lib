@@ -6,7 +6,7 @@ CouchDB {
 	const <pwdfile = "/usr/local/etc/pwd.lock";
 
 	var <>netAddr, <>db, <>viewdir;
-	var cmd = "curl", getcmd = "-X GET", putcmd = "-X PUT", prefix="http://";
+	var cmd = "curl", getcmd = "-X GET", putcmd = "-X PUT", prefix="http://admin:admin@";
 
 	*new{|addr, db, viewdir="application"| ^super.newCopyArgs(addr, db, viewdir) }
 

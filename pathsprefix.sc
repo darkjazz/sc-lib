@@ -5,7 +5,7 @@ Paths{
 			^"/home/alo"
 		}
 		{
-			^"/Users/alo"
+			^"/Users/kurivari"
 		}
 	}
 
